@@ -3,15 +3,15 @@ import { convertHeadersToObject } from "./utils/headers"
 import { useDebounce } from "react-use"
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react"
 
+import type { ProviderName, ProviderSettings } from "@roo-code/types"
+
 import {
-	type ProviderName,
-	type ProviderSettings,
 	openRouterDefaultModelId,
 	requestyDefaultModelId,
 	glamaDefaultModelId,
 	unboundDefaultModelId,
 	litellmDefaultModelId,
-} from "@roo/shared/api"
+} from "@roo/api"
 
 import { vscode } from "@src/utils/vscode"
 import { validateApiConfiguration, validateModelId } from "@src/utils/validate"
@@ -464,7 +464,7 @@ const ApiOptions = ({
 						diffEnabled={apiConfiguration.diffEnabled}
 						diffViewAutoFocus={apiConfiguration.diffViewAutoFocus}
 						autoCloseRooTabs={apiConfiguration.autoCloseRooTabs}
-						autoCloseAllRooTabs={apiConfiguration.autoCloseAllRooTabs} // Pass new setting
+						autoCloseAllRooTabs={apiConfiguration.autoCloseAllRooTabs}
 						fuzzyMatchThreshold={apiConfiguration.fuzzyMatchThreshold}
 						onChange={(field, value) => setApiConfigurationField(field, value)}
 					/>
