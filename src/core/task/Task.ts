@@ -509,26 +509,37 @@ export class Task extends EventEmitter<ClineEvents> {
 			}
 		}
 
+		const { contextTokens: prevContextTokens } = this.getTokenUsage()
 		const {
 			messages,
 			summary,
 			cost,
 			newContextTokens = 0,
+			error,
 		} = await summarizeConversation(
 			this.apiConversationHistory,
 			this.api, // Main API handler (fallback)
 			systemPrompt, // Default summarization prompt (fallback)
 			this.taskId,
+			prevContextTokens,
 			false, // manual trigger
 			customCondensingPrompt, // User's custom prompt
 			condensingApiHandler, // Specific handler for condensing
 		)
-		if (!summary) {
+		if (error) {
+			this.say(
+				"condense_context_error",
+				error,
+				undefined /* images */,
+				false /* partial */,
+				undefined /* checkpoint */,
+				undefined /* progressStatus */,
+				{ isNonInteractive: true } /* options */,
+			)
 			return
 		}
 		await this.overwriteApiConversationHistory(messages)
-		const { contextTokens } = this.getTokenUsage()
-		const contextCondense: ContextCondense = { summary, cost, newContextTokens, prevContextTokens: contextTokens }
+		const contextCondense: ContextCondense = { summary, cost, newContextTokens, prevContextTokens }
 		await this.say(
 			"condense_context",
 			undefined /* text */,
@@ -1601,7 +1612,9 @@ export class Task extends EventEmitter<ClineEvents> {
 			if (truncateResult.messages !== this.apiConversationHistory) {
 				await this.overwriteApiConversationHistory(truncateResult.messages)
 			}
-			if (truncateResult.summary) {
+			if (truncateResult.error) {
+				await this.say("condense_context_error", truncateResult.error)
+			} else if (truncateResult.summary) {
 				const { summary, cost, prevContextTokens, newContextTokens = 0 } = truncateResult
 				const contextCondense: ContextCondense = { summary, cost, newContextTokens, prevContextTokens }
 				await this.say(
@@ -1739,8 +1752,8 @@ export class Task extends EventEmitter<ClineEvents> {
 
 	// Checkpoints
 
-	public async checkpointSave() {
-		return checkpointSave(this)
+	public async checkpointSave(force: boolean = false) {
+		return checkpointSave(this, force)
 	}
 
 	public async checkpointRestore(options: CheckpointRestoreOptions) {
