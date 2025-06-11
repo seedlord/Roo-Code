@@ -62,6 +62,13 @@ export class PostDiffViewBehaviorUtils {
 		// Focus on the edited file (temporary default)
 		await this.focusOnEditedFile()
 	}
+	private async _readDiffSettings(): Promise<DiffSettings> {
+		const config = vscode.workspace.getConfiguration("roo-cline")
+		const autoFocus = config.get<boolean>("diffViewAutoFocus", true)
+		const autoCloseRooTabs = config.get<boolean>("autoCloseRooTabs", false)
+		const autoCloseAllRooTabs = config.get<boolean>("autoCloseAllRooTabs", false)
+		return { autoFocus, autoCloseRooTabs, autoCloseAllRooTabs }
+	}
 
 	/**
 	 * Focuses on the tab of the file that was just edited.
@@ -82,6 +89,7 @@ export class PostDiffViewBehaviorUtils {
 				const tabGroup = vscode.window.tabGroups.all.find((group) =>
 					group.tabs.some((tab) => tab === editedFileTab),
 				)
+				const settings = await this._readDiffSettings() // Dynamically read settings
 
 				if (tabGroup) {
 					// Make the edited file's tab active
@@ -89,7 +97,7 @@ export class PostDiffViewBehaviorUtils {
 						uri: fileUri,
 						options: {
 							viewColumn: tabGroup.viewColumn,
-							preserveFocus: false,
+							preserveFocus: !settings.autoFocus,
 							preview: false,
 						},
 					})
@@ -115,11 +123,13 @@ export class PostDiffViewBehaviorUtils {
 				(doc) => doc === this.context.preDiffActiveEditor!.document,
 			)
 
+			const settings = await this._readDiffSettings() // Dynamically read settings
+
 			if (isDocumentStillOpen) {
 				// Restore focus to the pre-diff active editor
 				await vscode.window.showTextDocument(this.context.preDiffActiveEditor.document.uri, {
 					viewColumn: this.context.preDiffActiveEditor.viewColumn,
-					preserveFocus: false,
+					preserveFocus: !settings.autoFocus,
 					preview: false,
 				})
 			}

@@ -717,7 +717,7 @@ export class DiffViewProvider {
 								textDocument: previousEditor.document,
 								options: {
 									preview: false,
-									preserveFocus: false,
+									preserveFocus: !settings.autoFocus,
 									selection: previousEditor.selection,
 									viewColumn: previousEditor.viewColumn,
 								},
