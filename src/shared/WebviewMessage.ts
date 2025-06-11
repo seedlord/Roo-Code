@@ -14,7 +14,7 @@ export interface WebviewMessage {
 	type:
 		| "diffViewAutoFocus"
 		| "autoCloseRooTabs"
-		| "autoCloseAllRooTabs" // Added new setting
+		| "autoCloseAllRooTabs"
 		| "apiConfiguration"
 		| "deleteMultipleTasksWithIds"
 		| "currentApiConfigName"
@@ -40,6 +40,7 @@ export interface WebviewMessage {
 		| "didShowAnnouncement"
 		| "selectImages"
 		| "exportCurrentTask"
+		| "shareCurrentTask"
 		| "showTaskWithId"
 		| "deleteTaskWithId"
 		| "exportTaskWithId"
@@ -83,6 +84,7 @@ export interface WebviewMessage {
 		| "openMcpSettings"
 		| "openProjectMcpSettings"
 		| "restartMcpServer"
+		| "refreshAllMcpServers"
 		| "toggleToolAlwaysAllow"
 		| "toggleMcpServer"
 		| "updateMcpTimeout"

@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
-import { useEvent } from "react-use"
 
 import {
 	type ProviderSettings,
@@ -35,6 +34,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	filePaths: string[]
 	openedTabs: Array<{ label: string; isActive: boolean; path?: string }>
 	organizationAllowList: OrganizationAllowList
+	cloudIsAuthenticated: boolean
+	sharingEnabled: boolean
 	maxConcurrentFileReads?: number
 	condensingApiConfigId?: string
 	setCondensingApiConfigId: (value: string) => void
@@ -69,7 +70,7 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setDiffEnabled: (value: boolean) => void
 	setDiffViewAutoFocus: (value: boolean) => void
 	setAutoCloseRooTabs: (value: boolean) => void
-	setAutoCloseAllRooTabs: (value: boolean) => void // Added new setter
+	setAutoCloseAllRooTabs: (value: boolean) => void
 	setEnableCheckpoints: (value: boolean) => void
 	setBrowserViewportSize: (value: string) => void
 	setFuzzyMatchThreshold: (value: number) => void
@@ -202,6 +203,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		terminalCompressProgressBar: true, // Default to compress progress bar output
 		historyPreviewCollapsed: false, // Initialize the new state (default to expanded)
 		cloudUserInfo: null,
+		cloudIsAuthenticated: false,
+		sharingEnabled: false,
 		organizationAllowList: ORGANIZATION_ALLOW_ALL,
 		autoCondenseContext: true,
 		autoCondenseContextPercent: 100,
@@ -264,14 +267,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					setOpenedTabs(tabs)
 					break
 				}
-				case "partialMessage": {
-					const partialMessage = message.partialMessage!
+				case "messageUpdated": {
+					const clineMessage = message.clineMessage!
 					setState((prevState) => {
 						// worth noting it will never be possible for a more up-to-date message to be sent here or in normal messages post since the presentAssistantContent function uses lock
-						const lastIndex = findLastIndex(prevState.clineMessages, (msg) => msg.ts === partialMessage.ts)
+						const lastIndex = findLastIndex(prevState.clineMessages, (msg) => msg.ts === clineMessage.ts)
 						if (lastIndex !== -1) {
 							const newClineMessages = [...prevState.clineMessages]
-							newClineMessages[lastIndex] = partialMessage
+							newClineMessages[lastIndex] = clineMessage
 							return { ...prevState, clineMessages: newClineMessages }
 						}
 						return prevState
@@ -299,7 +302,12 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		[setListApiConfigMeta],
 	)
 
-	useEvent("message", handleMessage)
+	useEffect(() => {
+		window.addEventListener("message", handleMessage)
+		return () => {
+			window.removeEventListener("message", handleMessage)
+		}
+	}, [handleMessage])
 
 	useEffect(() => {
 		vscode.postMessage({ type: "webviewDidLaunch" })
@@ -320,6 +328,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		writeDelayMs: state.writeDelayMs,
 		screenshotQuality: state.screenshotQuality,
 		routerModels: extensionRouterModels,
+		cloudIsAuthenticated: state.cloudIsAuthenticated ?? false,
 		setExperimentEnabled: (id, enabled) =>
 			setState((prevState) => ({ ...prevState, experiments: { ...prevState.experiments, [id]: enabled } })),
 		setApiConfiguration,
@@ -342,10 +351,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setSoundVolume: (value) => setState((prevState) => ({ ...prevState, soundVolume: value })),
 		setTtsEnabled: (value) => setState((prevState) => ({ ...prevState, ttsEnabled: value })),
 		setTtsSpeed: (value) => setState((prevState) => ({ ...prevState, ttsSpeed: value })),
-		setDiffEnabled: (value) => setState((prevState) => ({ ...prevState, diffEnabled: value })),
-		setDiffViewAutoFocus: (value) => setState((prevState) => ({ ...prevState, diffViewAutoFocus: value })),
-		setAutoCloseRooTabs: (value) => setState((prevState) => ({ ...prevState, autoCloseRooTabs: value })),
-		setAutoCloseAllRooTabs: (value) => setState((prevState) => ({ ...prevState, autoCloseAllRooTabs: value })), // Added new setter
+		setDiffEnabled: (value) => setApiConfiguration({ diffEnabled: value }),
+		setDiffViewAutoFocus: (value) => setApiConfiguration({ diffViewAutoFocus: value }),
+		setAutoCloseRooTabs: (value) => setApiConfiguration({ autoCloseRooTabs: value }),
+		setAutoCloseAllRooTabs: (value) => setApiConfiguration({ autoCloseAllRooTabs: value }),
 		setEnableCheckpoints: (value) => setState((prevState) => ({ ...prevState, enableCheckpoints: value })),
 		setBrowserViewportSize: (value: string) =>
 			setState((prevState) => ({ ...prevState, browserViewportSize: value })),
