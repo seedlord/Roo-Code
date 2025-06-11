@@ -181,6 +181,7 @@ Adoramos contribuições da comunidade! Comece lendo nosso [CONTRIBUTING.md](CON
 Obrigado a todos os nossos contribuidores que ajudaram a tornar o Roo Code melhor!
 
 <!-- START CONTRIBUTORS SECTION - AUTO-GENERATED, DO NOT EDIT MANUALLY -->
+
 <<<<<<< HEAD
 
 <<<<<<< HEAD
@@ -280,7 +281,9 @@ Obrigado a todos os nossos contribuidores que ajudaram a tornar o Roo Code melho
 |<a href="https://github.com/samsilveira"><img src="https://avatars.githubusercontent.com/u/109295696?v=4" width="100" height="100" alt="samsilveira"/><br /><sub><b>samsilveira</b></sub></a>|<a href="https://github.com/01Rian"><img src="https://avatars.githubusercontent.com/u/109045233?v=4" width="100" height="100" alt="01Rian"/><br /><sub><b>01Rian</b></sub></a>|<a href="https://github.com/RSO"><img src="https://avatars.githubusercontent.com/u/139663?v=4" width="100" height="100" alt="RSO"/><br /><sub><b>RSO</b></sub></a>|<a href="https://github.com/R-omk"><img src="https://avatars.githubusercontent.com/u/1633879?v=4" width="100" height="100" alt="R-omk"/><br /><sub><b>R-omk</b></sub></a>|<a href="https://github.com/Sarke"><img src="https://avatars.githubusercontent.com/u/2719310?v=4" width="100" height="100" alt="Sarke"/><br /><sub><b>Sarke</b></sub></a>|<a href="https://github.com/kvokka"><img src="https://avatars.githubusercontent.com/u/15954013?v=4" width="100" height="100" alt="kvokka"/><br /><sub><b>kvokka</b></sub></a>|
 |<a href="https://github.com/ecmasx"><img src="https://avatars.githubusercontent.com/u/135958728?v=4" width="100" height="100" alt="ecmasx"/><br /><sub><b>ecmasx</b></sub></a>|<a href="https://github.com/mollux"><img src="https://avatars.githubusercontent.com/u/3983285?v=4" width="100" height="100" alt="mollux"/><br /><sub><b>mollux</b></sub></a>|<a href="https://github.com/marvijo-code"><img src="https://avatars.githubusercontent.com/u/82562019?v=4" width="100" height="100" alt="marvijo-code"/><br /><sub><b>marvijo-code</b></sub></a>|<a href="https://github.com/mamertofabian"><img src="https://avatars.githubusercontent.com/u/7698436?v=4" width="100" height="100" alt="mamertofabian"/><br /><sub><b>mamertofabian</b></sub></a>|<a href="https://github.com/monkeyDluffy6017"><img src="https://avatars.githubusercontent.com/u/9354193?v=4" width="100" height="100" alt="monkeyDluffy6017"/><br /><sub><b>monkeyDluffy6017</b></sub></a>|<a href="https://github.com/libertyteeth"><img src="https://avatars.githubusercontent.com/u/32841567?v=4" width="100" height="100" alt="libertyteeth"/><br /><sub><b>libertyteeth</b></sub></a>|
 |<a href="https://github.com/shtse8"><img src="https://avatars.githubusercontent.com/u/8020099?v=4" width="100" height="100" alt="shtse8"/><br /><sub><b>shtse8</b></sub></a>|<a href="https://github.com/ksze"><img src="https://avatars.githubusercontent.com/u/381556?v=4" width="100" height="100" alt="ksze"/><br /><sub><b>ksze</b></sub></a>|<a href="https://github.com/Jdo300"><img src="https://avatars.githubusercontent.com/u/67338327?v=4" width="100" height="100" alt="Jdo300"/><br /><sub><b>Jdo300</b></sub></a>|<a href="https://github.com/hesara"><img src="https://avatars.githubusercontent.com/u/1335918?v=4" width="100" height="100" alt="hesara"/><br /><sub><b>hesara</b></sub></a>|<a href="https://github.com/DeXtroTip"><img src="https://avatars.githubusercontent.com/u/21011087?v=4" width="100" height="100" alt="DeXtroTip"/><br /><sub><b>DeXtroTip</b></sub></a>|<a href="https://github.com/pfitz"><img src="https://avatars.githubusercontent.com/u/3062911?v=4" width="100" height="100" alt="pfitz"/><br /><sub><b>pfitz</b></sub></a>|
->>>>>>> f797f9d774be380397689a2ff83237475c45a50b
+
+> > > > > > > f797f9d774be380397689a2ff83237475c45a50b
+
 <!-- END CONTRIBUTORS SECTION -->
 
 ## Licença
