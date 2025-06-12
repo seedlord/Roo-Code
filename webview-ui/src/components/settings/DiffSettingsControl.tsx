@@ -7,12 +7,14 @@ type DiffSettingsControlField =
 	| "diffEnabled"
 	| "fuzzyMatchThreshold"
 	| "diffViewAutoFocus"
+	| "diffViewStreamFocus"
 	| "autoCloseRooTabs"
 	| "autoCloseAllRooTabs"
 
 interface DiffSettingsControlProps {
 	diffEnabled?: boolean
 	diffViewAutoFocus?: boolean
+	diffViewStreamFocus?: boolean
 	autoCloseRooTabs?: boolean
 	autoCloseAllRooTabs?: boolean // Added new setting
 	fuzzyMatchThreshold?: number
@@ -21,6 +23,12 @@ interface DiffSettingsControlProps {
 
 interface DiffCheckAutoFocusControlProps {
 	diffViewAutoFocus: boolean
+	onChange: (e: any) => void
+}
+
+interface DiffViewStreamFocusControlProps {
+	diffViewStreamFocus: boolean
+	disabled: boolean
 	onChange: (e: any) => void
 }
 
@@ -49,6 +57,24 @@ const DiffViewAutoFocusControl: React.FC<DiffCheckAutoFocusControlProps> = ({ di
 			</VSCodeCheckbox>
 			<div className="text-vscode-descriptionForeground text-sm">
 				{t("settings:advanced.diff.autoFocus.description")}
+			</div>
+		</div>
+	)
+}
+
+const DiffViewStreamFocusControl: React.FC<DiffViewStreamFocusControlProps> = ({
+	diffViewStreamFocus,
+	disabled,
+	onChange,
+}) => {
+	const { t } = useAppTranslation()
+	return (
+		<div className="pl-6">
+			<VSCodeCheckbox checked={diffViewStreamFocus} disabled={disabled} onChange={onChange}>
+				<span className="font-medium">{t("settings:advanced.diff.streamFocus.label")}</span>
+			</VSCodeCheckbox>
+			<div className="text-vscode-descriptionForeground text-sm">
+				{t("settings:advanced.diff.streamFocus.description")}
 			</div>
 		</div>
 	)
@@ -116,6 +142,7 @@ const DiffPrecisionMatchControl: React.FC<DiffPrecisionMatchControlProps> = ({
 export const DiffSettingsControl: React.FC<DiffSettingsControlProps> = ({
 	diffEnabled = true,
 	diffViewAutoFocus = true,
+	diffViewStreamFocus = true,
 	autoCloseRooTabs = false,
 	autoCloseAllRooTabs = false,
 	fuzzyMatchThreshold = 1.0,
@@ -140,6 +167,13 @@ export const DiffSettingsControl: React.FC<DiffSettingsControlProps> = ({
 	const handleDiffViewAutoFocusChange = useCallback(
 		(e: any) => {
 			onChange("diffViewAutoFocus", e.target.checked)
+		},
+		[onChange],
+	)
+
+	const handleDiffViewStreamFocusChange = useCallback(
+		(e: any) => {
+			onChange("diffViewStreamFocus", e.target.checked)
 		},
 		[onChange],
 	)
@@ -182,6 +216,11 @@ export const DiffSettingsControl: React.FC<DiffSettingsControlProps> = ({
 					<DiffViewAutoFocusControl
 						diffViewAutoFocus={diffViewAutoFocus}
 						onChange={handleDiffViewAutoFocusChange}
+					/>
+					<DiffViewStreamFocusControl
+						diffViewStreamFocus={diffViewStreamFocus}
+						disabled={!diffViewAutoFocus}
+						onChange={handleDiffViewStreamFocusChange}
 					/>
 					<DiffViewAutoCloseControl
 						autoCloseRooTabs={autoCloseRooTabs}

@@ -470,6 +470,10 @@
 				"label": "Automatically focus the diff tab when showing file changes",
 				"description": "If enabled, the diff tab will automatically receive focus when opened. If disabled, it will open in the background. Auto-focus is disabled if you interact with other editors or if automatic approval is not enabled."
 			},
+			"streamFocus": {
+				"label": "Keep focus on streaming changes",
+				"description": "When enabled, the diff view will continuously scroll to the latest streamed changes, keeping focus. When disabled, the diff view will become active but will not scroll, preventing focus stealing."
+			},
 			"autoClose": {
 				"label": "Automatically close newly created or previously unopened Roo tabs",
 				"description": "When enabled, Roo will automatically close tabs for files that were newly created or were not already open before Roo modified them. Tabs for files that were already open will remain open."

@@ -58,6 +58,16 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			await updateGlobalState("diffViewAutoFocus", diffViewAutoFocus)
 			await provider.postStateToWebview()
 			break
+		case "diffViewStreamFocus":
+			const diffViewStreamFocus = message.bool ?? true
+			await provider.context.globalState.update("diffViewStreamFocus", diffViewStreamFocus)
+			// Also update workspace settings
+			await vscode.workspace
+				.getConfiguration("roo-cline")
+				.update("diffViewStreamFocus", diffViewStreamFocus, vscode.ConfigurationTarget.Global)
+			await updateGlobalState("diffViewStreamFocus", diffViewStreamFocus)
+			await provider.postStateToWebview()
+			break
 		case "autoCloseRooTabs":
 			const autoCloseRooTabs = message.bool ?? false
 			await provider.context.globalState.update("autoCloseRooTabs", autoCloseRooTabs)

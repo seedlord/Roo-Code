@@ -22,6 +22,7 @@ export const DIFF_VIEW_URI_SCHEME = "cline-diff"
 
 interface DiffSettings {
 	autoFocus: boolean
+	streamFocus: boolean
 	autoCloseRooTabs: boolean
 	autoCloseAllRooTabs: boolean
 }
@@ -46,6 +47,7 @@ export class DiffViewProvider {
 	private rooOpenedTabs: Set<string> = new Set()
 	private autoApproval: boolean | undefined = undefined
 	private autoFocus: boolean | undefined = undefined
+	private streamFocus: boolean | undefined = undefined
 	private autoCloseAllRooTabs: boolean = false // Added new setting
 	// have to set the default view column to -1 since we need to set it in the initialize method and during initialization the enum ViewColumn is undefined
 	private viewColumn: ViewColumn = -1 // ViewColumn.Active
@@ -102,9 +104,10 @@ export class DiffViewProvider {
 	private async _readDiffSettings(): Promise<DiffSettings> {
 		const config = vscode.workspace.getConfiguration("roo-cline")
 		const autoFocus = config.get<boolean>("diffViewAutoFocus", true)
+		const streamFocus = config.get<boolean>("diffViewStreamFocus", true)
 		const autoCloseRooTabs = config.get<boolean>("autoCloseRooTabs", false)
 		const autoCloseAllRooTabs = config.get<boolean>("autoCloseAllRooTabs", false)
-		return { autoFocus, autoCloseRooTabs, autoCloseAllRooTabs }
+		return { autoFocus, streamFocus, autoCloseRooTabs, autoCloseAllRooTabs }
 	}
 
 	private async showTextDocumentSafe({
@@ -157,6 +160,11 @@ export class DiffViewProvider {
 
 		this.viewColumn = viewColumn
 
+		// Read settings once at the beginning of the operation.
+		const settings = await this._readDiffSettings()
+		this.autoFocus = settings.autoFocus
+		this.streamFocus = settings.streamFocus
+
 		// Update PostDiffviewBehaviorUtils context with current state
 		this.postDiffBehaviorUtils.updateContext({
 			relPath: relPath,
@@ -167,7 +175,7 @@ export class DiffViewProvider {
 		// Update the user interaction provider with current settings
 		this.userInteractionProvider.updateOptions({
 			autoApproval: this.autoApproval ?? false,
-			autoFocus: this.autoFocus ?? true,
+			autoFocus: this.autoFocus,
 		})
 		this.disableAutoFocusAfterUserInteraction()
 		// Set the edit type based on the file existence
@@ -233,8 +241,8 @@ export class DiffViewProvider {
 		this.activeLineController = new DecorationController("activeLine", this.activeDiffEditor)
 		// Apply faded overlay to all lines initially.
 		this.fadedOverlayController.addLines(0, this.activeDiffEditor.document.lineCount)
-		// Scroll to the beginning of the diff editor only if autoFocus is enabled.
-		if (this.autoFocus) {
+		// Scroll to the beginning of the diff editor only if autoFocus and streamFocus are enabled.
+		if (this.autoFocus && this.streamFocus) {
 			this.scrollEditorToLine(0) // Will this crash for new files?
 		}
 		this.streamedLines = []
@@ -329,13 +337,6 @@ export class DiffViewProvider {
 			throw new Error("Required values not set")
 		}
 
-		this.newContent = accumulatedContent
-		const accumulatedLines = accumulatedContent.split("\n")
-
-		if (!isFinal) {
-			accumulatedLines.pop() // Remove the last partial line only if it's not the final update.
-		}
-
 		const diffEditor = this.activeDiffEditor
 		const document = diffEditor?.document
 
@@ -343,65 +344,66 @@ export class DiffViewProvider {
 			throw new Error("User closed text editor, unable to edit file...")
 		}
 
-		// Place cursor at the beginning of the diff editor to keep it out of
-		// the way of the stream animation, only if autoFocus is enabled.
-		if (this.autoFocus) {
+		this.newContent = accumulatedContent // Always buffer the latest content
+
+		// If streamFocus is disabled by the user, we prevent the live-typing animation by only applying the final edit.
+		// This is the only robust way to prevent the editor from stealing focus when the user clicks away.
+		if (!this.streamFocus && !isFinal) {
+			return // Do nothing until the final update.
+		}
+
+		// --- Streaming / Final Update Logic ---
+		const accumulatedLines = accumulatedContent.split("\n")
+
+		if (!isFinal && this.streamFocus) {
+			accumulatedLines.pop() // For streaming, remove the last partial line.
+		}
+
+		// Place cursor at the beginning of the diff editor to keep it out of the way of the stream animation.
+		// This now respects `this.autoFocus`, which is updated by the UserInteractionProvider.
+		if (this.autoFocus && this.streamFocus) {
 			const beginningOfDocument = new vscode.Position(0, 0)
 			diffEditor.selection = new vscode.Selection(beginningOfDocument, beginningOfDocument)
 		}
 
-		const endLine = accumulatedLines.length
-		// Replace all content up to the current line with accumulated lines.
+		const finalContent = this.stripAllBOMs(
+			this.originalContent?.endsWith("\n") && !accumulatedContent.endsWith("\n")
+				? accumulatedContent + "\n"
+				: accumulatedContent,
+		)
+
 		const edit = new vscode.WorkspaceEdit()
-		const rangeToReplace = new vscode.Range(0, 0, endLine + 1, 0)
-		const contentToReplace = accumulatedLines.slice(0, endLine + 1).join("\n") + "\n"
-		edit.replace(document.uri, rangeToReplace, this.stripAllBOMs(contentToReplace))
-		await vscode.workspace.applyEdit(edit)
-		// If autoFocus is disabled, explicitly clear the selection after applying edits
+		const fullRange = new vscode.Range(0, 0, document.lineCount, 0)
+
+		if (this.streamFocus && !isFinal) {
+			// Live-typing animation: Replace content line-by-line.
+			const endLine = accumulatedLines.length
+			const rangeToReplace = new vscode.Range(0, 0, endLine + 1, 0)
+			const contentToReplace = accumulatedLines.slice(0, endLine + 1).join("\n") + "\n"
+			edit.replace(document.uri, rangeToReplace, this.stripAllBOMs(contentToReplace))
+			await vscode.workspace.applyEdit(edit)
+
+			// Update decorations and scroll.
+			this.activeLineController.setActiveLine(endLine)
+			this.fadedOverlayController.updateOverlayAfterLine(endLine, document.lineCount)
+			this.scrollEditorToLine(endLine)
+		} else {
+			// Final update (or if streaming is disabled): Replace everything at once.
+			// Use editor.edit which can be less intrusive than workspace.applyEdit for focus.
+			await diffEditor.edit((editBuilder) => {
+				editBuilder.replace(fullRange, finalContent)
+			})
+
+			// Clear all decorations at the end.
+			this.fadedOverlayController.clear()
+			this.activeLineController.clear()
+		}
+
+		// If autoFocus was disabled by user interaction, explicitly clear the selection after applying edits
 		// to prevent the right pane from gaining cursor focus.
 		if (!this.autoFocus) {
 			const beginningOfDocument = new vscode.Position(0, 0)
 			diffEditor.selection = new vscode.Selection(beginningOfDocument, beginningOfDocument)
-		}
-		// Update decorations.
-		this.activeLineController.setActiveLine(endLine)
-		this.fadedOverlayController.updateOverlayAfterLine(endLine, document.lineCount)
-		// Scroll to the current line.
-		this.scrollEditorToLine(endLine)
-
-		// Update the streamedLines with the new accumulated content.
-		this.streamedLines = accumulatedLines
-
-		if (isFinal) {
-			// Handle any remaining lines if the new content is shorter than the
-			// original.
-			if (this.streamedLines.length < document.lineCount) {
-				const edit = new vscode.WorkspaceEdit()
-				edit.delete(document.uri, new vscode.Range(this.streamedLines.length, 0, document.lineCount, 0))
-				await vscode.workspace.applyEdit(edit)
-			}
-
-			// Preserve empty last line if original content had one.
-			const hasEmptyLastLine = this.originalContent?.endsWith("\n")
-
-			if (hasEmptyLastLine && !accumulatedContent.endsWith("\n")) {
-				accumulatedContent += "\n"
-			}
-
-			// Apply the final content.
-			const finalEdit = new vscode.WorkspaceEdit()
-
-			finalEdit.replace(
-				document.uri,
-				new vscode.Range(0, 0, document.lineCount, 0),
-				this.stripAllBOMs(accumulatedContent),
-			)
-
-			await vscode.workspace.applyEdit(finalEdit)
-
-			// Clear all decorations at the end (after applying final edit).
-			this.fadedOverlayController.clear()
-			this.activeLineController.clear()
 		}
 	}
 
@@ -444,13 +446,14 @@ export class DiffViewProvider {
 
 		await this.postDiffBehaviorUtils.closeAllRooOpenedViews(await this._readDiffSettings())
 
-		// Implement post-diff focus behavior
-		await this.postDiffBehaviorUtils.handlePostDiffFocus()
+		// Implement post-diff focus behavior, but only if focus was not suppressed by the user.
+		const settings = await this._readDiffSettings()
+		if (settings.streamFocus) {
+			await this.postDiffBehaviorUtils.handlePostDiffFocus()
+		}
 
 		// If no auto-close settings are enabled and the document was not open before,
 		// open the file after the diff is complete.
-
-		const settings = await this._readDiffSettings() // Dynamically read settings
 
 		// If no auto-close settings are enabled and the document was not open before OR it's a new file,
 		// open the file after the diff is complete.
@@ -643,8 +646,11 @@ export class DiffViewProvider {
 			await this.postDiffBehaviorUtils.closeAllRooOpenedViews(await this._readDiffSettings())
 		}
 
-		// Implement post-diff focus behavior
-		await this.postDiffBehaviorUtils.handlePostDiffFocus()
+		// Implement post-diff focus behavior, but only if focus was not suppressed by the user.
+		const settings = await this._readDiffSettings()
+		if (settings.streamFocus) {
+			await this.postDiffBehaviorUtils.handlePostDiffFocus()
+		}
 
 		// Edit is done.
 		this.resetWithListeners()
@@ -673,7 +679,7 @@ export class DiffViewProvider {
 			const title = `${fileName}: ${fileExists ? "Original ↔ Roo's Changes" : "New File"} (Editable)`
 			const textDocumentShowOptions: TextDocumentShowOptions = {
 				preview: false,
-				preserveFocus: !settings.autoFocus, // Use dynamically read autoFocus
+				preserveFocus: !settings.autoFocus || !settings.streamFocus,
 				viewColumn: this.viewColumn,
 			}
 			// set interaction flag to true to prevent autoFocus from being triggered
@@ -712,12 +718,13 @@ export class DiffViewProvider {
 						}
 
 						// if this happens in a window different from the active one, we need to show the document
-						if (previousEditor) {
+						// This logic should not run when auto-focus is enabled, as it would steal focus from the diff view.
+						if (previousEditor && !settings.autoFocus) {
 							await this.showTextDocumentSafe({
 								textDocument: previousEditor.document,
 								options: {
 									preview: false,
-									preserveFocus: !settings.autoFocus,
+									preserveFocus: true, // Always preserve focus here to avoid stealing it from the diff view
 									selection: previousEditor.selection,
 									viewColumn: previousEditor.viewColumn,
 								},
@@ -737,6 +744,7 @@ export class DiffViewProvider {
 	}
 
 	private scrollEditorToLine(line: number) {
+		// This might steal focus if the user clicks away, but it's controlled by the streamFocus setting.
 		if (this.activeDiffEditor) {
 			const scrollLine = line + 4
 

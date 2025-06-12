@@ -335,6 +335,11 @@
 					"default": false,
 					"description": "Automatically focus the diff tab when showing file changes. If false, the diff tab will open in the background."
 				},
+				"roo-cline.diffViewStreamFocus": {
+					"type": "boolean",
+					"default": true,
+					"description": "When true, the diff view will continuously scroll to the latest streamed changes, keeping focus. When false, the diff view will become active but will not scroll, preventing focus stealing."
+				},
 				"roo-cline.autoCloseRooTabs": {
 					"type": "boolean",
 					"default": false,

@@ -470,6 +470,10 @@
 				"label": "Diff-Tab beim Anzeigen von Dateiänderungen automatisch fokussieren",
 				"description": "Wenn diese Option deaktiviert ist, wird der Diff-Tab im Hintergrund geöffnet und stiehlt nicht den Fokus. Dies gilt nur, wenn sowohl 'autoApprovalEnabled' als auch 'autoApprovalEnabled' aktiviert sind."
 			},
+			"streamFocus": {
+				"label": "Fokus auf gestreamte Änderungen beibehalten",
+				"description": "Wenn aktiviert, scrollt die Diff-Ansicht kontinuierlich zu den neuesten gestreamten Änderungen und behält den Fokus. Wenn deaktiviert, wird die Diff-Ansicht aktiv, scrollt aber nicht, was das Stehlen des Fokus verhindert."
+			},
 			"autoClose": {
 				"label": "Roo-Tabs automatisch schließen",
 				"description": "Wenn aktiviert, schließt Roo automatisch alle Tabs, die es selbst geöffnet hat (wie Diff-Ansichten und geöffnete Dateien), wenn eine Aufgabe mit Dateiänderungen abgeschlossen oder zurückgesetzt wird."

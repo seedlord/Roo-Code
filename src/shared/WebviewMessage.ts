@@ -13,6 +13,7 @@ export type AudioType = "notification" | "celebration" | "progress_loop"
 export interface WebviewMessage {
 	type:
 		| "diffViewAutoFocus"
+		| "diffViewStreamFocus"
 		| "autoCloseRooTabs"
 		| "autoCloseAllRooTabs"
 		| "apiConfiguration"

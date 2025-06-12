@@ -477,10 +477,19 @@ const ApiOptions = ({
 					<DiffSettingsControl
 						diffEnabled={apiConfiguration.diffEnabled}
 						diffViewAutoFocus={apiConfiguration.diffViewAutoFocus}
+						diffViewStreamFocus={apiConfiguration.diffViewStreamFocus}
 						autoCloseRooTabs={apiConfiguration.autoCloseRooTabs}
 						autoCloseAllRooTabs={apiConfiguration.autoCloseAllRooTabs}
 						fuzzyMatchThreshold={apiConfiguration.fuzzyMatchThreshold}
-						onChange={(field, value) => setApiConfigurationField(field, value)}
+						onChange={(field, value) => {
+							setApiConfigurationField(field, value)
+							// Post message to update global settings for persistence
+							vscode.postMessage({
+								type: field,
+								bool: typeof value === "boolean" ? value : undefined,
+								value: typeof value === "number" ? value : undefined,
+							})
+						}}
 					/>
 					<TemperatureControl
 						value={apiConfiguration.modelTemperature}
