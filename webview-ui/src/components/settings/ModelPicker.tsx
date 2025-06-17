@@ -32,7 +32,7 @@ type ModelIdKey = keyof Pick<
 
 interface ModelPickerProps {
 	defaultModelId: string
-	models: Record<string, ModelInfo> | null
+	models: Record<string, ModelInfo>
 	modelIdKey: ModelIdKey
 	serviceName: string
 	serviceUrl: string
@@ -65,7 +65,7 @@ export const ModelPicker = ({
 	const modelIds = useMemo(() => {
 		const filteredModels = filterModels(models, apiConfiguration.apiProvider, organizationAllowList)
 
-		return Object.keys(filteredModels ?? {}).sort((a, b) => a.localeCompare(b))
+		return Object.keys(filteredModels).sort((a, b) => a.localeCompare(b))
 	}, [models, apiConfiguration.apiProvider, organizationAllowList])
 
 	const { id: selectedModelId, info: selectedModelInfo } = useSelectedModel(apiConfiguration)

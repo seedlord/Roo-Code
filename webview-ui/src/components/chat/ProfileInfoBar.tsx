@@ -1,0 +1,851 @@
+import React, { useCallback, useEffect, useRef, useState } from "react"
+import { useEvent } from "react-use"
+import { useExtensionState } from "../../context/ExtensionStateContext"
+import { PROVIDERS } from "../settings/constants"
+import { ModelInfo, ProviderName, ProviderSettings } from "@roo-code/types"
+import {
+	anthropicModels,
+	bedrockModels,
+	deepSeekModels,
+	groqModels,
+	chutesModels,
+	openAiNativeModels,
+	geminiModels,
+	vertexModels,
+	vscodeLlmModels,
+	xaiModels,
+	ollamaModels,
+} from "@roo-code/types"
+import {
+	DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS,
+	DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS,
+	getModelMaxOutputTokens,
+	isRouterName,
+	RouterName,
+} from "@roo/api"
+import { VSCodeBadge, VSCodeCheckbox, VSCodeDropdown, VSCodeOption } from "@vscode/webview-ui-toolkit/react"
+import { Trans, useTranslation } from "react-i18next"
+import { EditableValue } from "./EditableValue"
+import { Button, Popover, PopoverContent, PopoverTrigger, Slider } from "../ui"
+import { formatPrice } from "@/utils/formatPrice"
+import { vscode } from "@/utils/vscode"
+import { useSelectedModel } from "../ui/hooks/useSelectedModel"
+
+const modelSources: Partial<Record<ProviderName, Record<string, ModelInfo> | ModelInfo>> = {
+	anthropic: anthropicModels,
+	bedrock: bedrockModels,
+	deepseek: deepSeekModels,
+	groq: groqModels,
+	chutes: chutesModels,
+	openai: openAiNativeModels,
+	gemini: geminiModels,
+	vertex: vertexModels,
+	"vscode-lm": vscodeLlmModels,
+	xai: xaiModels,
+	ollama: ollamaModels,
+}
+
+// This is the content that will be shown when the bar is expanded.
+// It's defined as an inner component to keep the main component's return statement clean
+// and to encapsulate the detailed logic.
+export const ProfileInfoBar: React.FC = () => {
+	const [isExpanded, setIsExpanded] = useState(true)
+	const [isSettingsPopupOpen, setIsSettingsPopupOpen] = useState(false) // New state for settings popup
+	const [hasChanges, setHasChanges] = useState(false) // New state to track changes
+	const { t } = useTranslation()
+	const [ollamaModels, setOllamaModels] = useState<string[]>([])
+	const { apiConfiguration, currentApiConfigName, setIsAwaitingConfigurationUpdate, routerModels } =
+		useExtensionState()
+	const {
+		id: selectedModelId,
+		info: selectedModelInfo,
+		provider: selectedProvider,
+	} = useSelectedModel(apiConfiguration)
+
+	const profileInfoBarRef = useRef<HTMLDivElement>(null)
+	const popoverContentRef = useRef<HTMLDivElement>(null) // Ref for the popover content
+
+	// Local states for slider values, initialized from apiConfiguration
+	const [localApiProvider, setLocalApiProvider] = useState<ProviderName | RouterName | undefined>(selectedProvider)
+	const [localApiModelId, setLocalApiModelId] = useState<string | undefined>(selectedModelId)
+	const [localMaxOutputTokens, setLocalMaxOutputTokens] = useState<number | undefined>(
+		apiConfiguration?.modelMaxTokens,
+	)
+	const [localThinkingBudget, setLocalThinkingBudget] = useState<number | undefined>(
+		apiConfiguration?.modelMaxThinkingTokens,
+	)
+	const [localEnableReasoning, setLocalEnableReasoning] = useState<boolean>(
+		apiConfiguration?.reasoningEnabled ?? false,
+	)
+
+	// Update local states when apiConfiguration changes, but only when the popup is closed
+	useEffect(() => {
+		if (!isSettingsPopupOpen) {
+			setLocalApiProvider(selectedProvider)
+			setLocalApiModelId(selectedModelId)
+			setLocalMaxOutputTokens(apiConfiguration?.modelMaxTokens)
+			setLocalThinkingBudget(apiConfiguration?.modelMaxThinkingTokens)
+			setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+		}
+	}, [apiConfiguration, isSettingsPopupOpen, selectedProvider, selectedModelId])
+
+	// Effect to reset model-specific settings when the model or provider changes
+	useEffect(() => {
+		if (!localApiProvider || !localApiModelId) return
+
+		let modelInfo: ModelInfo | undefined
+		if (isRouterName(localApiProvider)) {
+			const routerProviderModels = routerModels?.[localApiProvider]
+			if (routerProviderModels && routerProviderModels[localApiModelId]) {
+				modelInfo = routerProviderModels[localApiModelId]
+			}
+		} else {
+			const modelSource = modelSources[localApiProvider as ProviderName]
+			if (modelSource && localApiModelId in (modelSource as Record<string, ModelInfo>)) {
+				modelInfo = (modelSource as Record<string, ModelInfo>)[localApiModelId]
+			}
+		}
+
+		if (modelInfo) {
+			const newMaxOutputTokens = getModelMaxOutputTokens({
+				modelId: localApiModelId,
+				model: modelInfo,
+				settings: {
+					...apiConfiguration,
+					apiProvider: localApiProvider,
+					apiModelId: localApiModelId,
+				} as ProviderSettings,
+			})
+			setLocalMaxOutputTokens(newMaxOutputTokens)
+
+			const newThinkingBudget =
+				(localApiModelId === apiConfiguration?.apiModelId ? apiConfiguration?.modelMaxThinkingTokens : 1024) ??
+				DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+			setLocalThinkingBudget(newThinkingBudget)
+
+			// Reset reasoning enabled based on whether the new model supports it
+			setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+		}
+	}, [apiConfiguration, localApiModelId, localApiProvider, routerModels])
+
+	useEffect(() => {
+		if (localApiProvider === "ollama") {
+			vscode.postMessage({ type: "requestOllamaModels" })
+		}
+	}, [localApiProvider])
+
+	useEvent(
+		"message",
+		useCallback((event: MessageEvent) => {
+			const message = event.data
+			if (message.type === "ollamaModels") {
+				setOllamaModels(message.ollamaModels ?? [])
+			}
+		}, []),
+	)
+
+	const handleSaveSettings = useCallback(() => {
+		const updates: Partial<ProviderSettings> = {}
+		if (localApiProvider !== undefined) {
+			updates.apiProvider = localApiProvider
+		}
+		if (localApiModelId !== undefined) {
+			updates.apiModelId = localApiModelId
+		}
+		if (localMaxOutputTokens !== undefined) {
+			updates.modelMaxTokens = localMaxOutputTokens
+		}
+		if (localThinkingBudget !== undefined) {
+			updates.modelMaxThinkingTokens = localThinkingBudget
+		}
+		if (localEnableReasoning !== undefined) {
+			updates.reasoningEnabled = localEnableReasoning
+		}
+		setIsAwaitingConfigurationUpdate(true)
+		vscode.postMessage({
+			type: "upsertApiConfiguration",
+			text: currentApiConfigName,
+			apiConfiguration: {
+				...apiConfiguration,
+				...updates,
+			},
+		})
+		// setIsSettingsPopupOpen(false) // Keep popover open after saving
+		setHasChanges(false) // Reset changes flag after saving
+	}, [
+		localApiProvider,
+		localApiModelId,
+		localMaxOutputTokens,
+		localThinkingBudget,
+		localEnableReasoning,
+		setHasChanges,
+		currentApiConfigName,
+		apiConfiguration,
+		setIsAwaitingConfigurationUpdate,
+	])
+
+	const handleCloseSettings = useCallback(() => {
+		// Reset local states to original values if not saved
+		setLocalApiProvider(apiConfiguration?.apiProvider)
+		setLocalApiModelId(apiConfiguration?.apiModelId)
+		setLocalMaxOutputTokens(apiConfiguration?.modelMaxTokens)
+		setLocalThinkingBudget(apiConfiguration?.modelMaxThinkingTokens)
+		setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+		setIsSettingsPopupOpen(false)
+		setHasChanges(false) // Reset changes flag when closing without saving
+	}, [
+		apiConfiguration,
+		setLocalApiProvider,
+		setLocalApiModelId,
+		setLocalMaxOutputTokens,
+		setLocalThinkingBudget,
+		setLocalEnableReasoning,
+		setIsSettingsPopupOpen,
+		setHasChanges,
+	])
+
+	// Close popover when clicking outside or webview loses focus
+	useEffect(() => {
+		if (!isSettingsPopupOpen) {
+			return
+		}
+
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				profileInfoBarRef.current &&
+				!profileInfoBarRef.current.contains(event.target as Node) &&
+				popoverContentRef.current &&
+				!popoverContentRef.current.contains(event.target as Node)
+			) {
+				handleCloseSettings()
+			}
+		}
+
+		const handleBlur = () => {
+			handleCloseSettings()
+		}
+
+		document.addEventListener("mousedown", handleClickOutside, true)
+		window.addEventListener("blur", handleBlur)
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside, true)
+			window.removeEventListener("blur", handleBlur)
+		}
+	}, [isSettingsPopupOpen, handleCloseSettings])
+
+	if (!apiConfiguration) {
+		return null
+	}
+
+	const { apiProvider } = apiConfiguration
+
+	if (!apiProvider) {
+		return null
+	}
+
+	const providerDisplayName = PROVIDERS.find((p) => p.value === selectedProvider)?.label || selectedProvider
+	const modelId = selectedModelId
+
+	// Use the centrally fetched modelInfo
+	const modelInfo = selectedModelInfo
+
+	// Moved from ExpandedContent
+	const maxOutputTokens =
+		modelInfo && modelId
+			? getModelMaxOutputTokens({ modelId: modelId, model: modelInfo, settings: apiConfiguration })
+			: undefined
+	const contextWindow = modelInfo?.contextWindow
+	const isEditable = !!(modelInfo?.supportsReasoningBudget || modelInfo?.requiredReasoningBudget)
+
+	const thinkingBudget = isEditable ? apiConfiguration.modelMaxThinkingTokens : undefined
+	const inputPrice = modelInfo?.inputPrice
+	const outputPrice = modelInfo?.outputPrice
+	const cacheWritesPrice = modelInfo?.cacheWritesPrice
+	const cacheReadsPrice = modelInfo?.cacheReadsPrice
+
+	// Moved from ExpandedContent
+	const formatTokenCount = (tokens: number | undefined | null) => {
+		if (tokens === undefined || tokens === null) return "N/A"
+		const K_DIVISOR = 1000 // Use 1000 for more intuitive display (e.g., 32000 -> 32K)
+		const M_DIVISOR = K_DIVISOR * K_DIVISOR
+
+		if (tokens >= M_DIVISOR) {
+			return `${Math.round(tokens / M_DIVISOR)}M`
+		}
+		if (tokens >= K_DIVISOR) {
+			return `${Math.round(tokens / K_DIVISOR)}K`
+		}
+		return tokens.toString()
+	}
+
+	const PlaceholderSpan: React.FC = () => <span className="block invisible">&nbsp;</span>
+
+	const MarqueeText: React.FC<{ text: string; title: string }> = ({ text, title }) => {
+		const textRef = useRef<HTMLSpanElement>(null)
+		const containerRef = useRef<HTMLDivElement>(null)
+
+		const animationTimeoutIds = useRef<NodeJS.Timeout[]>([])
+		const animationEndHandlerRef = useRef<(() => void) | null>(null)
+
+		useEffect(() => {
+			const PAUSE_DURATION_MS = 1500
+			const SCROLL_SPEED_PIXELS_PER_S = 50
+			const textEl = textRef.current
+			const containerEl = containerRef.current
+
+			const clearAllTimeouts = () => {
+				animationTimeoutIds.current.forEach(clearTimeout)
+				animationTimeoutIds.current = []
+			}
+
+			const resetTextAnimation = () => {
+				if (textEl) {
+					if (animationEndHandlerRef.current) {
+						textEl.removeEventListener("animationend", animationEndHandlerRef.current)
+						animationEndHandlerRef.current = null
+					}
+					textEl.classList.remove("marquee-text-animate")
+					textEl.style.transform = "translateX(0%)"
+					textEl.style.animationDuration = ""
+				}
+			}
+
+			const startAnimationCycle = () => {
+				if (!textEl || !containerEl) return
+
+				clearAllTimeouts()
+				resetTextAnimation()
+
+				const textScrollWidth = textEl.scrollWidth
+				const containerClientWidth = containerEl.clientWidth
+				const isCurrentlyOverflowing = textScrollWidth > containerClientWidth
+
+				if (!isCurrentlyOverflowing) {
+					return
+				}
+
+				const timeoutId1 = setTimeout(() => {
+					if (!textEl || !containerEl) return
+
+					const scrollDistance = textEl.scrollWidth - containerEl.clientWidth
+					if (scrollDistance <= 0) {
+						resetTextAnimation()
+						return
+					}
+
+					const scrollDurationS = scrollDistance / SCROLL_SPEED_PIXELS_PER_S
+
+					containerEl.style.setProperty("--marquee-scroll-amount", `-${scrollDistance}px`)
+
+					textEl.style.animationDuration = `${scrollDurationS}s`
+					textEl.classList.add("marquee-text-animate")
+
+					animationEndHandlerRef.current = () => {
+						animationEndHandlerRef.current = null
+
+						const timeoutId2 = setTimeout(() => {
+							if (!textEl || !containerEl) return
+							startAnimationCycle()
+						}, PAUSE_DURATION_MS)
+						animationTimeoutIds.current.push(timeoutId2)
+					}
+					textEl.addEventListener("animationend", animationEndHandlerRef.current)
+				}, PAUSE_DURATION_MS)
+				animationTimeoutIds.current.push(timeoutId1)
+			}
+
+			startAnimationCycle()
+			window.addEventListener("resize", startAnimationCycle)
+
+			return () => {
+				clearAllTimeouts()
+				if (textEl && animationEndHandlerRef.current) {
+					textEl.removeEventListener("animationend", animationEndHandlerRef.current)
+				}
+				resetTextAnimation()
+				window.removeEventListener("resize", startAnimationCycle)
+			}
+		}, [text])
+
+		return (
+			<div ref={containerRef} title={title} className="marquee-container">
+				<span ref={textRef} className="marquee-text text-left">
+					{text}
+				</span>
+			</div>
+		)
+	}
+
+	// This is the content that will be shown when the bar is expanded.
+	// It's defined as an inner component to keep the main component's return statement clean
+	// and to encapsulate the detailed logic.
+	const ExpandedContent: React.FC = () => {
+		if (!modelId) {
+			// This case should ideally be caught earlier, but as a safeguard:
+			return (
+				<div className="flex items-center justify-center text-vscode-descriptionForeground">
+					<VSCodeBadge>
+						<Trans>Profilinformationen nicht verfügbar (keine Modell-ID)</Trans>
+					</VSCodeBadge>
+				</div>
+			)
+		}
+
+		if (!modelInfo) {
+			// For providers where we expect to have model info, show a specific message.
+			// For others, like OpenAI-compatible ones, it's expected not to have detailed info.
+			if (
+				!["openaicompatible", "azureopenai", "glama", "requesty", "openrouter", "litellm"].includes(
+					selectedProvider,
+				)
+			) {
+				return (
+					<div className="flex items-center justify-center text-vscode-descriptionForeground">
+						<VSCodeBadge>
+							<Trans>Profilinformationen für dieses Modell nicht gefunden.</Trans>
+						</VSCodeBadge>
+					</div>
+				)
+			}
+			// For compatible providers, just show the basic info.
+			return (
+				<div className="flex items-center justify-center gap-x-2 text-vscode-descriptionForeground">
+					<span title="Provider">{providerDisplayName}</span>
+					{modelId && <span className="opacity-50">|</span>}
+					<span>
+						<Trans>Weitere Profilinformationen nicht verfügbar.</Trans>
+					</span>
+				</div>
+			)
+		}
+
+		return (
+			// This is the original layout for the expanded info bar
+			<div className="flex gap-x-2 items-center min-w-0 overflow-hidden text-[9px] h-full">
+				{/* Spalte 1: Provider / Modell */}
+				<div className="flex flex-col gap-y-0 w-24 flex-shrink min-w-0">
+					{" "}
+					{/* Restored w-24 */}
+					<MarqueeText text={providerDisplayName} title={t("chat:profile.provider")} />
+					<MarqueeText text={modelId} title={t("chat:profile.model")} />
+				</div>
+
+				{/* Spalte 2: Tokens (Output / Kontext / Budget) */}
+				{(maxOutputTokens !== undefined || contextWindow !== undefined || thinkingBudget !== undefined) && (
+					<div className="flex items-center gap-x-1 flex-shrink min-w-0">
+						{thinkingBudget !== undefined ? (
+							<>
+								<div className="flex flex-col gap-y-0">
+									<EditableValue
+										value={maxOutputTokens}
+										title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
+											"chat:profile.tokens",
+										)}`}
+										onClick={() => setIsSettingsPopupOpen(true)}
+										formatValue={formatTokenCount}
+									/>
+									<EditableValue
+										value={thinkingBudget}
+										title={`${t("chat:profile.thinkingBudget")}: ${thinkingBudget} ${t(
+											"chat:profile.tokens",
+										)}`}
+										onClick={() => setIsSettingsPopupOpen(true)}
+										formatValue={formatTokenCount}
+									/>
+								</div>
+								<span
+									title={`${t("chat:profile.contextSize")}: ${contextWindow} ${t(
+										"chat:profile.tokens",
+									)}`}
+									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+									onClick={() => setIsSettingsPopupOpen(true)}>
+									{formatTokenCount(contextWindow)}
+								</span>
+							</>
+						) : (
+							<>
+								<EditableValue
+									value={maxOutputTokens}
+									title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
+										"chat:profile.tokens",
+									)}`}
+									onClick={() => setIsSettingsPopupOpen(true)}
+									formatValue={formatTokenCount}
+								/>
+								<span
+									title={`${t("chat:profile.contextSize")}: ${contextWindow} ${t(
+										"chat:profile.tokens",
+									)}`}
+									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+									onClick={() => setIsSettingsPopupOpen(true)}>
+									{formatTokenCount(contextWindow)}
+								</span>
+							</>
+						)}
+					</div>
+				)}
+
+				{/* Spalte 3: Input Preis / Output Preis */}
+				{(inputPrice !== undefined || outputPrice !== undefined) && (
+					<div className="flex flex-col gap-y-0 flex-shrink min-w-0">
+						{inputPrice !== undefined ? (
+							<span
+								title={t("chat:profile.inputPricePer1M")}
+								className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+								onClick={() => setIsSettingsPopupOpen(true)} // Open common settings popup
+							>
+								{formatPrice(inputPrice)}
+							</span>
+						) : (
+							<PlaceholderSpan />
+						)}
+						{outputPrice !== undefined ? (
+							<span
+								title={t("chat:profile.outputPricePer1M")}
+								className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+								onClick={() => setIsSettingsPopupOpen(true)} // Open common settings popup
+							>
+								{formatPrice(outputPrice)}
+							</span>
+						) : (
+							<PlaceholderSpan />
+						)}
+					</div>
+				)}
+
+				{/* Spalte 4: Cache Preise */}
+				{modelInfo?.supportsPromptCache &&
+					(cacheWritesPrice !== undefined || cacheReadsPrice !== undefined) && (
+						<div className="flex flex-col gap-y-0 flex-shrink min-w-0">
+							{cacheWritesPrice !== undefined ? (
+								<span
+									title={t("chat:profile.cacheWritePricePer1M")}
+									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+									onClick={() => setIsSettingsPopupOpen(true)} // Open common settings popup
+								>
+									{formatPrice(cacheWritesPrice)}
+								</span>
+							) : (
+								<PlaceholderSpan />
+							)}
+							{cacheReadsPrice !== undefined ? (
+								<span
+									title={t("chat:profile.cacheReadPricePer1M")}
+									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
+									onClick={() => setIsSettingsPopupOpen(true)} // Open common settings popup
+								>
+									{formatPrice(cacheReadsPrice)}
+								</span>
+							) : (
+								<PlaceholderSpan />
+							)}
+						</div>
+					)}
+			</div>
+		)
+	}
+
+	// Initial check for modelId before rendering anything collapsible
+	if (!modelId) {
+		return (
+			<div className="flex items-center justify-center p-1 text-xs text-vscode-descriptionForeground bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md">
+				<VSCodeBadge>
+					<Trans>Profilinformationen nicht verfügbar (keine Modell-ID)</Trans>
+				</VSCodeBadge>
+			</div>
+		)
+	}
+
+	return (
+		<div
+			ref={profileInfoBarRef}
+			aria-expanded={isExpanded}
+			title={isExpanded ? t("chat:profile.collapseInfobar") : t("chat:profile.expandInfobar")}
+			className={`
+			             flex items-center px-1 py-0 text-xs h-6
+			             bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
+			             transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
+			             hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]
+			             ${isExpanded ? "w-full" : "w-auto max-w-xs"}
+			         `}>
+			<span
+				onClick={() => setIsExpanded(!isExpanded)} // Only chevron toggles expansion
+				className={`chevron-button codicon ${
+					isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
+				} text-base flex-shrink-0 cursor-pointer`}
+			/>
+
+			{/* Common Settings Popover */}
+			<Popover open={isSettingsPopupOpen} onOpenChange={setIsSettingsPopupOpen}>
+				<PopoverTrigger asChild>
+					{/* This trigger now wraps the main content of the info bar */}
+					<div
+						className={`
+							flex-grow overflow-hidden
+							transition-all duration-300 ease-in-out
+							${isExpanded ? "ml-2 max-w-full opacity-100" : "ml-0 max-w-0 opacity-0"}
+							cursor-pointer
+						`}
+						// onClick={() => setIsSettingsPopupOpen(true)} // Open common settings popup on click - Removed to prevent re-opening when already open
+					>
+						{isExpanded && <ExpandedContent />}
+					</div>
+				</PopoverTrigger>
+				<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
+					<div className="flex flex-col gap-1">
+						<h3 className="text-sm font-semibold mt-0 mb-0">Model Settings</h3>
+
+						{/* Provider Selection */}
+						<div className="flex flex-col gap-1">
+							<label htmlFor="provider-select" className="text-xs font-medium">
+								{t("settings:providers.apiProvider")}
+							</label>
+							<VSCodeDropdown
+								id="provider-select"
+								value={localApiProvider}
+								onChange={(e) => {
+									const newProvider = (e.target as HTMLSelectElement).value as
+										| ProviderName
+										| RouterName
+									setLocalApiProvider(newProvider)
+
+									// Automatically select the default model for the new provider
+									let defaultModelId: string | undefined
+									const newProviderModels = isRouterName(newProvider)
+										? routerModels?.[newProvider]
+										: modelSources[newProvider as ProviderName]
+
+									if (newProviderModels && typeof newProviderModels === "object") {
+										const modelEntries = Object.entries(newProviderModels)
+										if (modelEntries.length > 0) {
+											// Fall back to the first model in the list as the default
+											defaultModelId = modelEntries[0][0]
+										}
+									}
+
+									setLocalApiModelId(defaultModelId)
+									setHasChanges(true) // Mark as changed
+								}}>
+								{PROVIDERS.map((provider) => (
+									<VSCodeOption key={provider.value} value={provider.value}>
+										{provider.label}
+									</VSCodeOption>
+								))}
+							</VSCodeDropdown>
+						</div>
+
+						{/* Dynamic Model Info based on local states for popup display */}
+						{(() => {
+							const popupModelId = localApiModelId
+							let popupModelInfo: ModelInfo | undefined
+							let popupModelSource: Record<string, ModelInfo> | undefined | ModelInfo = undefined
+
+							if (localApiProvider && isRouterName(localApiProvider)) {
+								popupModelSource = routerModels?.[localApiProvider]
+							} else if (localApiProvider) {
+								popupModelSource = modelSources[localApiProvider as ProviderName]
+							}
+
+							if (localApiProvider === "ollama") {
+								popupModelSource = ollamaModels.reduce(
+									(acc, model) => {
+										acc[model] = {
+											contextWindow: 8192, // Default value
+											supportsPromptCache: false,
+											supportsImages: true,
+											supportsReasoningBudget: false,
+											maxTokens: 4096, // Default value
+										}
+										return acc
+									},
+									{} as Record<string, ModelInfo>,
+								)
+							} else if (popupModelSource && popupModelId && popupModelId in popupModelSource) {
+								popupModelInfo = (popupModelSource as Record<string, ModelInfo>)[popupModelId]
+							}
+
+							const popupMaxOutputTokens =
+								popupModelInfo && popupModelId
+									? getModelMaxOutputTokens({
+											modelId: popupModelId,
+											model: popupModelInfo,
+											settings: {
+												...apiConfiguration,
+												apiProvider: localApiProvider,
+												apiModelId: localApiModelId,
+											} as ProviderSettings,
+										})
+									: undefined
+							const popupContextWindow = popupModelInfo?.contextWindow
+							const popupInputPrice = popupModelInfo?.inputPrice
+							const popupOutputPrice = popupModelInfo?.outputPrice
+							const popupCacheWritesPrice = popupModelInfo?.cacheWritesPrice
+							const popupCacheReadsPrice = popupModelInfo?.cacheReadsPrice
+
+							return (
+								<>
+									{/* Model Selection */}
+									{popupModelSource &&
+										typeof popupModelSource === "object" &&
+										!("contextWindow" in popupModelSource) && (
+											<div className="flex flex-col gap-1">
+												<label htmlFor="model-select" className="text-xs font-medium">
+													{t("settings:providers.model")}
+												</label>
+												<VSCodeDropdown
+													id="model-select"
+													value={localApiModelId}
+													onChange={(e) => {
+														const newModelId = (e.target as HTMLSelectElement).value
+														setLocalApiModelId(newModelId)
+														setHasChanges(true) // Mark as changed
+													}}>
+													{Object.entries(popupModelSource as Record<string, ModelInfo>).map(
+														([id, info]) => (
+															<VSCodeOption key={id} value={id} title={info.description}>
+																{id}
+															</VSCodeOption>
+														),
+													)}
+												</VSCodeDropdown>
+											</div>
+										)}
+
+									{popupModelId && popupModelInfo && (
+										<>
+											{/* Enable Reasoning Checkbox */}
+											{popupModelInfo.supportsReasoningBudget && (
+												<VSCodeCheckbox
+													checked={localEnableReasoning}
+													onChange={(e) => {
+														setLocalEnableReasoning((e.target as HTMLInputElement).checked)
+														setHasChanges(true)
+													}}>
+													{t("chat:profile.enableReasoning")}
+												</VSCodeCheckbox>
+											)}
+
+											{/* Sliders, visible only if reasoning is enabled */}
+											{localEnableReasoning && (
+												<>
+													{/* Max Output Tokens Slider */}
+													{(popupModelInfo?.supportsReasoningBudget ||
+														popupModelInfo?.requiredReasoningBudget) && (
+														<div className="flex flex-col gap-1">
+															<div className="flex justify-between items-center text-xs font-medium">
+																<span>{t("chat:profile.maxOutput")}</span>
+																<span>
+																	{localMaxOutputTokens ?? popupMaxOutputTokens ?? 0}
+																</span>
+															</div>
+															<Slider
+																value={[
+																	localMaxOutputTokens ?? popupMaxOutputTokens ?? 0,
+																]}
+																min={8192}
+																max={
+																	popupModelInfo?.maxTokens ??
+																	DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
+																}
+																step={1024}
+																onValueChange={([newValue]) => {
+																	setLocalMaxOutputTokens(newValue)
+																	setHasChanges(true) // Mark as changed
+																}}
+															/>
+														</div>
+													)}
+
+													{/* Thinking Budget Slider */}
+													{popupModelInfo.supportsReasoningBudget && (
+														<div className="flex flex-col gap-1">
+															<div className="flex justify-between items-center text-xs font-medium">
+																<span>{t("chat:profile.thinkingBudget")}</span>
+																<span>
+																	{localThinkingBudget ??
+																		DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS}
+																</span>
+															</div>
+															<Slider
+																value={[
+																	localThinkingBudget ??
+																		DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS,
+																]}
+																min={1024}
+																max={
+																	popupModelInfo.maxThinkingTokens ||
+																	DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+																}
+																step={1024}
+																onValueChange={([newValue]) => {
+																	setLocalThinkingBudget(newValue)
+																	setHasChanges(true) // Mark as changed
+																}}
+															/>
+														</div>
+													)}
+												</>
+											)}
+
+											{/* Other non-editable info */}
+											<div className="grid grid-cols-2 gap-2 text-xs">
+												<div>{t("chat:profile.contextSize")}:</div>
+												<div className="text-right">{formatTokenCount(popupContextWindow)}</div>
+
+												{popupInputPrice !== undefined && (
+													<>
+														<div>{t("chat:profile.inputPricePer1M")}:</div>
+														<div className="text-right">{formatPrice(popupInputPrice)}</div>
+													</>
+												)}
+												{popupOutputPrice !== undefined && (
+													<>
+														<div>{t("chat:profile.outputPricePer1M")}:</div>
+														<div className="text-right">
+															{formatPrice(popupOutputPrice)}
+														</div>
+													</>
+												)}
+												{popupModelInfo.supportsPromptCache && (
+													<>
+														{popupCacheWritesPrice !== undefined && (
+															<>
+																<div>{t("chat:profile.cacheWritePricePer1M")}:</div>
+																<div className="text-right">
+																	{formatPrice(popupCacheWritesPrice)}
+																</div>
+															</>
+														)}
+														{popupCacheReadsPrice !== undefined && (
+															<>
+																<div>{t("chat:profile.cacheReadPricePer1M")}:</div>
+																<div className="text-right">
+																	{formatPrice(popupCacheReadsPrice)}
+																</div>
+															</>
+														)}
+													</>
+												)}
+											</div>
+										</>
+									)}
+								</>
+							)
+						})()}
+						<div className="flex justify-end gap-2 mt-1">
+							<Button
+								onClick={handleCloseSettings}
+								className="bg-transparent hover:bg-vscode-list-hoverBackground">
+								Close
+							</Button>
+							<Button onClick={handleSaveSettings} disabled={!hasChanges}>
+								Save
+							</Button>
+						</div>
+					</div>
+				</PopoverContent>
+			</Popover>
+		</div>
+	)
+}

@@ -121,10 +121,9 @@ const AutoApproveMenu = ({ style }: AutoApproveMenuProps) => {
 	return (
 		<div
 			style={{
-				padding: "0 15px",
 				userSelect: "none",
 				borderTop: isExpanded
-					? `0.5px solid color-mix(in srgb, var(--vscode-titleBar-inactiveForeground) 20%, transparent)`
+					? `1px solid color-mix(in srgb, var(--vscode-titleBar-inactiveForeground) 20%, transparent)`
 					: "none",
 				overflowY: "auto",
 				...style,
@@ -134,7 +133,7 @@ const AutoApproveMenu = ({ style }: AutoApproveMenuProps) => {
 					display: "flex",
 					alignItems: "center",
 					gap: "8px",
-					padding: isExpanded ? "8px 0" : "8px 0 0 0",
+					padding: isExpanded ? "3px 0 0" : "3px 0 0",
 					cursor: "pointer",
 				}}
 				onClick={toggleExpanded}>

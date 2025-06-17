@@ -123,6 +123,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	autoCondenseContextPercent: number
 	setAutoCondenseContextPercent: (value: number) => void
 	routerModels?: RouterModels
+	isAwaitingConfigurationUpdate: boolean
+	setIsAwaitingConfigurationUpdate: (value: boolean) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -148,6 +150,8 @@ export const mergeExtensionState = (prevState: ExtensionState, newState: Extensi
 }
 
 export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+	const [isStreaming, setIsStreaming] = useState(false)
+	const [isAwaitingConfigurationUpdate, setIsAwaitingConfigurationUpdate] = useState(false)
 	const [state, setState] = useState<ExtensionState & { organizationAllowList?: OrganizationAllowList }>({
 		version: "",
 		clineMessages: [],
@@ -233,15 +237,58 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		[],
 	)
 
-	const setApiConfiguration = useCallback((value: ProviderSettings) => {
-		setState((prevState) => ({
-			...prevState,
-			apiConfiguration: {
-				...prevState.apiConfiguration,
-				...value,
-			},
-		}))
-	}, [])
+	const setApiConfiguration = useCallback(
+		(value: ProviderSettings) => {
+			if (isStreaming) return
+			setState((prevState) => ({
+				...prevState,
+				apiConfiguration: {
+					...prevState.apiConfiguration,
+					...value,
+				},
+			}))
+		},
+		[isStreaming],
+	)
+
+	const mergeExtensionState = useCallback(
+		(prevState: ExtensionState, newState: ExtensionState) => {
+			if (isStreaming && !isAwaitingConfigurationUpdate) {
+				const { apiConfiguration: _, ...restOfNewState } = newState
+				return { ...prevState, ...restOfNewState }
+			}
+
+			if (newState.apiConfiguration) {
+				setIsAwaitingConfigurationUpdate(false)
+			}
+
+			const {
+				customModePrompts: prevCustomModePrompts,
+				customSupportPrompts: prevCustomSupportPrompts,
+				experiments: prevExperiments,
+				...prevRest
+			} = prevState
+
+			const {
+				apiConfiguration,
+				customModePrompts: newCustomModePrompts,
+				customSupportPrompts: newCustomSupportPrompts,
+				experiments: newExperiments,
+				...newRest
+			} = newState
+
+			const customModePrompts = { ...prevCustomModePrompts, ...newCustomModePrompts }
+			const customSupportPrompts = { ...prevCustomSupportPrompts, ...newCustomSupportPrompts }
+			const experiments = { ...prevExperiments, ...newExperiments }
+			const rest = { ...prevRest, ...newRest }
+
+			// Note that we completely replace the previous apiConfiguration object with
+			// a new one since the state that is broadcast is the entire apiConfiguration
+			// and therefore merging is not necessary.
+			return { ...rest, apiConfiguration, customModePrompts, customSupportPrompts, experiments }
+		},
+		[isAwaitingConfigurationUpdate, isStreaming],
+	)
 
 	const handleMessage = useCallback(
 		(event: MessageEvent) => {
@@ -314,9 +361,13 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					break
 				}
+				case "streaming": {
+					setIsStreaming(message.streaming ?? false)
+					break
+				}
 			}
 		},
-		[setListApiConfigMeta],
+		[setListApiConfigMeta, mergeExtensionState],
 	)
 
 	useEffect(() => {
@@ -332,6 +383,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 
 	const contextValue: ExtensionStateContextType = {
 		...state,
+		isAwaitingConfigurationUpdate,
+		setIsAwaitingConfigurationUpdate,
 		didHydrateState,
 		showWelcome,
 		theme,

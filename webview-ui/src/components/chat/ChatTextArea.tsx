@@ -27,6 +27,7 @@ import ContextMenu from "./ContextMenu"
 import { VolumeX, Pin, Check } from "lucide-react"
 import { IconButton } from "./IconButton"
 import { IndexingStatusDot } from "./IndexingStatusBadge"
+import { ProfileInfoBar } from "./ProfileInfoBar"
 import { cn } from "@/lib/utils"
 import { usePromptHistory } from "./hooks/usePromptHistory"
 
@@ -783,16 +784,13 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					"relative",
 					"flex",
 					"flex-col",
-					"gap-2",
+					"gap-[1px]",
 					"bg-editor-background",
-					"m-2 mt-1",
-					"p-1.5",
+					"pb-[4px]",
 					"outline-none",
 					"border",
 					"border-none",
-					"w-[calc(100%-16px)]",
-					"ml-auto",
-					"mr-auto",
+					"w-full",
 					"box-border",
 				)}>
 				<div className="relative">
@@ -994,7 +992,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					/>
 				)}
 
-				<div className={cn("flex", "justify-between", "items-center", "mt-auto", "pt-0.5")}>
+				<div className={cn("flex", "justify-between", "items-center", "mt-1")}>
 					<div className={cn("flex", "items-center", "gap-1", "min-w-0")}>
 						<div className="shrink-0">
 							<SelectDropdown
@@ -1142,6 +1140,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									)
 								}}
 							/>
+						</div>
+						<div className={cn("shrink-0", "overflow-hidden")}>
+							<ProfileInfoBar />
 						</div>
 					</div>
 
