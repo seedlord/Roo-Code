@@ -1,36 +1,37 @@
-// npx jest src/integrations/editor/__tests__/UserInteractionProvider.test.ts
+// vitest src/integrations/editor/__tests__/UserInteractionProvider.test.ts
 
+import { vi, describe, it, expect, beforeEach, Mock } from "vitest"
 import * as vscode from "vscode"
 import { UserInteractionProvider } from "../UserInteractionProvider"
 
-jest.mock("vscode", () => ({
+vi.mock("vscode", () => ({
 	window: {
 		tabGroups: {
-			onDidChangeTabs: jest.fn(),
-			onDidChangeTabGroups: jest.fn(),
+			onDidChangeTabs: vi.fn(),
+			onDidChangeTabGroups: vi.fn(),
 		},
-		onDidChangeActiveTextEditor: jest.fn(),
-		onDidChangeTextEditorSelection: jest.fn(),
+		onDidChangeActiveTextEditor: vi.fn(),
+		onDidChangeTextEditorSelection: vi.fn(),
 	},
 }))
 
 describe("UserInteractionProvider", () => {
 	let provider: UserInteractionProvider
-	let mockOnUserInteraction: jest.Mock
-	let mockGetSuppressFlag: jest.Mock
-	let mockDisposable: { dispose: jest.Mock }
+	let mockOnUserInteraction: Mock
+	let mockGetSuppressFlag: Mock
+	let mockDisposable: { dispose: Mock }
 
 	beforeEach(() => {
-		jest.clearAllMocks()
-		mockOnUserInteraction = jest.fn()
-		mockGetSuppressFlag = jest.fn().mockReturnValue(false)
-		mockDisposable = { dispose: jest.fn() }
+		vi.clearAllMocks()
+		mockOnUserInteraction = vi.fn()
+		mockGetSuppressFlag = vi.fn().mockReturnValue(false)
+		mockDisposable = { dispose: vi.fn() }
 
 		// Mock the event listeners to return disposables
-		;(vscode.window.onDidChangeTextEditorSelection as any).mockReturnValue(mockDisposable)
-		;(vscode.window.onDidChangeActiveTextEditor as any).mockReturnValue(mockDisposable)
-		;(vscode.window.tabGroups.onDidChangeTabs as any).mockReturnValue(mockDisposable)
-		;(vscode.window.tabGroups.onDidChangeTabGroups as any).mockReturnValue(mockDisposable)
+		;(vscode.window.onDidChangeTextEditorSelection as Mock).mockReturnValue(mockDisposable)
+		;(vscode.window.onDidChangeActiveTextEditor as Mock).mockReturnValue(mockDisposable)
+		;(vscode.window.tabGroups.onDidChangeTabs as Mock).mockReturnValue(mockDisposable)
+		;(vscode.window.tabGroups.onDidChangeTabGroups as Mock).mockReturnValue(mockDisposable)
 
 		provider = new UserInteractionProvider({
 			onUserInteraction: mockOnUserInteraction,
@@ -76,7 +77,7 @@ describe("UserInteractionProvider", () => {
 	it("should call onUserInteraction when text editor selection changes", () => {
 		provider.enable()
 
-		const selectionChangeCallback = (vscode.window.onDidChangeTextEditorSelection as any).mock.calls[0][0]
+		const selectionChangeCallback = (vscode.window.onDidChangeTextEditorSelection as Mock).mock.calls[0][0]
 		selectionChangeCallback({})
 
 		expect(mockOnUserInteraction).toHaveBeenCalled()
@@ -86,7 +87,7 @@ describe("UserInteractionProvider", () => {
 		mockGetSuppressFlag.mockReturnValue(true)
 		provider.enable()
 
-		const selectionChangeCallback = (vscode.window.onDidChangeTextEditorSelection as any).mock.calls[0][0]
+		const selectionChangeCallback = (vscode.window.onDidChangeTextEditorSelection as Mock).mock.calls[0][0]
 		selectionChangeCallback({})
 
 		expect(mockOnUserInteraction).not.toHaveBeenCalled()
@@ -95,7 +96,7 @@ describe("UserInteractionProvider", () => {
 	it("should call onUserInteraction when active text editor changes", () => {
 		provider.enable()
 
-		const activeEditorChangeCallback = (vscode.window.onDidChangeActiveTextEditor as any).mock.calls[0][0]
+		const activeEditorChangeCallback = (vscode.window.onDidChangeActiveTextEditor as Mock).mock.calls[0][0]
 		activeEditorChangeCallback({ document: { uri: "test" } })
 
 		expect(mockOnUserInteraction).toHaveBeenCalled()
@@ -104,7 +105,7 @@ describe("UserInteractionProvider", () => {
 	it("should not call onUserInteraction when active editor is null", () => {
 		provider.enable()
 
-		const activeEditorChangeCallback = (vscode.window.onDidChangeActiveTextEditor as any).mock.calls[0][0]
+		const activeEditorChangeCallback = (vscode.window.onDidChangeActiveTextEditor as Mock).mock.calls[0][0]
 		activeEditorChangeCallback(null)
 
 		expect(mockOnUserInteraction).not.toHaveBeenCalled()

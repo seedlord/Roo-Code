@@ -1,5 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
+import { ViewColumn } from "vscode"
 
 import { TelemetryService } from "@roo-code/telemetry"
 
@@ -503,7 +504,9 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 
 				// Show diff view before asking for approval (only for single file or after batch approval)
 				cline.diffViewProvider.editType = "modify"
-				await cline.diffViewProvider.open(relPath)
+				const clineRef = cline.providerRef.deref()
+				const viewColumn = clineRef?.getViewColumn() ?? ViewColumn.Active
+				await cline.diffViewProvider.open(relPath, viewColumn)
 				await cline.diffViewProvider.update(originalContent!, true)
 				await cline.diffViewProvider.scrollToFirstDiff()
 

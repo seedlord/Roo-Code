@@ -241,8 +241,8 @@ export class DiffViewProvider {
 		this.activeLineController = new DecorationController("activeLine", this.activeDiffEditor)
 		// Apply faded overlay to all lines initially.
 		this.fadedOverlayController.addLines(0, this.activeDiffEditor.document.lineCount)
-		// Scroll to the beginning of the diff editor only if autoFocus and streamFocus are enabled.
-		if (this.autoFocus && this.streamFocus) {
+		// Scroll to the beginning of the diff editor only if streamFocus is enabled.
+		if (!this.streamFocus) {
 			this.scrollEditorToLine(0) // Will this crash for new files?
 		}
 		this.streamedLines = []
@@ -346,16 +346,10 @@ export class DiffViewProvider {
 
 		this.newContent = accumulatedContent // Always buffer the latest content
 
-		// If streamFocus is disabled by the user, we prevent the live-typing animation by only applying the final edit.
-		// This is the only robust way to prevent the editor from stealing focus when the user clicks away.
-		if (!this.streamFocus && !isFinal) {
-			return // Do nothing until the final update.
-		}
-
 		// --- Streaming / Final Update Logic ---
 		const accumulatedLines = accumulatedContent.split("\n")
 
-		if (!isFinal && this.streamFocus) {
+		if (!isFinal) {
 			accumulatedLines.pop() // For streaming, remove the last partial line.
 		}
 
@@ -375,7 +369,7 @@ export class DiffViewProvider {
 		const edit = new vscode.WorkspaceEdit()
 		const fullRange = new vscode.Range(0, 0, document.lineCount, 0)
 
-		if (this.streamFocus && !isFinal) {
+		if (!isFinal) {
 			// Live-typing animation: Replace content line-by-line.
 			const endLine = accumulatedLines.length
 			const rangeToReplace = new vscode.Range(0, 0, endLine + 1, 0)
@@ -383,10 +377,12 @@ export class DiffViewProvider {
 			edit.replace(document.uri, rangeToReplace, this.stripAllBOMs(contentToReplace))
 			await vscode.workspace.applyEdit(edit)
 
-			// Update decorations and scroll.
-			this.activeLineController.setActiveLine(endLine)
-			this.fadedOverlayController.updateOverlayAfterLine(endLine, document.lineCount)
-			this.scrollEditorToLine(endLine)
+			// Update decorations and scroll only if streamFocus is enabled.
+			if (this.streamFocus) {
+				this.activeLineController.setActiveLine(endLine)
+				this.fadedOverlayController.updateOverlayAfterLine(endLine, document.lineCount)
+				this.scrollEditorToLine(endLine)
+			}
 		} else {
 			// Final update (or if streaming is disabled): Replace everything at once.
 			// Use editor.edit which can be less intrusive than workspace.applyEdit for focus.
@@ -657,109 +653,85 @@ export class DiffViewProvider {
 	 */
 	private async openDiffEditor(): Promise<vscode.TextEditor> {
 		if (!this.relPath) {
-			throw new Error(
-				"No file path set for opening diff editor. Ensure open() was called before openDiffEditor()",
-			)
+			throw new Error("No file path set")
 		}
 
-		const uri = vscode.Uri.file(path.resolve(this.cwd, this.relPath))
+		const settings = await this._readDiffSettings() // Dynamically read settings
 
-		// If this diff editor is already open (ie if a previous write file was
-		// interrupted) then we should activate that instead of opening a new
-		// diff.
-		const diffTab = vscode.window.tabGroups.all
-			.flatMap((group) => group.tabs)
-			.find(
-				(tab) =>
-					tab.input instanceof vscode.TabInputTextDiff &&
-					tab.input?.original?.scheme === DIFF_VIEW_URI_SCHEME &&
-					arePathsEqual(tab.input.modified.fsPath, uri.fsPath),
-			)
-
-		if (diffTab && diffTab.input instanceof vscode.TabInputTextDiff) {
-			const editor = await vscode.window.showTextDocument(diffTab.input.modified, { preserveFocus: true })
-			return editor
-		}
-
+		// right uri = the file path
+		const rightUri = vscode.Uri.file(path.resolve(this.cwd, this.relPath))
 		// Open new diff editor.
 		return new Promise<vscode.TextEditor>((resolve, reject) => {
 			const fileName = path.basename(rightUri.fsPath)
 			const fileExists = this.editType === "modify"
-			const DIFF_EDITOR_TIMEOUT = 10_000 // ms
 
-			let timeoutId: NodeJS.Timeout | undefined
-			const disposables: vscode.Disposable[] = []
-
-			const cleanup = () => {
-				if (timeoutId) {
-					clearTimeout(timeoutId)
-					timeoutId = undefined
-				}
-				disposables.forEach((d) => d.dispose())
-				disposables.length = 0
+			const leftUri = vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${fileName}`).with({
+				query: Buffer.from(this.originalContent ?? "").toString("base64"),
+			})
+			const title = `${fileName}: ${fileExists ? "Original ↔ Roo's Changes" : "New File"} (Editable)`
+			const textDocumentShowOptions: TextDocumentShowOptions = {
+				preview: false,
+				preserveFocus: !settings.streamFocus,
+				viewColumn: this.viewColumn,
 			}
+			// set interaction flag to true to prevent autoFocus from being triggered
+			this.suppressInteractionFlag = true
+			// Implement improved diff view placement logic
+			const previousEditor = vscode.window.activeTextEditor
+			this.prepareDiffViewPlacement(rightUri.fsPath).then(() => {
+				vscode.commands
+					.executeCommand("vscode.diff", leftUri, rightUri, title, textDocumentShowOptions)
+					.then(async () => {
+						// set interaction flag to false to allow autoFocus to be triggered
+						this.suppressInteractionFlag = false
 
-			// Set timeout for the entire operation
-			timeoutId = setTimeout(() => {
-				cleanup()
-				reject(
-					new Error(
-						`Failed to open diff editor for ${uri.fsPath} within ${DIFF_EDITOR_TIMEOUT / 1000} seconds. The editor may be blocked or VS Code may be unresponsive.`,
-					),
-				)
-			}, DIFF_EDITOR_TIMEOUT)
+						// Get the active text editor, which should be the diff editor opened by vscode.diff
+						const diffEditor = vscode.window.activeTextEditor
 
-			// Listen for document open events - more efficient than scanning all tabs
-			disposables.push(
-				vscode.workspace.onDidOpenTextDocument(async (document) => {
-					if (arePathsEqual(document.uri.fsPath, uri.fsPath)) {
-						// Wait a tick for the editor to be available
-						await new Promise((r) => setTimeout(r, 0))
-
-						// Find the editor for this document
-						const editor = vscode.window.visibleTextEditors.find((e) =>
-							arePathsEqual(e.document.uri.fsPath, uri.fsPath),
-						)
-
-						if (editor) {
-							cleanup()
-							resolve(editor)
+						// Ensure we have a valid editor and it's the one we expect (the right side of the diff)
+						if (!diffEditor || !arePathsEqual(diffEditor.document.uri.fsPath, rightUri.fsPath)) {
+							reject(new Error("Failed to get diff editor after opening."))
+							return
 						}
-					}
-				}),
-			)
 
-			// Also listen for visible editor changes as a fallback
-			disposables.push(
-				vscode.window.onDidChangeVisibleTextEditors((editors) => {
-					const editor = editors.find((e) => arePathsEqual(e.document.uri.fsPath, uri.fsPath))
-					if (editor) {
-						cleanup()
-						resolve(editor)
-					}
-				}),
-			)
+						this.activeDiffEditor = diffEditor // Assign to activeDiffEditor
 
-			// Execute the diff command
-			vscode.commands
-				.executeCommand(
-					"vscode.diff",
-					vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${fileName}`).with({
-						query: Buffer.from(this.originalContent ?? "").toString("base64"),
-					}),
-					uri,
-					`${fileName}: ${fileExists ? "Original ↔ Roo's Changes" : "New File"} (Editable)`,
-					{ preserveFocus: true },
-				)
-				.then(
-					() => {
-						// Command executed successfully, now wait for the editor to appear
-					},
-					(err: any) => {
-						cleanup()
-						reject(new Error(`Failed to execute diff command for ${uri.fsPath}: ${err.message}`))
-					},
-				)
+						// Ensure rightUri is tracked even if not explicitly shown again
+						this.rooOpenedTabs.add(rightUri.toString())
+
+						// If autoFocus is disabled, explicitly clear the selection to prevent cursor focus.
+						if (!settings.autoFocus) {
+							// Use dynamically read autoFocus
+							// Add a small delay to allow VS Code to potentially set focus first,
+							// then clear it.
+							await new Promise((resolve) => setTimeout(resolve, 50))
+							const beginningOfDocument = new vscode.Position(0, 0)
+							diffEditor.selection = new vscode.Selection(beginningOfDocument, beginningOfDocument)
+						}
+
+						// if this happens in a window different from the active one, we need to show the document
+						// This logic should not run when auto-focus is enabled, as it would steal focus from the diff view.
+						if (previousEditor && !settings.autoFocus) {
+							await this.showTextDocumentSafe({
+								textDocument: previousEditor.document,
+								options: {
+									preview: false,
+									preserveFocus: true, // Always preserve focus here to avoid stealing it from the diff view
+									selection: previousEditor.selection,
+									viewColumn: previousEditor.viewColumn,
+								},
+							})
+						}
+
+						// Resolve the promise with the diff editor
+						resolve(diffEditor)
+					})
+				// Removed the second .then block that called getEditorFromDiffTab
+				// This may happen on very slow machines ie project idx
+				setTimeout(() => {
+					reject(new Error("Failed to open diff editor, please try again..."))
+				}, 10_000)
+			})
 		})
 	}
 
