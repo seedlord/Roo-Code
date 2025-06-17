@@ -17,7 +17,8 @@ import { checkoutDiffPayloadSchema, checkoutRestorePayloadSchema, WebviewMessage
 import { checkExistKey } from "../../shared/checkExistApiConfig"
 import { experimentDefault } from "../../shared/experiments"
 import { Terminal } from "../../integrations/terminal/Terminal"
-import { openFile, openImage } from "../../integrations/misc/open-file"
+import { openFile } from "../../integrations/misc/open-file"
+import { openImage, saveImage } from "../../integrations/misc/image-handler"
 import { selectImages } from "../../integrations/misc/process-images"
 import { getTheme } from "../../integrations/theme/getTheme"
 import { discoverChromeHostUrl, tryChromeHostUrl } from "../../services/browser/browserDiscovery"
@@ -42,7 +43,13 @@ import { getCommand } from "../../utils/commands"
 
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
 
-export const webviewMessageHandler = async (provider: ClineProvider, message: WebviewMessage) => {
+import { MarketplaceManager, MarketplaceItemType } from "../../services/marketplace"
+
+export const webviewMessageHandler = async (
+	provider: ClineProvider,
+	message: WebviewMessage,
+	marketplaceManager?: MarketplaceManager,
+) => {
 	// Utility functions provided for concise get/update of global state via contextProxy API.
 	const getGlobalState = <K extends keyof GlobalState>(key: K) => provider.contextProxy.getValue(key)
 	const updateGlobalState = async <K extends keyof GlobalState>(key: K, value: GlobalState[K]) =>
@@ -185,6 +192,10 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			break
 		case "alwaysAllowWriteOutsideWorkspace":
 			await updateGlobalState("alwaysAllowWriteOutsideWorkspace", message.bool ?? undefined)
+			await provider.postStateToWebview()
+			break
+		case "alwaysAllowWriteProtected":
+			await updateGlobalState("alwaysAllowWriteProtected", message.bool ?? undefined)
 			await provider.postStateToWebview()
 			break
 		case "alwaysAllowExecute":
@@ -456,13 +467,21 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			provider.postMessageToWebview({ type: "vsCodeLmModels", vsCodeLmModels })
 			break
 		case "openImage":
-			openImage(message.text!)
+			openImage(message.text!, { values: message.values })
+			break
+		case "saveImage":
+			saveImage(message.dataUri!)
 			break
 		case "openFile":
 			openFile(message.text!, message.values as { create?: boolean; content?: string; line?: number })
 			break
 		case "openMention":
 			openMention(message.text)
+			break
+		case "openExternal":
+			if (message.url) {
+				vscode.env.openExternal(vscode.Uri.parse(message.url))
+			}
 			break
 		case "checkpointDiff":
 			const result = checkoutDiffPayloadSchema.safeParse(message.payload)
@@ -557,6 +576,9 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 				provider.log(`Attempting to delete MCP server: ${message.serverName}`)
 				await provider.getMcpHub()?.deleteServer(message.serverName, message.source as "global" | "project")
 				provider.log(`Successfully deleted MCP server: ${message.serverName}`)
+
+				// Refresh the webview state
+				await provider.postStateToWebview()
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : String(error)
 				provider.log(`Failed to delete MCP server: ${errorMessage}`)
@@ -846,37 +868,18 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			break
 		case "updateSupportPrompt":
 			try {
-				if (Object.keys(message?.values ?? {}).length === 0) {
+				if (!message?.values) {
 					return
 				}
 
-				const existingPrompts = getGlobalState("customSupportPrompts") ?? {}
-				const updatedPrompts = { ...existingPrompts, ...message.values }
-				await updateGlobalState("customSupportPrompts", updatedPrompts)
+				// Replace all prompts with the new values from the cached state
+				await updateGlobalState("customSupportPrompts", message.values)
 				await provider.postStateToWebview()
 			} catch (error) {
 				provider.log(
 					`Error update support prompt: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
 				)
 				vscode.window.showErrorMessage(t("common:errors.update_support_prompt"))
-			}
-			break
-		case "resetSupportPrompt":
-			try {
-				if (!message?.text) {
-					return
-				}
-
-				const existingPrompts = getGlobalState("customSupportPrompts") ?? {}
-				const updatedPrompts = { ...existingPrompts }
-				updatedPrompts[message.text] = undefined
-				await updateGlobalState("customSupportPrompts", updatedPrompts)
-				await provider.postStateToWebview()
-			} catch (error) {
-				provider.log(
-					`Error reset support prompt: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
-				)
-				vscode.window.showErrorMessage(t("common:errors.reset_support_prompt"))
 			}
 			break
 		case "updatePrompt":
@@ -1497,6 +1500,94 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 						error: error instanceof Error ? error.message : String(error),
 					},
 				})
+			}
+			break
+		}
+		case "focusPanelRequest": {
+			// Execute the focusPanel command to focus the WebView
+			await vscode.commands.executeCommand(getCommand("focusPanel"))
+			break
+		}
+		case "filterMarketplaceItems": {
+			if (marketplaceManager && message.filters) {
+				try {
+					await marketplaceManager.updateWithFilteredItems({
+						type: message.filters.type as MarketplaceItemType | undefined,
+						search: message.filters.search,
+						tags: message.filters.tags,
+					})
+					await provider.postStateToWebview()
+				} catch (error) {
+					console.error("Marketplace: Error filtering items:", error)
+					vscode.window.showErrorMessage("Failed to filter marketplace items")
+				}
+			}
+			break
+		}
+
+		case "installMarketplaceItem": {
+			if (marketplaceManager && message.mpItem && message.mpInstallOptions) {
+				try {
+					const configFilePath = await marketplaceManager.installMarketplaceItem(
+						message.mpItem,
+						message.mpInstallOptions,
+					)
+					await provider.postStateToWebview()
+					console.log(`Marketplace item installed and config file opened: ${configFilePath}`)
+					// Send success message to webview
+					provider.postMessageToWebview({
+						type: "marketplaceInstallResult",
+						success: true,
+						slug: message.mpItem.id,
+					})
+				} catch (error) {
+					console.error(`Error installing marketplace item: ${error}`)
+					// Send error message to webview
+					provider.postMessageToWebview({
+						type: "marketplaceInstallResult",
+						success: false,
+						error: error instanceof Error ? error.message : String(error),
+						slug: message.mpItem.id,
+					})
+				}
+			}
+			break
+		}
+
+		case "removeInstalledMarketplaceItem": {
+			if (marketplaceManager && message.mpItem && message.mpInstallOptions) {
+				try {
+					await marketplaceManager.removeInstalledMarketplaceItem(message.mpItem, message.mpInstallOptions)
+					await provider.postStateToWebview()
+				} catch (error) {
+					console.error(`Error removing marketplace item: ${error}`)
+				}
+			}
+			break
+		}
+
+		case "installMarketplaceItemWithParameters": {
+			if (marketplaceManager && message.payload && "item" in message.payload && "parameters" in message.payload) {
+				try {
+					const configFilePath = await marketplaceManager.installMarketplaceItem(message.payload.item, {
+						parameters: message.payload.parameters,
+					})
+					await provider.postStateToWebview()
+					console.log(`Marketplace item with parameters installed and config file opened: ${configFilePath}`)
+				} catch (error) {
+					console.error(`Error installing marketplace item with parameters: ${error}`)
+					vscode.window.showErrorMessage(
+						`Failed to install marketplace item: ${error instanceof Error ? error.message : String(error)}`,
+					)
+				}
+			}
+			break
+		}
+
+		case "switchTab": {
+			if (message.tab) {
+				// Send a message to the webview to switch to the specified tab
+				await provider.postMessageToWebview({ type: "action", action: "switchTab", tab: message.tab })
 			}
 			break
 		}
