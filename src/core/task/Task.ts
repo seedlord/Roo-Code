@@ -624,10 +624,13 @@ export class Task extends EventEmitter<ClineEvents> {
 		}
 
 		if (partial !== undefined) {
-			const lastMessage = this.clineMessages.at(-1)
+			const partialMessageIndex = findLastIndex(
+				this.clineMessages,
+				(m) => m.partial === true && m.type === "say" && m.say === type,
+			)
+			const lastMessage = partialMessageIndex !== -1 ? this.clineMessages[partialMessageIndex] : undefined
 
-			const isUpdatingPreviousPartial =
-				lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
+			const isUpdatingPreviousPartial = lastMessage !== undefined
 
 			if (partial) {
 				if (isUpdatingPreviousPartial) {
@@ -660,8 +663,12 @@ export class Task extends EventEmitter<ClineEvents> {
 				// This is the complete version of a previously partial
 				// message, so replace the partial with the complete version.
 				if (isUpdatingPreviousPartial) {
-					if (!options.isNonInteractive) {
+					if (type !== "reasoning" && !options.isNonInteractive) {
 						this.lastMessageTs = lastMessage.ts
+					}
+
+					if (type === "reasoning") {
+						lastMessage.thinkingDurationMs = Date.now() - lastMessage.ts
 					}
 
 					lastMessage.text = text
@@ -1438,6 +1445,13 @@ export class Task extends EventEmitter<ClineEvents> {
 				}
 			} finally {
 				this.isStreaming = false
+			}
+
+
+			if (reasoningMessage) {
+				await this.say("reasoning", reasoningMessage, undefined, false, undefined, undefined, {
+					isNonInteractive: true,
+				})
 			}
 
 			if (inputTokens > 0 || outputTokens > 0 || cacheWriteTokens > 0 || cacheReadTokens > 0) {

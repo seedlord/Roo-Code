@@ -210,7 +210,8 @@
 	},
 	"reasoning": {
 		"thinking": "Denke nach",
-		"seconds": "{{count}}s"
+		"seconds": "{{count}}s",
+		"seconds_short": "{{time}}s"
 	},
 	"contextCondense": {
 		"title": "Kontext komprimiert",

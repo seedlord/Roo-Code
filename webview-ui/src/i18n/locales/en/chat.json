@@ -239,7 +239,8 @@
 	},
 	"reasoning": {
 		"thinking": "Thinking",
-		"seconds": "{{count}}s"
+		"seconds": "{{count}}s",
+		"seconds_short": "{{time}}s"
 	},
 	"followUpSuggest": {
 		"copyToInput": "Copy to input (same as shift + click)"

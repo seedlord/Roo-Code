@@ -1,13 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CaretDownIcon, CaretUpIcon, CounterClockwiseClockIcon } from "@radix-ui/react-icons"
 import { useTranslation } from "react-i18next"
+import { useMount } from "react-use"
 
 import MarkdownBlock from "../common/MarkdownBlock"
-import { useMount } from "react-use"
+
+// Custom hook for a declarative, stable interval
+function useInterval(callback: () => void, delay: number | null) {
+	const savedCallback = useRef<() => void>()
+
+	useEffect(() => {
+		savedCallback.current = callback
+	}, [callback])
+
+	useEffect(() => {
+		function tick() {
+			savedCallback.current?.()
+		}
+		if (delay !== null) {
+			const id = setInterval(tick, delay)
+			return () => clearInterval(id)
+		}
+	}, [delay])
+}
 
 interface ReasoningBlockProps {
 	content: string
-	elapsed?: number
+	durationMs?: number // Final duration in ms
+	startTimeTs?: number // Start timestamp for a live timer
 	isCollapsed?: boolean
 	onToggleCollapse?: () => void
 	modelMaxThinkingTokens?: number
@@ -15,19 +35,44 @@ interface ReasoningBlockProps {
 
 export const ReasoningBlock = ({
 	content,
-	elapsed,
+	durationMs,
+	startTimeTs,
 	isCollapsed = false,
 	onToggleCollapse,
 	modelMaxThinkingTokens,
 }: ReasoningBlockProps) => {
 	const contentRef = useRef<HTMLDivElement>(null)
-	const elapsedRef = useRef<number>(0)
 	const { t } = useTranslation("chat")
+
+	// Animation logic
 	const [thought, setThought] = useState<string>()
 	const [prevThought, setPrevThought] = useState<string>(t("chat:reasoning.thinking"))
 	const [isTransitioning, setIsTransitioning] = useState<boolean>(false)
 	const cursorRef = useRef<number>(0)
 	const queueRef = useRef<string[]>([])
+
+	// Timer logic
+	const [displayTime, setDisplayTime] = useState(durationMs || 0)
+	const isThinking = typeof startTimeTs === "number" && startTimeTs > 0
+
+	useEffect(() => {
+		// If a final duration is provided, it's the source of truth.
+		if (durationMs) {
+			setDisplayTime(durationMs)
+		}
+		// If we are not thinking and have no final duration, do nothing.
+		// This will keep the last `displayTime` from the live timer on screen.
+	}, [durationMs])
+
+	useInterval(
+		() => {
+			// This runs every 100ms, independent of parent re-renders.
+			if (isThinking) {
+				setDisplayTime(Date.now() - startTimeTs)
+			}
+		},
+		isThinking ? 100 : null, // Only run the interval when thinking.
+	)
 
 	useEffect(() => {
 		if (contentRef.current && !isCollapsed) {
@@ -35,13 +80,7 @@ export const ReasoningBlock = ({
 		}
 	}, [content, isCollapsed])
 
-	useEffect(() => {
-		if (elapsed) {
-			elapsedRef.current = elapsed
-		}
-	}, [elapsed])
-
-	// Process the transition queue.
+	// Animation logic effects
 	const processNextTransition = useCallback(() => {
 		const nextThought = queueRef.current.pop()
 		queueRef.current = []
@@ -92,10 +131,14 @@ export const ReasoningBlock = ({
 							{content.length} / {modelMaxThinkingTokens}
 						</div>
 					)}
-					{elapsedRef.current > 1000 && (
+					{displayTime > 0 && (
 						<>
 							<CounterClockwiseClockIcon className="scale-80" />
-							<div>{t("reasoning.seconds", { count: Math.round(elapsedRef.current / 1000) })}</div>
+							<div>
+								{t("reasoning.seconds_short", {
+									time: (displayTime / 1000).toFixed(1),
+								})}
+							</div>
 						</>
 					)}
 					{isCollapsed ? <CaretDownIcon /> : <CaretUpIcon />}
