@@ -443,16 +443,14 @@ export class DiffViewProvider {
 		await this.postDiffBehaviorUtils.closeAllRooOpenedViews(await this._readDiffSettings())
 
 		// Implement post-diff focus behavior, but only if focus was not suppressed by the user.
-		const settings = await this._readDiffSettings()
-		if (settings.streamFocus) {
-			await this.postDiffBehaviorUtils.handlePostDiffFocus()
-		}
+		await this.postDiffBehaviorUtils.handlePostDiffFocus()
 
 		// If no auto-close settings are enabled and the document was not open before,
 		// open the file after the diff is complete.
 
 		// If no auto-close settings are enabled and the document was not open before OR it's a new file,
 		// open the file after the diff is complete.
+		const settings = await this._readDiffSettings()
 		if (
 			!settings.autoCloseRooTabs &&
 			!settings.autoCloseAllRooTabs &&
@@ -577,14 +575,14 @@ export class DiffViewProvider {
 			tagValueProcessor: (name, value) => {
 				if (typeof value === "string") {
 					// Only escape <, >, and & characters
-					return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+					return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
 				}
 				return value
 			},
 			attributeValueProcessor: (name, value) => {
 				if (typeof value === "string") {
 					// Only escape <, >, and & characters
-					return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+					return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
 				}
 				return value
 			},
@@ -639,10 +637,7 @@ export class DiffViewProvider {
 		}
 
 		// Implement post-diff focus behavior, but only if focus was not suppressed by the user.
-		const settings = await this._readDiffSettings()
-		if (settings.streamFocus) {
-			await this.postDiffBehaviorUtils.handlePostDiffFocus()
-		}
+		await this.postDiffBehaviorUtils.handlePostDiffFocus()
 
 		// Edit is done.
 		this.resetWithListeners()
@@ -671,7 +666,7 @@ export class DiffViewProvider {
 			const title = `${fileName}: ${fileExists ? "Original ↔ Roo's Changes" : "New File"} (Editable)`
 			const textDocumentShowOptions: TextDocumentShowOptions = {
 				preview: false,
-				preserveFocus: !settings.streamFocus,
+				preserveFocus: !settings.autoFocus,
 				viewColumn: this.viewColumn,
 			}
 			// set interaction flag to true to prevent autoFocus from being triggered
@@ -707,20 +702,6 @@ export class DiffViewProvider {
 							await new Promise((resolve) => setTimeout(resolve, 50))
 							const beginningOfDocument = new vscode.Position(0, 0)
 							diffEditor.selection = new vscode.Selection(beginningOfDocument, beginningOfDocument)
-						}
-
-						// if this happens in a window different from the active one, we need to show the document
-						// This logic should not run when auto-focus is enabled, as it would steal focus from the diff view.
-						if (previousEditor && !settings.autoFocus) {
-							await this.showTextDocumentSafe({
-								textDocument: previousEditor.document,
-								options: {
-									preview: false,
-									preserveFocus: true, // Always preserve focus here to avoid stealing it from the diff view
-									selection: previousEditor.selection,
-									viewColumn: previousEditor.viewColumn,
-								},
-							})
 						}
 
 						// Resolve the promise with the diff editor

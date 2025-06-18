@@ -50,9 +50,12 @@ export class PostDiffViewBehaviorUtils {
 	 * Future implementation will support configurable focus behavior.
 	 */
 	public async handlePostDiffFocus(): Promise<void> {
-		// The most consistent and least surprising behavior is to always attempt
-		// to return focus to whatever editor was active before the diff began.
-		await this.focusOnPreDiffActiveTab()
+		const settings = await this._readDiffSettings()
+		if (settings.autoFocus) {
+			await this.focusOnEditedFile()
+		} else {
+			await this.focusOnPreDiffActiveTab()
+		}
 	}
 	private async _readDiffSettings(): Promise<DiffSettings> {
 		const config = vscode.workspace.getConfiguration("roo-cline")
