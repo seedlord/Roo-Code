@@ -10,9 +10,16 @@ interface ReasoningBlockProps {
 	elapsed?: number
 	isCollapsed?: boolean
 	onToggleCollapse?: () => void
+	modelMaxThinkingTokens?: number
 }
 
-export const ReasoningBlock = ({ content, elapsed, isCollapsed = false, onToggleCollapse }: ReasoningBlockProps) => {
+export const ReasoningBlock = ({
+	content,
+	elapsed,
+	isCollapsed = false,
+	onToggleCollapse,
+	modelMaxThinkingTokens,
+}: ReasoningBlockProps) => {
 	const contentRef = useRef<HTMLDivElement>(null)
 	const elapsedRef = useRef<number>(0)
 	const { t } = useTranslation("chat")
@@ -80,6 +87,11 @@ export const ReasoningBlock = ({ content, elapsed, isCollapsed = false, onToggle
 					{prevThought}
 				</div>
 				<div className="flex flex-row items-center gap-1">
+					{modelMaxThinkingTokens && (
+						<div className="text-xs text-muted-foreground">
+							{content.length} / {modelMaxThinkingTokens}
+						</div>
+					)}
 					{elapsedRef.current > 1000 && (
 						<>
 							<CounterClockwiseClockIcon className="scale-80" />

@@ -1223,6 +1223,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					isStreaming={isStreaming}
 					onSuggestionClick={handleSuggestionClickInRow} // This was already stabilized
 					onBatchFileResponse={handleBatchFileResponse}
+					modelMaxThinkingTokens={apiConfiguration?.modelMaxThinkingTokens}
 				/>
 			)
 		},
@@ -1235,6 +1236,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			isStreaming,
 			handleSuggestionClickInRow,
 			handleBatchFileResponse,
+			apiConfiguration?.modelMaxThinkingTokens,
 		],
 	)
 

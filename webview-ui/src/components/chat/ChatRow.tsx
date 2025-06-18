@@ -50,6 +50,7 @@ interface ChatRowProps {
 	onHeightChange: (isTaller: boolean) => void
 	onSuggestionClick?: (answer: string, event?: React.MouseEvent) => void
 	onBatchFileResponse?: (response: { [key: string]: boolean }) => void
+	modelMaxThinkingTokens?: number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -99,6 +100,7 @@ export const ChatRowContent = ({
 	onToggleExpand,
 	onSuggestionClick,
 	onBatchFileResponse,
+	modelMaxThinkingTokens,
 }: ChatRowContentProps) => {
 	const { t } = useTranslation()
 	const { mcpServers, alwaysAllowMcp, currentCheckpoint } = useExtensionState()
@@ -904,6 +906,7 @@ export const ChatRowContent = ({
 							elapsed={isLast && isStreaming ? Date.now() - message.ts : undefined}
 							isCollapsed={reasoningCollapsed}
 							onToggleCollapse={() => setReasoningCollapsed(!reasoningCollapsed)}
+							modelMaxThinkingTokens={modelMaxThinkingTokens}
 						/>
 					)
 				case "api_req_started":
