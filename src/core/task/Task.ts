@@ -667,11 +667,15 @@ export class Task extends EventEmitter<ClineEvents> {
 						this.lastMessageTs = lastMessage.ts
 					}
 
-					if (type === "reasoning") {
-						lastMessage.thinkingDurationMs = Date.now() - lastMessage.ts
-					}
-
 					lastMessage.text = text
+
+					if (type === "reasoning") {
+						const thinkingDurationMs = Date.now() - lastMessage.ts
+						lastMessage.thinkingDurationMs = thinkingDurationMs
+						if (thinkingDurationMs > 0 && lastMessage.text) {
+							lastMessage.thinkingTokensPerSecond = lastMessage.text.length / (thinkingDurationMs / 1000)
+						}
+					}
 					lastMessage.images = images
 					lastMessage.partial = false
 					lastMessage.progressStatus = progressStatus

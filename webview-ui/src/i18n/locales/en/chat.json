@@ -240,7 +240,8 @@
 	"reasoning": {
 		"thinking": "Thinking",
 		"seconds": "{{count}}s",
-		"seconds_short": "{{time}}s"
+		"seconds_short": "{{time}}s",
+		"tokens_per_second": "{{rate}} t/s"
 	},
 	"followUpSuggest": {
 		"copyToInput": "Copy to input (same as shift + click)"

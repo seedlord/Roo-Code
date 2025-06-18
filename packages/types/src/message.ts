@@ -155,6 +155,7 @@ export const clineMessageSchema = z.object({
 	contextCondense: contextCondenseSchema.optional(),
 	isProtected: z.boolean().optional(),
 	thinkingDurationMs: z.number().optional(),
+	thinkingTokensPerSecond: z.number().optional(),
 })
 
 export type ClineMessage = z.infer<typeof clineMessageSchema>

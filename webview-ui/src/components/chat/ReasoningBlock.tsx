@@ -28,6 +28,7 @@ interface ReasoningBlockProps {
 	content: string
 	durationMs?: number // Final duration in ms
 	startTimeTs?: number // Start timestamp for a live timer
+	thinkingTokensPerSecond?: number
 	isCollapsed?: boolean
 	onToggleCollapse?: () => void
 	modelMaxThinkingTokens?: number
@@ -37,6 +38,7 @@ export const ReasoningBlock = ({
 	content,
 	durationMs,
 	startTimeTs,
+	thinkingTokensPerSecond,
 	isCollapsed = false,
 	onToggleCollapse,
 	modelMaxThinkingTokens,
@@ -53,6 +55,7 @@ export const ReasoningBlock = ({
 
 	// Timer logic
 	const [displayTime, setDisplayTime] = useState(durationMs || 0)
+	const [displayRate, setDisplayRate] = useState(thinkingTokensPerSecond || 0)
 	const isThinking = typeof startTimeTs === "number" && startTimeTs > 0
 
 	useEffect(() => {
@@ -60,9 +63,12 @@ export const ReasoningBlock = ({
 		if (durationMs) {
 			setDisplayTime(durationMs)
 		}
+		if (thinkingTokensPerSecond) {
+			setDisplayRate(thinkingTokensPerSecond)
+		}
 		// If we are not thinking and have no final duration, do nothing.
 		// This will keep the last `displayTime` from the live timer on screen.
-	}, [durationMs])
+	}, [durationMs, thinkingTokensPerSecond])
 
 	useInterval(
 		() => {
@@ -73,6 +79,15 @@ export const ReasoningBlock = ({
 		},
 		isThinking ? 100 : null, // Only run the interval when thinking.
 	)
+
+	useEffect(() => {
+		if (isThinking) {
+			const elapsed = Date.now() - startTimeTs
+			if (elapsed > 0) {
+				setDisplayRate(content.length / (elapsed / 1000))
+			}
+		}
+	}, [content, isThinking, startTimeTs])
 
 	useEffect(() => {
 		if (contentRef.current && !isCollapsed) {
@@ -131,16 +146,25 @@ export const ReasoningBlock = ({
 							{content.length} / {modelMaxThinkingTokens}
 						</div>
 					)}
-					{displayTime > 0 && (
-						<>
-							<CounterClockwiseClockIcon className="scale-80" />
-							<div>
-								{t("reasoning.seconds_short", {
-									time: (displayTime / 1000).toFixed(1),
+					<div className="flex flex-col items-end">
+						{displayTime > 0 && (
+							<div className="flex items-center">
+								<CounterClockwiseClockIcon className="scale-80" />
+								<div>
+									{t("reasoning.seconds_short", {
+										time: (displayTime / 1000).toFixed(1),
+									})}
+								</div>
+							</div>
+						)}
+						{displayRate > 0 && (
+							<div className="text-xs">
+								{t("reasoning.tokens_per_second", {
+									rate: displayRate.toFixed(1),
 								})}
 							</div>
-						</>
-					)}
+						)}
+					</div>
 					{isCollapsed ? <CaretDownIcon /> : <CaretUpIcon />}
 				</div>
 			</div>

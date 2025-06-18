@@ -905,6 +905,7 @@ export const ChatRowContent = ({
 							content={message.text || ""}
 							durationMs={message.thinkingDurationMs}
 							startTimeTs={isLast && isStreaming ? message.ts : undefined}
+							thinkingTokensPerSecond={message.thinkingTokensPerSecond}
 							isCollapsed={reasoningCollapsed}
 							onToggleCollapse={() => setReasoningCollapsed(!reasoningCollapsed)}
 							modelMaxThinkingTokens={modelMaxThinkingTokens}
