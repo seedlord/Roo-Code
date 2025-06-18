@@ -1474,20 +1474,26 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							initialTopMostItemIndex={groupedMessages.length - 1}
 						/>
 					</div>
-					<div className="flex flex-col mb-2 px-[15px]">
+					<div
+						className={`flex flex-col px-[15px] ${
+							primaryButtonText || secondaryButtonText || isStreaming || showScrollToBottom
+								? "mb-2"
+								: "mb-1"
+						}`}>
 						<AutoApproveMenu />
 						{(primaryButtonText || secondaryButtonText || isStreaming || showScrollToBottom) && (
-							<div className="flex items-center mt-0.5 min-h-[27px]">
+							<div className="flex items-center mt-0.5 min-h-[28px]">
 								{showScrollToBottom ? (
-									<div
-										className="bg-[color-mix(in_srgb,_var(--vscode-toolbar-hoverBackground)_55%,_transparent)] rounded-[3px] overflow-hidden cursor-pointer flex justify-center items-center flex-1 h-[25px] hover:bg-[color-mix(in_srgb,_var(--vscode-toolbar-hoverBackground)_90%,_transparent)] active:bg-[color-mix(in_srgb,_var(--vscode-toolbar-hoverBackground)_70%,_transparent)]"
+									<VSCodeButton
+										appearance="secondary"
+										className="flex-1 rounded"
 										onClick={() => {
 											scrollToBottomSmooth()
 											disableAutoScrollRef.current = false
 										}}
 										title={t("chat:scrollToBottom")}>
-										<span className="codicon codicon-chevron-down text-[18px]"></span>
-									</div>
+										<span className="codicon codicon-chevron-down"></span>
+									</VSCodeButton>
 								) : (
 									<div
 										className={`flex w-full ${
@@ -1501,7 +1507,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 											<VSCodeButton
 												appearance="primary"
 												disabled={!enableButtons}
-												className={secondaryButtonText ? "flex-1 mr-1.5" : "flex-[2] mr-0"}
+												className={`${secondaryButtonText ? "flex-1 mr-1.5" : "flex-[2] mr-0"} rounded`}
 												title={
 													primaryButtonText === t("chat:retry.title")
 														? t("chat:retry.tooltip")
@@ -1536,7 +1542,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 											<VSCodeButton
 												appearance="secondary"
 												disabled={!enableButtons && !(isStreaming && !didClickCancel)}
-												className={isStreaming ? "flex-[2] ml-0" : "flex-1 ml-1.5"}
+												className={`${isStreaming ? "flex-[2] ml-0" : "flex-1 ml-1.5"} rounded`}
 												title={
 													isStreaming
 														? t("chat:cancel.tooltip")

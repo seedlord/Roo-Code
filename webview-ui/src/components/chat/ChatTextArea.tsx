@@ -925,7 +925,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 										? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
 										: isDraggingOver
 											? "border-2 border-dashed border-vscode-focusBorder"
-											: "border border-transparent",
+											: "border border-vscode-border",
 									isDraggingOver
 										? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
 										: "bg-vscode-input-background",
