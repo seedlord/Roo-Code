@@ -19,6 +19,7 @@ import Thumbnails from "../common/Thumbnails"
 import { TaskActions } from "./TaskActions"
 import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
+import TaskTimeline from "./TaskTimeline"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
@@ -32,6 +33,7 @@ export interface TaskHeaderProps {
 	buttonsDisabled: boolean
 	handleCondenseContext: (taskId: string) => void
 	onClose: () => void
+	onScrollToMessage?: (messageIndex: number) => void
 }
 
 const TaskHeader = ({
@@ -46,9 +48,10 @@ const TaskHeader = ({
 	buttonsDisabled,
 	handleCondenseContext,
 	onClose,
+	onScrollToMessage,
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
-	const { apiConfiguration, currentTaskItem } = useExtensionState()
+	const { apiConfiguration, currentTaskItem, clineMessages } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 
@@ -183,7 +186,7 @@ const TaskHeader = ({
 								</div>
 								{!totalCost && <TaskActions item={currentTaskItem} buttonsDisabled={buttonsDisabled} />}
 							</div>
-
+							<TaskTimeline messages={clineMessages} onBlockClick={onScrollToMessage} />
 							{doesModelSupportPromptCache &&
 								((typeof cacheReads === "number" && cacheReads > 0) ||
 									(typeof cacheWrites === "number" && cacheWrites > 0)) && (

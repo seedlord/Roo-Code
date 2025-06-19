@@ -38,6 +38,7 @@ export const clineAsks = [
 	"browser_action_launch",
 	"use_mcp_server",
 	"auto_approval_max_req_reached",
+	"plan_mode_respond",
 ] as const
 
 export const clineAskSchema = z.enum(clineAsks)
@@ -106,6 +107,9 @@ export const clineSays = [
 	"condense_context",
 	"condense_context_error",
 	"codebase_search_result",
+	"task",
+	"tool",
+	"command",
 ] as const
 
 export const clineSaySchema = z.enum(clineSays)

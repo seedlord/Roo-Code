@@ -146,6 +146,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	const disableAutoScrollRef = useRef(false)
 	const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 	const [isAtBottom, setIsAtBottom] = useState(false)
+	const [pendingScrollToMessage, setPendingScrollToMessage] = useState<number | null>(null)
 	const lastTtsRef = useRef<string>("")
 	const [wasStreaming, setWasStreaming] = useState<boolean>(false)
 	const [showCheckpointWarning, setShowCheckpointWarning] = useState<boolean>(false)
@@ -1108,6 +1109,61 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		})
 	}, [])
 
+	const scrollToMessage = useCallback(
+		(messageIndex: number) => {
+			setPendingScrollToMessage(messageIndex)
+
+			const targetMessage = messages[messageIndex]
+			if (!targetMessage) {
+				setPendingScrollToMessage(null)
+				return
+			}
+
+			const visibleIndex = visibleMessages.findIndex((msg) => msg.ts === targetMessage.ts)
+			if (visibleIndex === -1) {
+				setPendingScrollToMessage(null)
+				return
+			}
+
+			let groupIndex = -1
+			let _currentVisibleIndex = 0
+
+			for (let i = 0; i < groupedMessages.length; i++) {
+				const group = groupedMessages[i]
+				if (Array.isArray(group)) {
+					const groupSize = group.length
+					const messageInGroup = group.some((msg) => msg.ts === targetMessage.ts)
+					if (messageInGroup) {
+						groupIndex = i
+						break
+					}
+					_currentVisibleIndex += groupSize
+				} else {
+					if (group.ts === targetMessage.ts) {
+						groupIndex = i
+						break
+					}
+					_currentVisibleIndex++
+				}
+			}
+
+			if (groupIndex !== -1) {
+				setPendingScrollToMessage(null)
+				disableAutoScrollRef.current = true
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						virtuosoRef.current?.scrollToIndex({
+							index: groupIndex,
+							align: "start",
+							behavior: "smooth",
+						})
+					})
+				})
+			}
+		},
+		[messages, visibleMessages, groupedMessages],
+	)
+
 	const handleSetExpandedRow = useCallback(
 		(ts: number, expand?: boolean) => {
 			setExpandedRows((prev) => ({ ...prev, [ts]: expand === undefined ? !prev[ts] : expand }))
@@ -1149,6 +1205,12 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			}
 		}
 	}, [groupedMessages.length, scrollToBottomSmooth])
+
+	useEffect(() => {
+		if (pendingScrollToMessage !== null) {
+			scrollToMessage(pendingScrollToMessage)
+		}
+	}, [pendingScrollToMessage, groupedMessages, scrollToMessage])
 
 	const handleWheel = useCallback((event: Event) => {
 		const wheelEvent = event as WheelEvent
@@ -1379,6 +1441,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						buttonsDisabled={sendingDisabled}
 						handleCondenseContext={handleCondenseContext}
 						onClose={handleTaskCloseButtonClick}
+						onScrollToMessage={scrollToMessage}
 					/>
 
 					{hasSystemPromptOverride && (
