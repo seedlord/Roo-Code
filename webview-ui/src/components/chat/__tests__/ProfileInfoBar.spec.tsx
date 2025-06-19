@@ -1,35 +1,35 @@
 import React from "react"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import "@testing-library/jest-dom"
 import { I18nextProvider } from "react-i18next"
-import { setupI18nForTests } from "../../../i18n/test-utils"
+import i18n from "../../../i18n/setup"
 import { ExtensionStateContext, ExtensionStateContextType } from "../../../context/ExtensionStateContext"
 import { ProfileInfoBar } from "../ProfileInfoBar"
 import { ModelInfo, ProviderSettings } from "@roo-code/types"
+import { vi, describe, it, expect, beforeEach, Mock } from "vitest"
 
 // Mock ResizeObserver for JSDOM at the top level
-global.ResizeObserver = jest.fn().mockImplementation(() => ({
-	observe: jest.fn(),
-	unobserve: jest.fn(),
-	disconnect: jest.fn(),
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+	observe: vi.fn(),
+	unobserve: vi.fn(),
+	disconnect: vi.fn(),
 }))
 
 // Mock vscode API
-jest.mock("@/utils/vscode", () => ({
+vi.mock("@/utils/vscode", () => ({
 	vscode: {
-		postMessage: jest.fn(),
+		postMessage: vi.fn(),
 	},
 }))
 import { vscode } from "@/utils/vscode"
 
 // Mock the useSelectedModel hook
-const mockUseSelectedModel = jest.fn()
-jest.mock("../../ui/hooks/useSelectedModel", () => ({
+const mockUseSelectedModel = vi.fn()
+vi.mock("../../ui/hooks/useSelectedModel", () => ({
 	useSelectedModel: (config: any) => mockUseSelectedModel(config),
 }))
 
 // Mock UI components
-jest.mock("@vscode/webview-ui-toolkit/react", () => ({
+vi.mock("@vscode/webview-ui-toolkit/react", () => ({
 	VSCodeBadge: ({ children }: { children: React.ReactNode }) => <span data-testid="vscode-badge">{children}</span>,
 	VSCodeCheckbox: ({
 		children,
@@ -67,15 +67,18 @@ jest.mock("@vscode/webview-ui-toolkit/react", () => ({
 	),
 }))
 
-jest.mock("react-i18next", () => ({
-	...jest.requireActual("react-i18next"),
-	Trans: ({ i18nKey, children }: { i18nKey?: string; children: React.ReactNode }) => <>{children || i18nKey}</>,
-	useTranslation: () => ({ t: (key: string) => key }),
-}))
+vi.mock("react-i18next", async () => {
+	const original = await vi.importActual<typeof import("react-i18next")>("react-i18next")
+	return {
+		...original,
+		Trans: ({ i18nKey, children }: { i18nKey?: string; children: React.ReactNode }) => <>{children || i18nKey}</>,
+		useTranslation: () => ({ t: (key: string) => key }),
+	}
+})
 
 // Mock model data directly
-jest.mock("@roo-code/types", () => {
-	const originalModule = jest.requireActual("@roo-code/types")
+vi.mock("@roo-code/types", async () => {
+	const originalModule = await vi.importActual<typeof import("@roo-code/types")>("@roo-code/types")
 	return {
 		...originalModule,
 		openAiNativeModels: {
@@ -106,8 +109,6 @@ jest.mock("@roo-code/types", () => {
 		},
 	}
 })
-
-const i18n = setupI18nForTests()
 
 const mockApiConfiguration: ProviderSettings = {
 	apiProvider: "openai",
@@ -158,7 +159,7 @@ const TestWrapper: React.FC<{
 				{
 					apiConfiguration: mockApiConfiguration,
 					currentApiConfigName: "default",
-					setIsAwaitingConfigurationUpdate: jest.fn(),
+					setIsAwaitingConfigurationUpdate: vi.fn(),
 					routerModels: mockRouterModels,
 					...state,
 				} as unknown as ExtensionStateContextType
@@ -170,7 +171,7 @@ const TestWrapper: React.FC<{
 
 describe("ProfileInfoBar", () => {
 	beforeEach(() => {
-		;(vscode.postMessage as jest.Mock).mockClear()
+		;(vscode.postMessage as Mock).mockClear()
 		mockUseSelectedModel.mockReturnValue({
 			id: "gpt-4",
 			info: {
