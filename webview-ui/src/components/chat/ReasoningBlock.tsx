@@ -146,7 +146,14 @@ export const ReasoningBlock = ({
 							{content.length} / {modelMaxThinkingTokens}
 						</div>
 					)}
-					<div className="flex flex-col items-end">
+					<div className="flex items-center text-xs gap-1">
+						{displayRate > 0 && (
+							<div>
+								{t("reasoning.tokens_per_second", {
+									rate: displayRate.toFixed(1),
+								})}
+							</div>
+						)}
 						{displayTime > 0 && (
 							<div className="flex items-center">
 								<CounterClockwiseClockIcon className="scale-80" />
@@ -155,13 +162,6 @@ export const ReasoningBlock = ({
 										time: (displayTime / 1000).toFixed(1),
 									})}
 								</div>
-							</div>
-						)}
-						{displayRate > 0 && (
-							<div className="text-xs">
-								{t("reasoning.tokens_per_second", {
-									rate: displayRate.toFixed(1),
-								})}
 							</div>
 						)}
 					</div>
