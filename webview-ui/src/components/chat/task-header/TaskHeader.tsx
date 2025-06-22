@@ -13,8 +13,10 @@ import { cn } from "@src/lib/utils"
 import { Button } from "@src/components/ui"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useSelectedModel } from "@/components/ui/hooks/useSelectedModel"
+// import { TaskServiceClient } from "@src/services/grpc-client"
 
 import Thumbnails from "../../common/Thumbnails"
+import HeroTooltip from "../../common/HeroTooltip"
 
 import { TaskActions } from "../TaskActions"
 import { ContextWindowProgress } from "../ContextWindowProgress"
@@ -72,6 +74,13 @@ const TaskHeader = ({
 			<FoldVertical size={16} />
 		</button>
 	)
+
+	const shouldShowPromptCacheInfo = () => {
+		return (
+			doesModelSupportPromptCache &&
+			((cacheReads !== undefined && cacheReads > 0) || (cacheWrites !== undefined && cacheWrites > 0))
+		)
+	}
 
 	return (
 		<div className="py-2 px-3">
@@ -174,16 +183,20 @@ const TaskHeader = ({
 								<div className="flex items-center gap-1 flex-wrap">
 									<span className="font-bold">{t("chat:task.tokens")}</span>
 									{typeof tokensIn === "number" && tokensIn > 0 && (
-										<span className="flex items-center gap-0.5">
-											<i className="codicon codicon-arrow-up text-xs font-bold" />
-											{formatLargeNumber(tokensIn)}
-										</span>
+										<HeroTooltip content="Prompt Tokens">
+											<span className="flex items-center gap-0.5 cursor-pointer">
+												<i className="codicon codicon-arrow-up text-xs font-bold" />
+												{formatLargeNumber(tokensIn)}
+											</span>
+										</HeroTooltip>
 									)}
 									{typeof tokensOut === "number" && tokensOut > 0 && (
-										<span className="flex items-center gap-0.5">
-											<i className="codicon codicon-arrow-down text-xs font-bold" />
-											{formatLargeNumber(tokensOut)}
-										</span>
+										<HeroTooltip content="Completion Tokens">
+											<span className="flex items-center gap-0.5 cursor-pointer">
+												<i className="codicon codicon-arrow-down text-xs font-bold" />
+												{formatLargeNumber(tokensOut)}
+											</span>
+										</HeroTooltip>
 									)}
 								</div>
 								{!totalCost && <TaskActions item={currentTaskItem} buttonsDisabled={buttonsDisabled} />}
@@ -201,25 +214,30 @@ const TaskHeader = ({
 							{/* {checkpointTrackerErrorMessage && (
 								<div className="text-vscode-errorForeground text-xs">{checkpointTrackerErrorMessage}</div>
 							)} */}
-							{doesModelSupportPromptCache &&
-								((typeof cacheReads === "number" && cacheReads > 0) ||
-									(typeof cacheWrites === "number" && cacheWrites > 0)) && (
-									<div className="flex items-center gap-1 flex-wrap h-[20px]">
+							{shouldShowPromptCacheInfo() && (
+								<div className="flex justify-between items-center h-[20px]">
+									<div className="flex items-center gap-1 flex-wrap">
 										<span className="font-bold">{t("chat:task.cache")}</span>
 										{typeof cacheWrites === "number" && cacheWrites > 0 && (
-											<span className="flex items-center gap-0.5">
-												<CloudUpload size={16} />
-												{formatLargeNumber(cacheWrites)}
-											</span>
+											<HeroTooltip content="Tokens written to cache">
+												<span className="flex items-center gap-0.5 cursor-pointer">
+													<CloudUpload size={16} />
+													{formatLargeNumber(cacheWrites)}
+												</span>
+											</HeroTooltip>
 										)}
 										{typeof cacheReads === "number" && cacheReads > 0 && (
-											<span className="flex items-center gap-0.5">
-												<CloudDownload size={16} />
-												{formatLargeNumber(cacheReads)}
-											</span>
+											<HeroTooltip content="Tokens read from cache">
+												<span className="flex items-center gap-0.5 cursor-pointer">
+													<CloudDownload size={16} />
+													{formatLargeNumber(cacheReads)}
+												</span>
+											</HeroTooltip>
 										)}
 									</div>
-								)}
+									<TaskActions item={currentTaskItem} buttonsDisabled={buttonsDisabled} />
+								</div>
+							)}
 
 							{!!totalCost && (
 								<div className="flex justify-between items-center h-[20px]">
