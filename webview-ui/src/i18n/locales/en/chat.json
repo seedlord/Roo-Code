@@ -206,19 +206,16 @@
 		"didSwitchWithReason": "Roo switched to {{mode}} mode because: {{reason}}"
 	},
 	"subtasks": {
-		"subtaskLabel": "Subtask {{count}}",
 		"files": "Files",
 		"executeImmediately": "Execute immediately",
 		"wantsToCreateChild": "Wants to create a child task:",
 		"wantsToCreateChildren": "Wants to create {{count}} child tasks:",
 		"wantsToCreateChildInMode": "Wants to create a new subtask in <1>{{mode}}</1>:",
 		"wantsToCreateSubtaskInMode": "Subtask {{count}} in <1>{{mode}}</1>:",
-		"didCreateChild": "Created a child task:",
 		"wantsToFinish": "Roo wants to finish this subtask",
 		"newTaskContent": "Subtask Instructions",
 		"completionContent": "Subtask Completed",
 		"resultContent": "Subtask Results",
-		"defaultResult": "Please continue to the next task.",
 		"completionInstructions": "Subtask completed! You can review the results and suggest any corrections or next steps. If everything looks good, confirm to return the result to the parent task."
 	},
 	"questions": {
