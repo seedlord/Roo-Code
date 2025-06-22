@@ -488,9 +488,9 @@ export class ClineProvider
 		// This happens when the user closes the view or when the view is closed programmatically
 		webviewView.onDidDispose(
 			async () => {
-				this.log(
-					`[WebviewDebug] onDidDispose triggered. In tab mode: ${inTabMode}. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}`,
-				)
+				// this.log(
+				// 	`[WebviewDebug] onDidDispose triggered. In tab mode: ${inTabMode}. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}`,
+				// )
 				if (inTabMode) {
 					this.log("Disposing ClineProvider instance for tab view")
 					await this.dispose()
@@ -633,9 +633,9 @@ export class ClineProvider
 		await this.updateTaskHistory(tempHistoryItem)
 
 		// Ensure the UI is updated with the new task state.
-		this.log(
-			`[WebviewDebug] initClineWithTask: Before postStateToWebview. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}, View visible: ${this.view?.visible}`,
-		)
+		// this.log(
+		// 	`[WebviewDebug] initClineWithTask: Before postStateToWebview. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}, View visible: ${this.view?.visible}`,
+		// )
 		await this.postStateToWebview()
 
 		this.log(
@@ -713,13 +713,13 @@ export class ClineProvider
 	}
 
 	public async postMessageToWebview(message: ExtensionMessage) {
-		this.log(
-			`[WebviewDebug] postMessageToWebview: view exists: ${!!this.view}, webview exists: ${!!this.view?.webview}, view visible: ${this.view?.visible}, message type: ${message.type}`,
-		)
+		// this.log(
+		// 	`[WebviewDebug] postMessageToWebview: view exists: ${!!this.view}, webview exists: ${!!this.view?.webview}, view visible: ${this.view?.visible}, message type: ${message.type}`,
+		// )
 		if (!this.view || !this.view.webview) {
-			this.log(
-				`[WebviewDebug] Attempted to post message to a disposed or undefined webview. Message type: ${message.type}`,
-			)
+			// this.log(
+			// 	`[WebviewDebug] Attempted to post message to a disposed or undefined webview. Message type: ${message.type}`,
+			// )
 			// Optionally, you could throw an error here or handle it gracefully
 			// For debugging, just logging is fine.
 			return
@@ -727,10 +727,10 @@ export class ClineProvider
 		try {
 			await this.view.webview.postMessage(message)
 		} catch (error) {
-			this.log(`[WebviewDebug] Error posting message to webview: ${error.message}. Message type: ${message.type}`)
+			// this.log(`[WebviewDebug] Error posting message to webview: ${error.message}. Message type: ${message.type}`)
 			// Potentially re-throw or handle if this indicates a disposed webview
 			if (error.message.includes("disposed")) {
-				this.log("[WebviewDebug] Webview was disposed when trying to post message.")
+				// this.log("[WebviewDebug] Webview was disposed when trying to post message.")
 			}
 		}
 	}
