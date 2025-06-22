@@ -187,6 +187,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		this.state = new TaskState()
 		this.taskId = historyItem ? historyItem.id : crypto.randomUUID()
 		this.childTaskIds = historyItem?.childTaskIds ?? []
+		this.pendingChildTasks = historyItem?.pendingChildTasks ?? []
 		// normal use-case is usually retry similar history task with new workspace
 		this.workspacePath = parentTask
 			? parentTask.workspacePath
@@ -708,7 +709,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		})
 	}
 
-	public async resumePausedTask(lastMessage: string) {
+	public async resumePausedTask(lastMessage: string, childTaskNumber?: number) {
 		// Release this Cline instance from paused state.
 		this.state.isPaused = false
 		this.emit("taskUnpaused")
@@ -717,8 +718,9 @@ export class Task extends EventEmitter<ClineEvents> {
 		// this is the result of what it has done  add the message to the chat
 		// history and to the webview ui.
 		try {
-			// Use a standard "text" message for the UI to ensure it's displayed correctly.
-			await this.say("text", `Sub-task finished with result:\n\n${lastMessage}`)
+			const payload = JSON.stringify({ result: lastMessage, taskNumber: childTaskNumber })
+			// Use a "subtask_result" message for the UI to ensure it's displayed correctly.
+			await this.say("subtask_result", payload)
 
 			// Format the message to the API as a tool result, so the parent task
 			// continues its execution loop instead of terminating.

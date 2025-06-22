@@ -4,7 +4,7 @@ Description: Creates one or more **child tasks** (subtasks) managed by the curre
 
 Parameters:
 - tasks: (required) A **RFC 8259 compliant** JSON array of child task objects to be created. Each object must contain a 'prompt' and 'mode' and can optionally include 'files'.
-  - mode: (optional) The mode to use for the child task. Defaults to the parent task's mode.
+  - mode: (required) The mode to use for the child task. Defaults to the parent task's mode.
   - prompt: (required) The detailed instructions for the child task.
   - files: (optional) An array of file paths relevant to the child task.
 - execute_immediately: (optional, default: false) If 'true', the first child task starts immediately after approval. If 'false', all tasks are added to a pending queue.

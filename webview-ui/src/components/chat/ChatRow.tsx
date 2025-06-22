@@ -1076,7 +1076,14 @@ export const ChatRowContent = ({
 							</div>
 						</div>
 					)
-				case "subtask_result":
+				case "subtask_result": {
+					const payload = safeJsonParse<{ result: string; taskNumber?: number }>(message.text)
+					const resultText = payload?.result ?? message.text // fallback for old messages
+					const taskNumber = payload?.taskNumber
+					const title = taskNumber
+						? t("chat:subtasks.resultContentWithNumber", { number: taskNumber })
+						: t("chat:subtasks.resultContent")
+
 					return (
 						<div>
 							<div
@@ -1101,18 +1108,19 @@ export const ChatRowContent = ({
 										gap: "6px",
 									}}>
 									<span className="codicon codicon-arrow-left"></span>
-									{t("chat:subtasks.resultContent")}
+									{title}
 								</div>
 								<div
 									style={{
 										padding: "12px 16px",
 										backgroundColor: "var(--vscode-editor-background)",
 									}}>
-									<MarkdownBlock markdown={message.text} />
+									<MarkdownBlock markdown={resultText} />
 								</div>
 							</div>
 						</div>
 					)
+				}
 				case "reasoning":
 					return (
 						<ReasoningBlock
