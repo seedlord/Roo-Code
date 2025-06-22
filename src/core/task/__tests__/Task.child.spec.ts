@@ -113,31 +113,28 @@ describe("Task Child Task Management", () => {
 		const childPrompt = "This is a child task"
 		const childFiles = ["/path/to/file1.ts", "/path/to/file2.ts"]
 
-		const newTaskId = await provider.handleNewChildTask(parentTask.taskId, childPrompt, childFiles, false)
+		await parentTask.executeNewChildTaskTool(childPrompt, childFiles, false)
 
-		const updatedParentTask = provider.clineStack.find((t) => t.taskId === parentTask.taskId)
-		expect(updatedParentTask?.pendingChildTasks).toHaveLength(1)
-		const pendingTask = updatedParentTask?.pendingChildTasks[0]
-		expect(pendingTask?.id).toBe(newTaskId)
+		expect(parentTask.pendingChildTasks).toHaveLength(1)
+		const pendingTask = parentTask.pendingChildTasks[0]
 		expect(pendingTask?.prompt).toBe(childPrompt)
-		expect((pendingTask as any)?.files).toEqual(childFiles)
+		expect(pendingTask?.files).toEqual(childFiles)
 	}, 10000)
 
 	test("should start the next pending child task", async () => {
 		const childPrompt = "This is a child task to be executed"
 		const childFiles: string[] = []
-		await provider.handleNewChildTask(parentTask.taskId, childPrompt, childFiles, false)
+		await parentTask.executeNewChildTaskTool(childPrompt, childFiles, false)
 
 		const initClineWithSubTaskSpy = vi
 			.spyOn(provider, "initClineWithSubTask")
 			.mockResolvedValue({ taskId: "mock-child-id" } as any)
 
-		await provider.handleStartNextChildTask(parentTask.taskId)
+		await parentTask.startNextChildTaskTool()
 
-		const updatedParentTask = provider.clineStack.find((t) => t.taskId === parentTask.taskId)
-		expect(updatedParentTask?.pendingChildTasks).toHaveLength(0)
+		expect(parentTask.pendingChildTasks).toHaveLength(0)
 		expect(initClineWithSubTaskSpy).toHaveBeenCalledWith(parentTask, childPrompt, childFiles)
-		expect(updatedParentTask?.activeChildTask).toBeDefined()
+		expect(parentTask.activeChildTask).toBeDefined()
 	}, 10000)
 
 	test("should create and execute a child task immediately", async () => {
@@ -147,13 +144,13 @@ describe("Task Child Task Management", () => {
 		// Ensure the spy is on the actual implementation
 		const initClineWithSubTaskSpy = vi.spyOn(provider, "initClineWithSubTask")
 
-		const childTask = (await provider.handleNewChildTask(parentTask.taskId, childPrompt, childFiles, true)) as Task
+		const childTask = await parentTask.executeNewChildTaskTool(childPrompt, childFiles, true)
 
 		expect(initClineWithSubTaskSpy).toHaveBeenCalledWith(parentTask, childPrompt, childFiles)
 
 		// The new child task should be on top of the stack
 		const currentTask = provider.getCurrentCline()
-		expect(currentTask?.taskId).toBe(childTask.taskId)
+		expect(currentTask?.taskId).toBe((childTask as Task).taskId)
 		expect(currentTask?.parentTask?.taskId).toBe(parentTask.taskId)
 	}, 10000)
 })

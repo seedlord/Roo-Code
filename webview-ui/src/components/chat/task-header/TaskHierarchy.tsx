@@ -12,25 +12,27 @@ interface TaskHierarchyProps {
 }
 
 export const TaskHierarchy: React.FC<TaskHierarchyProps> = ({ currentTask, allTasks, onTaskClick, isTaskExpanded }) => {
-	// get current task's child tasks from history
-	const existingChildTasks = allTasks.filter((task) => task.parentId === currentTask.id)
-	// get current task's pending child tasks from pendingChildTasks
-	const pendingChildTasks = (currentTask.pendingChildTasks || []).map(
-		(pendingTask: { id: string; prompt: string; createdAt: number }, index: number) => ({
-			id: pendingTask.id,
-			ts: pendingTask.createdAt,
-			task: pendingTask.prompt,
-			status: "pending" as const,
-			parentId: currentTask.id,
-			tokensIn: 0,
-			tokensOut: 0,
-			totalCost: 0,
-			number: existingChildTasks.length + index + 1,
-		}),
-	)
+	const childTasks = useMemo(() => {
+		// get current task's child tasks from history
+		const existingChildTasks = allTasks.filter((task) => task.parentId === currentTask.id)
+		// get current task's pending child tasks from pendingChildTasks
+		const pendingChildTasks = (currentTask.pendingChildTasks || []).map(
+			(pendingTask: { id: string; prompt: string; createdAt: number }, index: number) => ({
+				id: pendingTask.id,
+				ts: pendingTask.createdAt,
+				task: pendingTask.prompt,
+				status: "pending" as const,
+				parentId: currentTask.id,
+				tokensIn: 0,
+				tokensOut: 0,
+				totalCost: 0,
+				number: existingChildTasks.length + index + 1,
+			}),
+		)
 
-	// merge existing child tasks and pending child tasks
-	const childTasks = [...existingChildTasks, ...pendingChildTasks].sort((a, b) => b.ts - a.ts)
+		// merge existing child tasks and pending child tasks
+		return [...existingChildTasks, ...pendingChildTasks].sort((a, b) => b.ts - a.ts)
+	}, [currentTask, allTasks])
 	const COLLAPSE_THRESHOLD = 5
 	const COLLAPSED_SHOW_COUNT = 0
 

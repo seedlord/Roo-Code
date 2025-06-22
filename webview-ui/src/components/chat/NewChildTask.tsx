@@ -1,14 +1,15 @@
 import React from "react"
+import { useTranslation } from "react-i18next"
 import { ClineMessage } from "@roo-code/types"
 import { safeJsonParse } from "@roo/safeJsonParse"
-import { ClineSayTool } from "@roo/ExtensionMessage"
 
 interface NewChildTaskProps {
 	message: ClineMessage
 }
 
 export const NewChildTask: React.FC<NewChildTaskProps> = ({ message }) => {
-	const tool = safeJsonParse<ClineSayTool>(message.text)
+	const { t } = useTranslation()
+	const tool = safeJsonParse<any>(message.text)
 
 	if (!tool) {
 		return null
@@ -20,20 +21,12 @@ export const NewChildTask: React.FC<NewChildTaskProps> = ({ message }) => {
 			style={{ color: "var(--vscode-foreground)", marginBottom: "-1.5px" }}></span>
 	)
 
-	const headerStyle: React.CSSProperties = {
-		display: "flex",
-		alignItems: "center",
-		gap: "10px",
-		marginBottom: "10px",
-		wordBreak: "break-word",
-	}
-
 	return (
 		<>
-			<div style={headerStyle}>
+			<div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
 				{toolIcon("split-horizontal")}
 				<span style={{ fontWeight: "bold" }}>
-					{message.type === "ask" ? "Cline wants to create a child task:" : "Cline created a child task:"}
+					{message.type === "ask" ? t("chat:subtasks.wantsToCreateChild") : t("chat:subtasks.didCreateChild")}
 				</span>
 			</div>
 			<div
@@ -44,13 +37,13 @@ export const NewChildTask: React.FC<NewChildTaskProps> = ({ message }) => {
 					border: "1px solid var(--vscode-editorGroup-border)",
 				}}>
 				<div style={{ marginBottom: "8px" }}>
-					<strong>Task:</strong> {tool.prompt}
+					<strong>{t("chat:subtasks.prompt")}:</strong> {tool.prompt}
 				</div>
 				{tool.files && tool.files.length > 0 && (
 					<div style={{ marginBottom: "8px" }}>
-						<strong>Files:</strong>
+						<strong>{t("chat:subtasks.files")}:</strong>
 						<ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-							{tool.files.map((file, index) => (
+							{tool.files.map((file: string, index: number) => (
 								<li key={index} style={{ listStyle: "disc" }}>
 									<code>{file}</code>
 								</li>
@@ -59,9 +52,12 @@ export const NewChildTask: React.FC<NewChildTaskProps> = ({ message }) => {
 					</div>
 				)}
 				<div>
-					<strong>Execute immediately:</strong> {tool.executeImmediately ? "Yes" : "No"}
+					<strong>{t("chat:subtasks.executeImmediately")}:</strong>{" "}
+					{tool.execute_immediately === "true" ? t("common:answers.yes") : t("common:answers.no")}
 				</div>
 			</div>
 		</>
 	)
 }
+
+export default NewChildTask

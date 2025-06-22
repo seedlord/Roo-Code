@@ -205,9 +205,9 @@ export async function writeToFileTool(
 					: undefined,
 			} satisfies ClineSayTool)
 
-			const didApprove = await askApproval("tool", completeMessage, undefined, undefined, isWriteProtected)
+			const result = await askApproval("tool", completeMessage, undefined, undefined, isWriteProtected)
 
-			if (!didApprove) {
+			if (result.response !== "yesButtonClicked") {
 				await cline.diffViewProvider.revertChanges()
 				return
 			}

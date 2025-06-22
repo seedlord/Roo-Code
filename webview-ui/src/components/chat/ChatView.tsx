@@ -573,7 +573,13 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							images: images,
 						})
 					} else {
-						vscode.postMessage({ type: "askResponse", askResponse: "yesButtonClicked" })
+						vscode.postMessage({
+							type: "askResponse",
+							askResponse: "yesButtonClicked",
+							// Pass the original tool message back to the backend
+							// so it knows which tool was approved.
+							text: lastMessage?.text,
+						})
 					}
 					// Clear input state after sending
 					setInputValue("")
@@ -593,7 +599,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			setClineAsk(undefined)
 			setEnableButtons(false)
 		},
-		[clineAsk, startNewTask],
+		[clineAsk, lastMessage?.text, startNewTask],
 	)
 
 	const handleSecondaryButtonClick = useCallback(
@@ -930,7 +936,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					return alwaysAllowModeSwitch
 				}
 
-				if (["newTask", "finishTask"].includes(tool?.tool)) {
+				if (["newTask", "new_child_task", "finishTask"].includes(tool?.tool)) {
 					return alwaysAllowSubtasks
 				}
 

@@ -61,9 +61,9 @@ export async function searchFilesTool(
 			)
 
 			const completeMessage = JSON.stringify({ ...sharedMessageProps, content: results } satisfies ClineSayTool)
-			const didApprove = await askApproval("tool", completeMessage)
+			const result = await askApproval("tool", completeMessage)
 
-			if (!didApprove) {
+			if (result.response !== "yesButtonClicked") {
 				return
 			}
 

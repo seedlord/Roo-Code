@@ -216,6 +216,7 @@ export interface WebviewMessage {
 	config?: Record<string, any> // Add config to the payload
 	visibility?: "organization" | "public" // For share visibility
 	taskId?: string // Add taskId for showTaskWithId
+	params?: Record<string, any>
 }
 
 export const checkoutDiffPayloadSchema = z.object({

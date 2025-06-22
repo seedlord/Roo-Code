@@ -1,18 +1,10 @@
-import { ToolResponse } from "../../shared/tools"
+import { ToolResponse, AskApproval } from "../../shared/tools"
 import { Task } from "../task/Task"
 import { formatResponse } from "../prompts/responses"
 
-import { ClineAsk, ToolProgressStatus } from "@roo-code/types"
-
 export async function viewPendingTasksTool(
 	cline: Task,
-	askApproval: (
-		type: ClineAsk,
-		text?: string,
-		partial?: boolean,
-		progressStatus?: ToolProgressStatus,
-		isProtected?: boolean,
-	) => Promise<boolean>,
+	askApproval: AskApproval,
 	handleError: (action: string, error: Error) => Promise<void>,
 	pushToolResult: (content: ToolResponse) => void,
 ) {
@@ -20,7 +12,8 @@ export async function viewPendingTasksTool(
 		tool: "view_pending_tasks",
 	})
 
-	if (!(await askApproval("tool", toolMessage))) {
+	const result = await askApproval("tool", toolMessage)
+	if (result.response !== "yesButtonClicked") {
 		return
 	}
 

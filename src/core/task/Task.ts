@@ -146,7 +146,8 @@ export class Task extends EventEmitter<ClineEvents> {
 	fuzzyMatchThreshold: number
 
 	// Task Management
-	pendingChildTasks: { id: string; prompt: string; files: string[]; createdAt: number }[] = []
+	childTaskIds: string[] = []
+	pendingChildTasks: { id: string; prompt: string; files: string[]; createdAt: number; mode?: string }[] = []
 	activeChildTask?: Task
 
 	// LLM Messages & Chat Messages
@@ -185,6 +186,7 @@ export class Task extends EventEmitter<ClineEvents> {
 
 		this.state = new TaskState()
 		this.taskId = historyItem ? historyItem.id : crypto.randomUUID()
+		this.childTaskIds = historyItem?.childTaskIds ?? []
 		// normal use-case is usually retry similar history task with new workspace
 		this.workspacePath = parentTask
 			? parentTask.workspacePath
@@ -239,6 +241,7 @@ export class Task extends EventEmitter<ClineEvents> {
 					pendingChildTasks: this.pendingChildTasks,
 					number: this.taskNumber,
 					workspace: this.workspacePath?.split(path.sep).join(path.posix.sep),
+					childTaskIds: this.childTaskIds,
 				}
 			},
 		})
@@ -306,7 +309,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		partial?: boolean,
 		progressStatus?: ToolProgressStatus,
 		isProtected?: boolean,
-	): Promise<{ response: ClineAskResponse; text?: string; images?: string[] }> {
+	): Promise<{ response: ClineAskResponse; text?: string; images?: string[]; params?: Record<string, any> }> {
 		// If this Cline instance was aborted by the provider, then the only
 		// thing keeping us alive is a promise still running in the background,
 		// in which case we don't want to send its result to the webview as it
@@ -363,6 +366,7 @@ export class Task extends EventEmitter<ClineEvents> {
 					this.state.askResponse = undefined
 					this.state.askResponseText = undefined
 					this.state.askResponseImages = undefined
+					this.state.askResponseParams = undefined
 
 					// Bug for the history books:
 					// In the webview we use the ts as the chatrow key for the
@@ -389,6 +393,7 @@ export class Task extends EventEmitter<ClineEvents> {
 					this.state.askResponse = undefined
 					this.state.askResponseText = undefined
 					this.state.askResponseImages = undefined
+					this.state.askResponseParams = undefined
 					askTs = Date.now()
 					this.state.lastMessageTs = askTs
 					await this.messageStateHandler.addToClineMessages({
@@ -405,6 +410,7 @@ export class Task extends EventEmitter<ClineEvents> {
 			this.state.askResponse = undefined
 			this.state.askResponseText = undefined
 			this.state.askResponseImages = undefined
+			this.state.askResponseParams = undefined
 			askTs = Date.now()
 			this.state.lastMessageTs = askTs
 			await this.messageStateHandler.addToClineMessages({ ts: askTs, type: "ask", ask: type, text, isProtected })
@@ -425,10 +431,12 @@ export class Task extends EventEmitter<ClineEvents> {
 			response: this.state.askResponse!,
 			text: this.state.askResponseText,
 			images: this.state.askResponseImages,
+			params: this.state.askResponseParams,
 		}
 		this.state.askResponse = undefined
 		this.state.askResponseText = undefined
 		this.state.askResponseImages = undefined
+		this.state.askResponseParams = undefined
 		this.emit("taskAskResponded")
 		return result
 	}
@@ -502,10 +510,16 @@ export class Task extends EventEmitter<ClineEvents> {
 		)
 	}
 
-	async handleWebviewAskResponse(askResponse: ClineAskResponse, text?: string, images?: string[]) {
+	async handleWebviewAskResponse(
+		askResponse: ClineAskResponse,
+		text?: string,
+		images?: string[],
+		params?: Record<string, any>,
+	) {
 		this.state.askResponse = askResponse
 		this.state.askResponseText = text
 		this.state.askResponseImages = images
+		this.state.askResponseParams = params
 	}
 
 	async handleTerminalOperation(terminalOperation: "continue" | "abort") {
@@ -703,11 +717,14 @@ export class Task extends EventEmitter<ClineEvents> {
 		// this is the result of what it has done  add the message to the chat
 		// history and to the webview ui.
 		try {
-			await this.say("subtask_result", lastMessage)
+			// Use a standard "text" message for the UI to ensure it's displayed correctly.
+			await this.say("text", `Sub-task finished with result:\n\n${lastMessage}`)
 
+			// Format the message to the API as a tool result, so the parent task
+			// continues its execution loop instead of terminating.
 			await this.messageStateHandler.addToApiConversationHistory({
 				role: "user",
-				content: [{ type: "text", text: `[new_task completed] Result: ${lastMessage}` }],
+				content: [{ type: "text", text: `[subtask_result]\n${lastMessage}` }],
 			})
 		} catch (error) {
 			this.providerRef
@@ -1871,4 +1888,101 @@ export class Task extends EventEmitter<ClineEvents> {
 	}
 
 	// Getters
+
+	public getTaskInfo() {
+		return {
+			taskId: this.taskId,
+			parentId: this.parentTask?.taskId,
+			childTaskIds: this.childTaskIds,
+			status: this.state.isComplete
+				? "completed"
+				: this.state.isPaused
+					? "paused"
+					: this.state.abort
+						? "failed"
+						: "running",
+			activeChildTaskId: this.activeChildTask?.taskId,
+			pendingChildTasks: this.pendingChildTasks,
+		}
+	}
+
+	public isPaused(): boolean {
+		return this.state.isPaused
+	}
+
+	// Child Task Management
+	public async executeNewChildTaskTool(
+		childTaskPrompt: string,
+		childTaskFiles?: string[],
+		executeImmediately = false,
+		mode?: string,
+	): Promise<Task | void> {
+		const newTaskId = crypto.randomUUID()
+		this.pendingChildTasks.push({
+			id: newTaskId,
+			prompt: childTaskPrompt,
+			files: childTaskFiles ?? [],
+			createdAt: Date.now(),
+			mode: mode,
+		})
+		this.childTaskIds.push(newTaskId)
+
+		if (executeImmediately) {
+			return await this.startNextChildTask()
+		}
+	}
+
+	public async startNextChildTaskTool(): Promise<void> {
+		if (this.pendingChildTasks.length > 0) {
+			await this.startNextChildTask()
+		} else {
+			await this.say("text", "No pending child tasks to start.")
+		}
+	}
+
+	public async viewPendingTasksTool(): Promise<void> {
+		if (this.pendingChildTasks.length === 0) {
+			await this.say("text", "There are no pending tasks.")
+			return
+		}
+
+		const pendingTaskList = this.pendingChildTasks.map((task, index) => `${index + 1}. ${task.prompt}`).join("\n")
+
+		await this.say("text", `Pending Tasks:\n${pendingTaskList}`)
+	}
+
+	private async startNextChildTask(): Promise<Task | void> {
+		if (this.activeChildTask || this.pendingChildTasks.length === 0) {
+			return
+		}
+
+		const nextTaskInfo = this.pendingChildTasks.shift()
+		if (!nextTaskInfo) return
+
+		const provider = this.providerRef.deref()
+		if (!provider) {
+			console.error("Provider not available to start child task")
+			return
+		}
+
+		const childTask = await provider.initClineWithSubTask(this, nextTaskInfo.prompt, nextTaskInfo.files)
+		this.activeChildTask = childTask
+
+		this.state.isPaused = true
+		this.emit("taskPaused")
+		return childTask
+	}
+
+	private getTaskCreationOptions(): TaskCreationOptions {
+		return {
+			provider: this.providerRef.deref()!,
+			apiConfiguration: this.apiConfiguration,
+			enableDiff: this.diffEnabled,
+			enableCheckpoints: this.enableCheckpoints,
+			fuzzyMatchThreshold: this.fuzzyMatchThreshold,
+			consecutiveMistakeLimit: this.consecutiveMistakeLimit,
+			globalStoragePath: this.globalStoragePath,
+			workspace: this.workspacePath,
+		}
+	}
 }

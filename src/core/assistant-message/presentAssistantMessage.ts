@@ -36,6 +36,15 @@ import { Task } from "../task/Task"
 import { codebaseSearchTool } from "../tools/codebaseSearchTool"
 import { experiments, EXPERIMENT_IDS } from "../../shared/experiments"
 import { applyDiffToolLegacy } from "../tools/applyDiffTool"
+import { ClineAskResponse } from "../../shared/WebviewMessage"
+
+export type AskApproval = (
+	type: ClineAsk,
+	text?: string,
+	partial?: boolean,
+	progressStatus?: ToolProgressStatus,
+	isProtected?: boolean,
+) => Promise<{ response: ClineAskResponse; text?: string; images?: string[]; params?: Record<string, any> }>
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -214,8 +223,28 @@ export async function presentAssistantMessage(cline: Task) {
 						const modeName = getModeBySlug(mode, customModes)?.name ?? mode
 						return `[${block.name} in ${modeName} mode: '${message}']`
 					}
-					case "new_child_task":
-						return `[${block.name} for '${block.params.child_task_prompt}']`
+					case "new_child_task": {
+						const tasksParam = block.params.tasks
+						let taskCount = 0
+						let firstTaskPrompt = ""
+						if (tasksParam) {
+							try {
+								const tasks = JSON.parse(tasksParam)
+								if (Array.isArray(tasks)) {
+									taskCount = tasks.length
+									if (taskCount > 0 && tasks[0].prompt) {
+										firstTaskPrompt = tasks[0].prompt
+									}
+								}
+							} catch (e) {
+								// Ignore parsing errors for description
+							}
+						}
+						if (taskCount > 1) {
+							return `[${block.name} for ${taskCount} tasks, starting with '${firstTaskPrompt}']`
+						}
+						return `[${block.name} for '${firstTaskPrompt || "a new task"}']`
+					}
 					case "start_next_child_task":
 						return `[${block.name}]`
 					case "view_pending_tasks":
@@ -269,49 +298,34 @@ export async function presentAssistantMessage(cline: Task) {
 				cline.state.didAlreadyUseTool = true
 			}
 
-			const askApproval: (
-				type: ClineAsk,
-				text?: string,
-				partial?: boolean,
-				progressStatus?: ToolProgressStatus,
-				isProtected?: boolean,
-			) => Promise<boolean> = async (type, text, partial, progressStatus, isProtected) => {
-				const {
-					response,
-					text: responseText,
-					images,
-				} = await cline.ask(type, text, partial, progressStatus, isProtected)
-
-				if (response !== "yesButtonClicked") {
-					if (responseText) {
-						await cline.say("user_feedback", responseText, images)
+			const askApproval: AskApproval = async (type, text, partial, progressStatus, isProtected) => {
+				const result = await cline.ask(type, text, partial, progressStatus, isProtected)
+				if (result.response !== "yesButtonClicked") {
+					if (result.text) {
+						await cline.say("user_feedback", result.text, result.images)
 						pushToolResult(
-							formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(responseText), images),
+							formatResponse.toolResult(
+								formatResponse.toolDeniedWithFeedback(result.text),
+								result.images,
+							),
 						)
 					} else {
 						pushToolResult(formatResponse.toolDenied())
 					}
 					cline.state.didRejectTool = true
-					return false
-				}
-
-				if (responseText) {
-					await cline.say("user_feedback", responseText, images)
+				} else if (result.text) {
+					await cline.say("user_feedback", result.text, result.images)
 					pushToolResult(
-						formatResponse.toolResult(formatResponse.toolApprovedWithFeedback(responseText), images),
+						formatResponse.toolResult(formatResponse.toolApprovedWithFeedback(result.text), result.images),
 					)
 				}
-
-				return true
+				return result
 			}
 
-			const askFinishSubTaskApproval = async () => {
-				// Ask the user to approve this task has completed, and he has
-				// reviewed it, and we can declare task is finished and return
-				// control to the parent task to continue running the rest of
-				// the sub-tasks.
+			const askFinishSubTaskApproval = async (): Promise<boolean> => {
 				const toolMessage = JSON.stringify({ tool: "finishTask" })
-				return await askApproval("tool", toolMessage)
+				const result = await askApproval("tool", toolMessage)
+				return result.response === "yesButtonClicked"
 			}
 
 			const handleError = async (action: string, error: Error) => {

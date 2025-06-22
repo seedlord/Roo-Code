@@ -943,8 +943,7 @@ describe("Cline", () => {
 						type: "tool_use",
 						name: "new_child_task",
 						params: {
-							child_task_prompt: childTaskPrompt,
-							child_task_files: JSON.stringify(childTaskFiles),
+							tasks: JSON.stringify([{ prompt: childTaskPrompt, files: childTaskFiles }]),
 							execute_immediately: executeImmediately.toString(),
 						},
 						partial: false,
@@ -954,9 +953,9 @@ describe("Cline", () => {
 						response: "yesButtonClicked",
 					})
 
-					const handleNewChildTaskSpy = vi
-						.spyOn(mockProvider, "handleNewChildTask")
-						.mockResolvedValue("child-task-id")
+					const executeNewChildTaskToolSpy = vi
+						.spyOn(cline, "executeNewChildTaskTool")
+						.mockResolvedValue(undefined)
 
 					cline.state.assistantMessageContent = [newChildTaskToolUse]
 					await presentAssistantMessage(cline)
@@ -968,8 +967,7 @@ describe("Cline", () => {
 						undefined,
 						undefined,
 					)
-					expect(handleNewChildTaskSpy).toHaveBeenCalledWith(
-						cline.taskId,
+					expect(executeNewChildTaskToolSpy).toHaveBeenCalledWith(
 						childTaskPrompt,
 						childTaskFiles,
 						executeImmediately,
@@ -997,7 +995,7 @@ describe("Cline", () => {
 					})
 
 					const handleStartNextChildTaskSpy = vi
-						.spyOn(mockProvider, "handleStartNextChildTask")
+						.spyOn(cline, "startNextChildTaskTool")
 						.mockResolvedValue(undefined)
 
 					cline.state.assistantMessageContent = [startNextChildTaskToolUse]
@@ -1010,7 +1008,7 @@ describe("Cline", () => {
 						undefined,
 						undefined,
 					)
-					expect(handleStartNextChildTaskSpy).toHaveBeenCalledWith(cline.taskId)
+					expect(handleStartNextChildTaskSpy).toHaveBeenCalled()
 				})
 
 				it("should view pending child tasks", async () => {
@@ -1035,8 +1033,8 @@ describe("Cline", () => {
 
 					const pendingTasks = [{ id: "child-task-id", prompt: "child task", createdAt: Date.now() }]
 					const handleViewPendingTasksSpy = vi
-						.spyOn(mockProvider, "handleViewPendingTasks")
-						.mockResolvedValue(pendingTasks)
+						.spyOn(cline, "viewPendingTasksTool")
+						.mockResolvedValue(undefined)
 
 					cline.state.assistantMessageContent = [viewPendingTasksToolUse]
 					await presentAssistantMessage(cline)
@@ -1048,7 +1046,7 @@ describe("Cline", () => {
 						undefined,
 						undefined,
 					)
-					expect(handleViewPendingTasksSpy).toHaveBeenCalledWith(cline.taskId)
+					expect(handleViewPendingTasksSpy).toHaveBeenCalled()
 				})
 			})
 		})

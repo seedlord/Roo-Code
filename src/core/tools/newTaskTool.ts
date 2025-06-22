@@ -61,9 +61,9 @@ export async function newTaskTool(
 				content: message,
 			})
 
-			const didApprove = await askApproval("tool", toolMessage)
+			const result = await askApproval("tool", toolMessage)
 
-			if (!didApprove) {
+			if (result.response !== "yesButtonClicked") {
 				return
 			}
 

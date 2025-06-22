@@ -1,7 +1,8 @@
 import { ClineAskUseMcpServer } from "../../shared/ExtensionMessage"
-import { ToolUse, RemoveClosingTag, AskApproval, HandleError, PushToolResult } from "../../shared/tools"
+import { ToolUse, RemoveClosingTag, HandleError, PushToolResult } from "../../shared/tools"
 import { Task } from "../task/Task"
 import { formatResponse } from "../prompts/responses"
+import { AskApproval } from "../assistant-message/presentAssistantMessage"
 
 export async function accessMcpResourceTool(
 	cline: Task,
@@ -47,9 +48,9 @@ export async function accessMcpResourceTool(
 				uri,
 			} satisfies ClineAskUseMcpServer)
 
-			const didApprove = await askApproval("use_mcp_server", completeMessage)
+			const result = await askApproval("use_mcp_server", completeMessage)
 
-			if (!didApprove) {
+			if (result.response !== "yesButtonClicked") {
 				return
 			}
 

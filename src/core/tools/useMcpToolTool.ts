@@ -205,9 +205,9 @@ export async function useMcpToolTool(
 		} satisfies ClineAskUseMcpServer)
 
 		const executionId = cline.state.lastMessageTs?.toString() ?? Date.now().toString()
-		const didApprove = await askApproval("use_mcp_server", completeMessage)
+		const result = await askApproval("use_mcp_server", completeMessage)
 
-		if (!didApprove) {
+		if (result.response !== "yesButtonClicked") {
 			return
 		}
 

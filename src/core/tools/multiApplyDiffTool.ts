@@ -538,13 +538,14 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 
 					// Check if file is write-protected
 					const isWriteProtected = cline.rooProtectedController?.isWriteProtected(relPath) || false
-					didApprove = await askApproval(
+					const result = await askApproval(
 						"tool",
 						operationMessage,
 						undefined,
 						toolProgressStatus,
 						isWriteProtected,
 					)
+					didApprove = result.response === "yesButtonClicked"
 				}
 
 				if (!didApprove) {

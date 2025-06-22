@@ -215,11 +215,9 @@ export async function searchAndReplaceTool(
 			diff,
 			isProtected: isWriteProtected,
 		} satisfies ClineSayTool)
-		const didApprove = await cline
-			.ask("tool", completeMessage, isWriteProtected)
-			.then((response) => response.response === "yesButtonClicked")
+		const result = await askApproval("tool", completeMessage, undefined, undefined, isWriteProtected)
 
-		if (!didApprove) {
+		if (result.response !== "yesButtonClicked") {
 			await cline.diffViewProvider.revertChanges()
 			pushToolResult("Changes were rejected by the user.")
 			await cline.diffViewProvider.reset()

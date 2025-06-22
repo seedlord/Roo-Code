@@ -58,7 +58,7 @@ describe("newTaskTool", () => {
 	beforeEach(() => {
 		// Reset mocks before each test
 		vi.clearAllMocks()
-		mockAskApproval.mockResolvedValue(true) // Default to approved
+		mockAskApproval.mockResolvedValue({ response: "yesButtonClicked" }) // Default to approved
 		vi.mocked(getModeBySlug).mockReturnValue({
 			slug: "code",
 			name: "Code Mode",

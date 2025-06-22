@@ -206,7 +206,14 @@
 		"didSwitchWithReason": "Roo switched to {{mode}} mode because: {{reason}}"
 	},
 	"subtasks": {
-		"wantsToCreate": "Roo wants to create a new subtask in {{mode}} mode:",
+		"subtaskLabel": "Subtask {{count}}",
+		"files": "Files",
+		"executeImmediately": "Execute immediately",
+		"wantsToCreateChild": "Wants to create a child task:",
+		"wantsToCreateChildren": "Wants to create {{count}} child tasks:",
+		"wantsToCreateChildInMode": "Wants to create a new subtask in <1>{{mode}}</1>:",
+		"wantsToCreateSubtaskInMode": "Subtask {{count}} in <1>{{mode}}</1>:",
+		"didCreateChild": "Created a child task:",
 		"wantsToFinish": "Roo wants to finish this subtask",
 		"newTaskContent": "Subtask Instructions",
 		"completionContent": "Subtask Completed",

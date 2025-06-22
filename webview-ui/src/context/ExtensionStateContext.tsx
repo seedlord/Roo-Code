@@ -26,6 +26,7 @@ import { convertTextMateToHljs } from "@src/utils/textMateToHljs"
 export interface ExtensionStateContextType extends ExtensionState {
 	historyPreviewCollapsed?: boolean // Add the new state property
 	didHydrateState: boolean
+	modes: ModeConfig[]
 	showWelcome: boolean
 	theme: any
 	mcpServers: McpServer[]
@@ -217,6 +218,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [didHydrateState, setDidHydrateState] = useState(false)
 	const [showWelcome, setShowWelcome] = useState(false)
 	const [theme, setTheme] = useState<any>(undefined)
+	const [modes, setModes] = useState<ModeConfig[]>([])
 	const [filePaths, setFilePaths] = useState<string[]>([])
 	const [openedTabs, setOpenedTabs] = useState<Array<{ label: string; isActive: boolean; path?: string }>>([])
 	const [mcpServers, setMcpServers] = useState<McpServer[]>([])
@@ -259,6 +261,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					if (newState.marketplaceInstalledMetadata !== undefined) {
 						setMarketplaceInstalledMetadata(newState.marketplaceInstalledMetadata)
 					}
+					break
+				}
+				case "modes": {
+					setModes(message.modes ?? [])
 					break
 				}
 				case "theme": {
@@ -334,6 +340,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		...state,
 		didHydrateState,
 		showWelcome,
+		modes,
 		theme,
 		mcpServers,
 		currentCheckpoint,

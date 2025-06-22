@@ -1,50 +1,67 @@
-import { ToolResponse, NewChildTaskToolUse } from "../../shared/tools"
+import { ToolResponse, NewChildTaskToolUse, AskApproval } from "../../shared/tools"
 import { Task } from "../task/Task"
 import { formatResponse } from "../prompts/responses"
 
-import { ClineAsk, ToolProgressStatus } from "@roo-code/types"
+interface ChildTaskInfo {
+	prompt: string
+	files?: string[]
+	mode?: string
+}
 
 export async function newChildTaskTool(
 	cline: Task,
 	toolUse: NewChildTaskToolUse,
-	askApproval: (
-		type: ClineAsk,
-		text?: string,
-		partial?: boolean,
-		progressStatus?: ToolProgressStatus,
-		isProtected?: boolean,
-	) => Promise<boolean>,
+	askApproval: AskApproval,
 	handleError: (action: string, error: Error) => Promise<void>,
 	pushToolResult: (content: ToolResponse) => void,
-	removeClosingTag: (tag: "child_task_prompt" | "child_task_files" | "execute_immediately", text?: string) => string,
+	removeClosingTag: (tag: "tasks" | "execute_immediately", text?: string) => string,
 ) {
-	const prompt = removeClosingTag("child_task_prompt", toolUse.params.child_task_prompt)
-	const filesStr = removeClosingTag("child_task_files", toolUse.params.child_task_files)
+	const tasksStr = removeClosingTag("tasks", toolUse.params.tasks)
 	const executeImmediatelyStr = removeClosingTag("execute_immediately", toolUse.params.execute_immediately)
+	const executeImmediately = executeImmediatelyStr?.trim().toLowerCase() === "true"
+
+	let tasks: ChildTaskInfo[] = []
+	try {
+		tasks = tasksStr ? JSON.parse(tasksStr) : []
+		if (!Array.isArray(tasks) || tasks.some((t) => typeof t.prompt !== "string" || typeof t.mode !== "string")) {
+			throw new Error("Invalid tasks format. Expected an array of objects with 'prompt' and 'mode' properties.")
+		}
+	} catch (error) {
+		await handleError("parsing child tasks", error as Error)
+		return
+	}
 
 	const toolMessage = JSON.stringify({
 		tool: "new_child_task",
-		prompt,
-		files: filesStr,
-		execute_immediately: executeImmediatelyStr,
+		tasks: tasks.map((t) => ({ prompt: t.prompt, files: t.files ?? [], mode: t.mode })),
+		execute_immediately: executeImmediately,
 	})
 
-	if (!(await askApproval("tool", toolMessage))) {
+	const approvalResult = await askApproval("tool", toolMessage)
+
+	if (approvalResult.response !== "yesButtonClicked") {
 		return
 	}
 
 	try {
-		const provider = cline.providerRef.deref()
-		if (!provider) {
-			throw new Error("Provider not available")
+		const finalExecuteImmediately = approvalResult.params?.execute_immediately ?? executeImmediately
+
+		for (const taskInfo of tasks) {
+			await cline.executeNewChildTaskTool(
+				taskInfo.prompt,
+				taskInfo.files ?? [],
+				finalExecuteImmediately,
+				taskInfo.mode,
+			)
 		}
 
-		const files = filesStr ? JSON.parse(filesStr) : []
-		const executeImmediately = executeImmediatelyStr?.toLowerCase() === "true"
-
-		const newTaskId = await provider.handleNewChildTask(cline.taskId, prompt, files, executeImmediately)
-		pushToolResult(formatResponse.toolResult(`Created new child task with ID: ${newTaskId}`))
+		const taskCount = tasks.length
+		const plural = taskCount > 1 ? "s" : ""
+		const message = finalExecuteImmediately
+			? `Created and started ${taskCount} new child task${plural}.`
+			: `Queued ${taskCount} new child task${plural}. Awaiting user's instruction to start.`
+		pushToolResult(formatResponse.toolResult(message))
 	} catch (error) {
-		await handleError("creating new child task", error as Error)
+		await handleError("creating new child task(s)", error as Error)
 	}
 }

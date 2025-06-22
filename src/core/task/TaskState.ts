@@ -5,6 +5,15 @@ import { ToolUsage } from "@roo-code/types"
 import { defaultModeSlug } from "../../shared/modes"
 
 export class TaskState {
+	// Core task state
+	isPaused: boolean = false
+	pausedModeSlug: string = defaultModeSlug
+	pauseInterval: NodeJS.Timeout | undefined
+
+	// Task loop state
+	abort: boolean = false
+	consecutiveMistakeCount: number = 0
+
 	// Streaming flags
 	isStreaming = false
 	isWaitingForFirstChunk = false
@@ -28,6 +37,7 @@ export class TaskState {
 	askResponse?: ClineAskResponse
 	askResponseText?: string
 	askResponseImages?: string[]
+	askResponseParams?: Record<string, any>
 	askResponseFiles?: string[]
 	lastMessageTs?: number
 
@@ -44,7 +54,6 @@ export class TaskState {
 	consecutiveAutoApprovedRequestsCount: number = 0
 
 	// Error tracking
-	consecutiveMistakeCount: number = 0
 	didAutomaticallyRetryFailedApiRequest = false
 	checkpointTrackerErrorMessage?: string
 
@@ -52,15 +61,9 @@ export class TaskState {
 	isInitialized = false
 
 	// Task Abort / Cancellation
-	abort: boolean = false
 	didFinishAbortingStream = false
 	abandoned = false
 	isComplete: boolean = false
-
-	// Pause state
-	isPaused: boolean = false
-	pausedModeSlug: string = defaultModeSlug
-	pauseInterval: NodeJS.Timeout | undefined
 
 	// Tool usage
 	toolUsage: ToolUsage = {}

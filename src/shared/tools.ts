@@ -4,13 +4,15 @@ import type { ClineAsk, ToolProgressStatus, ToolGroup, ToolName } from "@roo-cod
 
 export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 
+import { ClineAskResponse } from "./WebviewMessage"
+
 export type AskApproval = (
 	type: ClineAsk,
 	text?: string,
 	partial?: boolean,
 	progressStatus?: ToolProgressStatus,
 	isProtected?: boolean,
-) => Promise<boolean>
+) => Promise<{ response: ClineAskResponse; text?: string; images?: string[]; params?: Record<string, any> }>
 
 export type HandleError = (action: string, error: Error) => Promise<void>
 
@@ -65,8 +67,7 @@ export const toolParamNames = [
 	"end_line",
 	"query",
 	"args",
-	"child_task_prompt",
-	"child_task_files",
+	"tasks",
 	"execute_immediately",
 ] as const
 
@@ -163,9 +164,7 @@ export interface NewTaskToolUse extends ToolUse {
 
 export interface NewChildTaskToolUse extends ToolUse {
 	name: "new_child_task"
-	params: Partial<
-		Pick<Record<ToolParamName, string>, "child_task_prompt" | "child_task_files" | "execute_immediately">
-	>
+	params: Partial<Pick<Record<ToolParamName, string>, "tasks" | "execute_immediately">>
 }
 
 export interface SearchAndReplaceToolUse extends ToolUse {

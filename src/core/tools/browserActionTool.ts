@@ -66,9 +66,9 @@ export async function browserActionTool(
 				}
 
 				cline.state.consecutiveMistakeCount = 0
-				const didApprove = await askApproval("browser_action_launch", url)
+				const result = await askApproval("browser_action_launch", url)
 
-				if (!didApprove) {
+				if (result.response !== "yesButtonClicked") {
 					return
 				}
 

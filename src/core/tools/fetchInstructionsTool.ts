@@ -30,9 +30,9 @@ export async function fetchInstructionsTool(
 			cline.state.consecutiveMistakeCount = 0
 
 			const completeMessage = JSON.stringify({ ...sharedMessageProps, content: task } satisfies ClineSayTool)
-			const didApprove = await askApproval("tool", completeMessage)
+			const result = await askApproval("tool", completeMessage)
 
-			if (!didApprove) {
+			if (result.response !== "yesButtonClicked") {
 				return
 			}
 

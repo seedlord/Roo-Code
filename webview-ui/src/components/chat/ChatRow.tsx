@@ -5,7 +5,7 @@ import { useTranslation, Trans } from "react-i18next"
 import deepEqual from "fast-deep-equal"
 import { VSCodeBadge, VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 
-import type { ClineMessage } from "@roo-code/types"
+import type { ClineMessage, ModeConfig } from "@roo-code/types"
 
 import { ClineApiReqInfo, ClineAskUseMcpServer, ClineSayTool } from "@roo/ExtensionMessage"
 import { COMMAND_OUTPUT_STRING } from "@roo/combineCommandSequences"
@@ -30,7 +30,6 @@ import McpResourceRow from "../mcp/McpResourceRow"
 import { Mention } from "./Mention"
 import { CheckpointSaved } from "./checkpoints/CheckpointSaved"
 import { FollowUpSuggest } from "./FollowUpSuggest"
-import { NewChildTask } from "./NewChildTask"
 import { BatchFilePermission } from "./BatchFilePermission"
 import { BatchDiffApproval } from "./BatchDiffApproval"
 import { ProgressIndicator } from "./ProgressIndicator"
@@ -40,7 +39,7 @@ import { CommandExecutionError } from "./CommandExecutionError"
 import { AutoApprovedRequestLimitWarning } from "./AutoApprovedRequestLimitWarning"
 import { CondenseContextErrorRow, CondensingContextRow, ContextCondenseRow } from "./ContextCondenseRow"
 import CodebaseSearchResultsDisplay from "./CodebaseSearchResultsDisplay"
-import BackToParent from "./BackToParent"
+import NewChildTask from "./NewChildTask"
 
 interface ChatRowProps {
 	message: ClineMessage
@@ -103,7 +102,7 @@ export const ChatRowContent = ({
 	onBatchFileResponse,
 }: ChatRowContentProps) => {
 	const { t } = useTranslation()
-	const { mcpServers, alwaysAllowMcp, currentCheckpoint } = useExtensionState()
+	const { mcpServers, alwaysAllowMcp, currentCheckpoint, modes } = useExtensionState()
 	const [reasoningCollapsed, setReasoningCollapsed] = useState(true)
 	const [isDiffErrorExpanded, setIsDiffErrorExpanded] = useState(false)
 	const [showCopySuccess, setShowCopySuccess] = useState(false)
@@ -294,6 +293,121 @@ export const ChatRowContent = ({
 		)
 
 		switch (tool.tool) {
+			case "new_child_task":
+				return (
+					<>
+						<div style={headerStyle}>
+							{toolIcon("split-horizontal")}
+							<span style={{ fontWeight: "bold" }}>
+								{tool.tasks && tool.tasks.length > 1
+									? t("chat:subtasks.wantsToCreateChildren", { count: tool.tasks.length })
+									: t("chat:subtasks.wantsToCreateChild")}
+							</span>
+						</div>
+						<div
+							style={{
+								marginTop: "4px",
+								backgroundColor: "var(--vscode-badge-background)",
+								border: "1px solid var(--vscode-badge-background)",
+								borderRadius: "4px 4px 0 0",
+								overflow: "hidden",
+								marginBottom: "2px",
+							}}>
+							<div
+								style={{
+									padding: "9px 10px 9px 14px",
+									backgroundColor: "var(--vscode-badge-background)",
+									borderBottom: "1px solid var(--vscode-editorGroup-border)",
+									fontWeight: "bold",
+									fontSize: "var(--vscode-font-size)",
+									color: "var(--vscode-badge-foreground)",
+									display: "flex",
+									alignItems: "center",
+									gap: "6px",
+								}}>
+								<span className="codicon codicon-arrow-right"></span>
+								{t("chat:subtasks.newTaskContent")}
+							</div>
+							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
+								{Array.isArray(tool.tasks) && tool.tasks.length > 0 ? (
+									<div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+										{tool.tasks.map(
+											(
+												task: { prompt: string; files?: string[]; mode?: string },
+												index: number,
+											) => {
+												const mode = modes.find((m: ModeConfig) => m.slug === task.mode)
+												const modeDisplayName = mode?.name ?? task.mode
+												const isSingleTask = tool.tasks?.length === 1
+
+												return (
+													<div
+														key={index}
+														style={
+															!isSingleTask
+																? {
+																		borderLeft:
+																			"2px solid var(--vscode-focusBorder)",
+																		paddingLeft: "12px",
+																	}
+																: {}
+														}>
+														<div style={{ marginBottom: "4px", fontWeight: "bold" }}>
+															<Trans
+																i18nKey={
+																	isSingleTask
+																		? "chat:subtasks.wantsToCreateChildInMode"
+																		: "chat:subtasks.wantsToCreateSubtaskInMode"
+																}
+																values={{
+																	count: index + 1,
+																	mode: modeDisplayName,
+																}}
+																components={[<code />]}
+															/>
+														</div>
+														<MarkdownBlock markdown={task.prompt} />
+														{task.files && task.files.length > 0 && (
+															<div style={{ marginTop: "8px" }}>
+																<strong>{t("chat:subtasks.files")}:</strong>
+																<ul
+																	style={{
+																		margin: "4px 0 0 20px",
+																		padding: 0,
+																	}}>
+																	{task.files.map(
+																		(file: string, fileIndex: number) => (
+																			<li
+																				key={fileIndex}
+																				style={{ listStyle: "disc" }}>
+																				<code>{file}</code>
+																			</li>
+																		),
+																	)}
+																</ul>
+															</div>
+														)}
+													</div>
+												)
+											},
+										)}
+									</div>
+								) : (
+									<MarkdownBlock markdown={tool.prompt} />
+								)}
+								<div
+									style={{
+										marginTop: "16px",
+										paddingTop: "8px",
+										borderTop: "1px solid var(--vscode-editorGroup-border)",
+									}}>
+									<strong>{t("chat:subtasks.executeImmediately")}:</strong>{" "}
+									{tool.execute_immediately ? t("common:answers.yes") : t("common:answers.no")}
+								</div>
+							</div>
+						</div>
+					</>
+				)
 			case "editedExistingFile":
 			case "appliedDiff":
 				// Check if this is a batch diff request
@@ -638,7 +752,7 @@ export const ChatRowContent = ({
 								</div>
 							)}
 							<div>
-								<strong>Execute immediately:</strong> {tool.executeImmediately ? "Yes" : "No"}
+								<strong>Execute immediately:</strong> {tool.execute_immediately ? "Yes" : "No"}
 							</div>
 						</div>
 					</>
@@ -677,7 +791,7 @@ export const ChatRowContent = ({
 								</div>
 							)}
 							<div>
-								<strong>Execute immediately:</strong> {tool.executeImmediately ? "Yes" : "No"}
+								<strong>Execute immediately:</strong> {tool.execute_immediately ? "Yes" : "No"}
 							</div>
 						</div>
 					</>
@@ -1298,7 +1412,6 @@ export const ChatRowContent = ({
 								<div style={{ color: "var(--vscode-charts-green)", paddingTop: 10 }}>
 									<Markdown markdown={message.text} partial={message.partial} />
 								</div>
-								<BackToParent />
 							</div>
 						)
 					} else {

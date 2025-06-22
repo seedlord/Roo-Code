@@ -1,18 +1,10 @@
-import { ToolResponse } from "../../shared/tools"
+import { ToolResponse, AskApproval } from "../../shared/tools"
 import { Task } from "../task/Task"
 import { formatResponse } from "../prompts/responses"
 
-import { ClineAsk, ToolProgressStatus } from "@roo-code/types"
-
 export async function startNextChildTaskTool(
 	cline: Task,
-	askApproval: (
-		type: ClineAsk,
-		text?: string,
-		partial?: boolean,
-		progressStatus?: ToolProgressStatus,
-		isProtected?: boolean,
-	) => Promise<boolean>,
+	askApproval: AskApproval,
 	handleError: (action: string, error: Error) => Promise<void>,
 	pushToolResult: (content: ToolResponse) => void,
 ) {
@@ -20,17 +12,13 @@ export async function startNextChildTaskTool(
 		tool: "start_next_child_task",
 	})
 
-	if (!(await askApproval("tool", toolMessage))) {
+	const result = await askApproval("tool", toolMessage)
+	if (result.response !== "yesButtonClicked") {
 		return
 	}
 
 	try {
-		const provider = cline.providerRef.deref()
-		if (!provider) {
-			throw new Error("Provider not available")
-		}
-
-		await provider.handleStartNextChildTask(cline.taskId)
+		await cline.startNextChildTaskTool()
 		pushToolResult(formatResponse.toolResult("Started next child task."))
 	} catch (error) {
 		await handleError("starting next child task", error as Error)

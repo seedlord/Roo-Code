@@ -54,8 +54,8 @@ export async function codebaseSearchTool(
 		return
 	}
 
-	const didApprove = await askApproval("tool", JSON.stringify(sharedMessageProps))
-	if (!didApprove) {
+	const result = await askApproval("tool", JSON.stringify(sharedMessageProps))
+	if (result.response !== "yesButtonClicked") {
 		pushToolResult(formatResponse.toolDenied())
 		return
 	}

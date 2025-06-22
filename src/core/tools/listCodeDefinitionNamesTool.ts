@@ -62,9 +62,9 @@ export async function listCodeDefinitionNamesTool(
 			}
 
 			const completeMessage = JSON.stringify({ ...sharedMessageProps, content: result } satisfies ClineSayTool)
-			const didApprove = await askApproval("tool", completeMessage)
+			const approvalResult = await askApproval("tool", completeMessage)
 
-			if (!didApprove) {
+			if (approvalResult.response !== "yesButtonClicked") {
 				return
 			}
 

@@ -238,6 +238,7 @@ export class ClineProvider
 		// Resume the parent task
 		const parentTask = this.getCurrentCline()
 		if (parentTask) {
+			parentTask.activeChildTask = undefined
 			await parentTask.resumePausedTask(lastMessage)
 		}
 		await this.postStateToWebview()
@@ -1984,73 +1985,6 @@ export class ClineProvider
 			modelId: task?.api?.getModel().id,
 			diffStrategy: task?.diffStrategy?.getName(),
 			isSubtask: task ? !!task.parentTask : undefined,
-		}
-	}
-
-	async handleNewChildTask(
-		parentTaskId: string,
-		prompt: string,
-		files: string[],
-		executeImmediately: boolean,
-	): Promise<Task | string> {
-		const parentTask = this.clineStack.find((task) => task.taskId === parentTaskId)
-		if (!parentTask) {
-			throw new Error(`Parent task with ID ${parentTaskId} not found`)
-		}
-
-		if (executeImmediately) {
-			const childTask = await this.initClineWithSubTask(parentTask, prompt, files)
-			return childTask
-		} else {
-			const newTaskId = crypto.randomUUID()
-			const newPendingTask = {
-				id: newTaskId,
-				prompt,
-				files,
-				createdAt: Date.now(),
-			}
-
-			const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
-			const parentHistoryItem = history.find((item) => item.id === parentTaskId)
-			if (parentHistoryItem) {
-				parentHistoryItem.pendingChildTasks = [...(parentHistoryItem.pendingChildTasks || []), newPendingTask]
-				await this.updateTaskHistory(parentHistoryItem)
-			}
-
-			// Update the parent task instance directly
-			parentTask.pendingChildTasks.push(newPendingTask)
-
-			// Post state to webview to update the UI
-			await this.postStateToWebview()
-
-			return newTaskId
-		}
-	}
-
-	async handleStartNextChildTask(parentTaskId: string): Promise<void> {
-		const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
-		const parentHistoryItem = history.find((item) => item.id === parentTaskId)
-
-		if (
-			!parentHistoryItem ||
-			!parentHistoryItem.pendingChildTasks ||
-			parentHistoryItem.pendingChildTasks.length === 0
-		) {
-			throw new Error("No pending child tasks to start")
-		}
-
-		const nextTask = parentHistoryItem.pendingChildTasks.shift()
-		if (nextTask) {
-			const parentTask = this.clineStack.find((task) => task.taskId === parentTaskId)
-			if (!parentTask) {
-				throw new Error(`Parent task with ID ${parentTaskId} not found`)
-			}
-			// Also update the in-memory task instance
-			parentTask.pendingChildTasks = parentTask.pendingChildTasks.filter((t) => t.id !== nextTask.id)
-
-			const childTask = await this.initClineWithSubTask(parentTask, nextTask.prompt, nextTask.files)
-			parentTask.activeChildTask = childTask
-			await this.updateTaskHistory(parentHistoryItem)
 		}
 	}
 

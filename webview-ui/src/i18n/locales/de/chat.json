@@ -192,13 +192,20 @@
 		"didSwitchWithReason": "Roo hat zum <code>{{mode}}</code>-Modus gewechselt, weil: {{reason}}"
 	},
 	"subtasks": {
-		"wantsToCreate": "Roo möchte eine neue Teilaufgabe im <code>{{mode}}</code>-Modus erstellen:",
-		"wantsToFinish": "Roo möchte diese Teilaufgabe abschließen",
-		"newTaskContent": "Teilaufgabenanweisungen",
-		"completionContent": "Teilaufgabe abgeschlossen",
-		"resultContent": "Teilaufgabenergebnisse",
-		"defaultResult": "Bitte fahre mit der nächsten Aufgabe fort.",
-		"completionInstructions": "Teilaufgabe abgeschlossen! Du kannst die Ergebnisse überprüfen und Korrekturen oder nächste Schritte vorschlagen. Wenn alles gut aussieht, bestätige, um das Ergebnis an die übergeordnete Aufgabe zurückzugeben."
+		"subtaskLabel": "Unteraufgabe {{count}}",
+		"files": "Dateien",
+		"executeImmediately": "Sofort ausführen",
+		"wantsToCreateChild": "Möchte eine Kind-Aufgabe erstellen:",
+		"wantsToCreateChildren": "Möchte {{count}} Kind-Aufgaben erstellen:",
+		"wantsToCreateChildInMode": "Möchte eine neue Unteraufgabe in <1>{{mode}}</1> erstellen:",
+		"wantsToCreateSubtaskInMode": "Unteraufgabe {{count}} in <1>{{mode}}</1>:",
+		"didCreateChild": "Kind-Aufgabe erstellt:",
+		"wantsToFinish": "Roo möchte diese Unteraufgabe abschließen",
+		"newTaskContent": "Anweisungen für die Unteraufgabe",
+		"completionContent": "Unteraufgabe abgeschlossen",
+		"resultContent": "Ergebnisse der Unteraufgabe",
+		"defaultResult": "Bitte fahren Sie mit der nächsten Aufgabe fort.",
+		"completionInstructions": "Unteraufgabe abgeschlossen! Sie können die Ergebnisse überprüfen und Korrekturen oder nächste Schritte vorschlagen. Wenn alles gut aussieht, bestätigen Sie, um das Ergebnis an die übergeordnete Aufgabe zurückzugeben."
 	},
 	"questions": {
 		"hasQuestion": "Roo hat eine Frage:"

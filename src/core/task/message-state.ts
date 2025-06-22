@@ -19,6 +19,7 @@ interface TaskInfo {
 	status: TaskItem["status"]
 	pendingChildTasks: { id: string; prompt: string; files: string[]; createdAt: number }[]
 	number: number
+	childTaskIds: string[]
 }
 
 interface MessageStateHandlerParams {
@@ -78,7 +79,7 @@ export class MessageStateHandler {
 	}
 
 	async saveClineMessagesAndUpdateHistory(): Promise<void> {
-		const { parentId, status, pendingChildTasks, activeChildTaskId, number } = this.getTaskInfo()
+		const { parentId, status, pendingChildTasks, activeChildTaskId, number, childTaskIds } = this.getTaskInfo()
 		try {
 			await saveTaskMessages({
 				messages: this.clineMessages,
@@ -124,6 +125,7 @@ export class MessageStateHandler {
 				pendingChildTasks,
 				activeChildTaskId,
 				number,
+				childTaskIds,
 			})
 		} catch (error) {
 			console.error("Failed to save cline messages:", error)

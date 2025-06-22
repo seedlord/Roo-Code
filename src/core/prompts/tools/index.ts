@@ -23,6 +23,9 @@ import { getSwitchModeDescription } from "./switch-mode"
 import { getNewTaskDescription } from "./new-task"
 import { getCodebaseSearchDescription } from "./codebase-search"
 import { CodeIndexManager } from "../../../services/code-index/manager"
+import { getNewChildTaskDescription } from "./new-child-task"
+import { getStartNextChildTaskDescription } from "./start-next-child-task"
+import { getViewPendingTasksDescription } from "./view-pending-tasks"
 
 // Map of tool names to their description functions
 const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined> = {
@@ -45,6 +48,9 @@ const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined>
 	search_and_replace: (args) => getSearchAndReplaceDescription(args),
 	apply_diff: (args) =>
 		args.diffStrategy ? args.diffStrategy.getToolDescription({ cwd: args.cwd, toolOptions: args.toolOptions }) : "",
+	new_child_task: () => getNewChildTaskDescription(),
+	start_next_child_task: () => getStartNextChildTaskDescription(),
+	view_pending_tasks: () => getViewPendingTasksDescription(),
 }
 
 export function getToolDescriptionsForMode(

@@ -57,6 +57,7 @@ export interface ExtensionMessage {
 		| "action"
 		| "state"
 		| "selectedImages"
+		| "modes"
 		| "theme"
 		| "workspaceUpdated"
 		| "invoke"
@@ -137,6 +138,7 @@ export interface ExtensionMessage {
 	commits?: GitCommit[]
 	listApiConfig?: ProviderSettingsEntry[]
 	mode?: Mode
+	modes?: ModeConfig[]
 	customMode?: ModeConfig
 	slug?: string
 	success?: boolean
@@ -288,6 +290,7 @@ export interface ClineSayTool {
 		| "finishTask"
 		| "searchAndReplace"
 		| "insertContent"
+		| "new_child_task"
 		| "newChildTask"
 		| "startNextChildTask"
 		| "viewPendingChildTasks"
@@ -303,7 +306,8 @@ export interface ClineSayTool {
 	additionalFileCount?: number // Number of additional files in the same read_file request
 	prompt?: string
 	files?: string[]
-	executeImmediately?: boolean
+	execute_immediately?: boolean
+	tasks?: { prompt: string; files?: string[] }[]
 	search?: string
 	replace?: string
 	useRegex?: boolean

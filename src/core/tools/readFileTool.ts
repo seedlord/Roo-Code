@@ -291,7 +291,7 @@ export async function readFileTool(
 				batchFiles,
 			} satisfies ClineSayTool)
 
-			const { response, text, images } = await cline.ask("tool", completeMessage, false)
+			const { response, text, images } = await askApproval("tool", completeMessage)
 
 			// Process batch response
 			if (response === "yesButtonClicked") {
@@ -391,7 +391,7 @@ export async function readFileTool(
 				reason: lineSnippet,
 			} satisfies ClineSayTool)
 
-			const { response, text, images } = await cline.ask("tool", completeMessage, false)
+			const { response, text, images } = await askApproval("tool", completeMessage)
 
 			if (response !== "yesButtonClicked") {
 				// Handle both messageResponse and noButtonClicked with text
