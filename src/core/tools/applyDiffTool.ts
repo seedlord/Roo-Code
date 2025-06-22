@@ -29,7 +29,7 @@ export async function applyDiffToolLegacy(
 
 	const sharedMessageProps: ClineSayTool = {
 		tool: "appliedDiff",
-		path: getReadablePath(cline.cwd, removeClosingTag("path", relPath)),
+		path: getReadablePath(cline.workspacePath, removeClosingTag("path", relPath)),
 		diff: diffContent,
 	}
 
@@ -53,14 +53,14 @@ export async function applyDiffToolLegacy(
 			return
 		} else {
 			if (!relPath) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("apply_diff")
 				pushToolResult(await cline.sayAndCreateMissingParamError("apply_diff", "path"))
 				return
 			}
 
 			if (!diffContent) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("apply_diff")
 				pushToolResult(await cline.sayAndCreateMissingParamError("apply_diff", "diff"))
 				return
@@ -74,11 +74,11 @@ export async function applyDiffToolLegacy(
 				return
 			}
 
-			const absolutePath = path.resolve(cline.cwd, relPath)
+			const absolutePath = path.resolve(cline.workspacePath, relPath)
 			const fileExists = await fileExistsAtPath(absolutePath)
 
 			if (!fileExists) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("apply_diff")
 				const formattedError = `File does not exist at path: ${absolutePath}\n\n<error_details>\nThe specified file could not be found. Please verify the file path and try again.\n</error_details>`
 				await cline.say("error", formattedError)
@@ -102,7 +102,7 @@ export async function applyDiffToolLegacy(
 			originalContent = null
 
 			if (!diffResult.success) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				const currentCount = (cline.consecutiveMistakeCountForApplyDiff.get(relPath) || 0) + 1
 				cline.consecutiveMistakeCountForApplyDiff.set(relPath, currentCount)
 				let formattedError = ""
@@ -138,7 +138,7 @@ export async function applyDiffToolLegacy(
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 			cline.consecutiveMistakeCountForApplyDiff.delete(relPath)
 
 			// Show diff view before asking for approval
@@ -158,7 +158,7 @@ export async function applyDiffToolLegacy(
 				toolProgressStatus = cline.diffStrategy.getProgressStatus(block, diffResult)
 			}
 
-			const didApprove = await askApproval("tool", completeMessage, toolProgressStatus)
+			const didApprove = await askApproval("tool", completeMessage, false, toolProgressStatus)
 
 			if (!didApprove) {
 				await cline.diffViewProvider.revertChanges() // Cline likely handles closing the diff view
@@ -174,7 +174,7 @@ export async function applyDiffToolLegacy(
 			}
 
 			// Used to determine if we should wait for busy terminal to update before sending api request
-			cline.didEditFile = true
+			cline.state.didEditFile = true
 			let partFailHint = ""
 
 			if (diffResult.failParts && diffResult.failParts.length > 0) {
@@ -182,7 +182,7 @@ export async function applyDiffToolLegacy(
 			}
 
 			// Get the formatted response message
-			const message = await cline.diffViewProvider.pushToolWriteResult(cline, cline.cwd, !fileExists)
+			const message = await cline.diffViewProvider.pushToolWriteResult(cline, cline.workspacePath, !fileExists)
 
 			if (partFailHint) {
 				pushToolResult(partFailHint + message)

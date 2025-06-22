@@ -110,6 +110,9 @@ export const clineSays = [
 	"task",
 	"tool",
 	"command",
+	"new_child_task",
+	"start_next_child_task",
+	"child_task_completed",
 ] as const
 
 export const clineSaySchema = z.enum(clineSays)
@@ -154,6 +157,7 @@ export const clineMessageSchema = z.object({
 	partial: z.boolean().optional(),
 	reasoning: z.string().optional(),
 	conversationHistoryIndex: z.number().optional(),
+	conversationHistoryDeletedRange: z.array(z.number()).optional(),
 	checkpoint: z.record(z.string(), z.unknown()).optional(),
 	progressStatus: toolProgressStatusSchema.optional(),
 	contextCondense: contextCondenseSchema.optional(),

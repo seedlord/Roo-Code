@@ -33,9 +33,13 @@ const mockCline = {
 	sayAndCreateMissingParamError: mockSayAndCreateMissingParamError,
 	emit: mockEmit,
 	recordToolError: mockRecordToolError,
-	consecutiveMistakeCount: 0,
-	isPaused: false,
-	pausedModeSlug: "ask",
+	state: {
+		consecutiveMistakeCount: 0,
+		isPaused: false,
+		pausedModeSlug: "ask",
+	},
+	enableCheckpoints: false,
+	checkpointSave: vi.fn(),
 	providerRef: {
 		deref: vi.fn(() => ({
 			getState: vi.fn(() => ({ customModes: [], mode: "ask" })),
@@ -61,8 +65,8 @@ describe("newTaskTool", () => {
 			roleDefinition: "Test role definition",
 			groups: ["command", "read", "edit"],
 		}) // Default valid mode
-		mockCline.consecutiveMistakeCount = 0
-		mockCline.isPaused = false
+		mockCline.state.consecutiveMistakeCount = 0
+		mockCline.state.isPaused = false
 	})
 
 	it("should correctly un-escape \\\\@ to \\@ in the message passed to the new task", async () => {
@@ -92,12 +96,13 @@ describe("newTaskTool", () => {
 		expect(mockInitClineWithTask).toHaveBeenCalledWith(
 			"Review this: \\@file1.txt and also \\\\\\@file2.txt", // Unit Test Expectation: \\@ -> \@, \\\\@ -> \\\\@
 			undefined,
+			undefined,
 			mockCline,
 		)
 
 		// Verify side effects
 		expect(mockCline.emit).toHaveBeenCalledWith("taskSpawned", expect.any(String)) // Assuming initCline returns a mock task ID
-		expect(mockCline.isPaused).toBe(true)
+		expect(mockCline.state.isPaused).toBe(true)
 		expect(mockCline.emit).toHaveBeenCalledWith("taskPaused")
 		expect(mockPushToolResult).toHaveBeenCalledWith(expect.stringContaining("Successfully created new task"))
 	})
@@ -124,6 +129,7 @@ describe("newTaskTool", () => {
 
 		expect(mockInitClineWithTask).toHaveBeenCalledWith(
 			"This is already unescaped: \\@file1.txt", // Expected: \@ remains \@
+			undefined,
 			undefined,
 			mockCline,
 		)
@@ -152,6 +158,7 @@ describe("newTaskTool", () => {
 		expect(mockInitClineWithTask).toHaveBeenCalledWith(
 			"A normal mention @file1.txt", // Expected: @ remains @
 			undefined,
+			undefined,
 			mockCline,
 		)
 	})
@@ -178,6 +185,7 @@ describe("newTaskTool", () => {
 
 		expect(mockInitClineWithTask).toHaveBeenCalledWith(
 			"Mix: @file0.txt, \\@file1.txt, \\@file2.txt, \\\\\\@file3.txt", // Unit Test Expectation: @->@, \@->\@, \\@->\@, \\\\@->\\\\@
+			undefined,
 			undefined,
 			mockCline,
 		)

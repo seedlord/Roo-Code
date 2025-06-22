@@ -5,7 +5,7 @@ import type { ToolName, ClineAsk, ToolProgressStatus } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 
 import { defaultModeSlug, getModeBySlug } from "../../shared/modes"
-import type { ToolParamName, ToolResponse } from "../../shared/tools"
+import type { ToolParamName, ToolResponse, ToolUse } from "../../shared/tools"
 
 import { fetchInstructionsTool } from "../tools/fetchInstructionsTool"
 import { listFilesTool } from "../tools/listFilesTool"
@@ -24,6 +24,9 @@ import { askFollowupQuestionTool } from "../tools/askFollowupQuestionTool"
 import { switchModeTool } from "../tools/switchModeTool"
 import { attemptCompletionTool } from "../tools/attemptCompletionTool"
 import { newTaskTool } from "../tools/newTaskTool"
+import { newChildTaskTool } from "../tools/newChildTaskTool"
+import { startNextChildTaskTool } from "../tools/startNextChildTaskTool"
+import { viewPendingTasksTool } from "../tools/viewPendingTasksTool"
 
 import { checkpointSave } from "../checkpoints"
 
@@ -52,36 +55,36 @@ import { applyDiffToolLegacy } from "../tools/applyDiffTool"
  */
 
 export async function presentAssistantMessage(cline: Task) {
-	if (cline.abort) {
+	if (cline.state.abort) {
 		throw new Error(`[Task#presentAssistantMessage] task ${cline.taskId}.${cline.instanceId} aborted`)
 	}
 
-	if (cline.presentAssistantMessageLocked) {
-		cline.presentAssistantMessageHasPendingUpdates = true
+	if (cline.state.presentAssistantMessageLocked) {
+		cline.state.presentAssistantMessageHasPendingUpdates = true
 		return
 	}
 
-	cline.presentAssistantMessageLocked = true
-	cline.presentAssistantMessageHasPendingUpdates = false
+	cline.state.presentAssistantMessageLocked = true
+	cline.state.presentAssistantMessageHasPendingUpdates = false
 
-	if (cline.currentStreamingContentIndex >= cline.assistantMessageContent.length) {
+	if (cline.state.currentStreamingContentIndex >= cline.state.assistantMessageContent.length) {
 		// This may happen if the last content block was completed before
 		// streaming could finish. If streaming is finished, and we're out of
 		// bounds then this means we already  presented/executed the last
 		// content block and are ready to continue to next request.
-		if (cline.didCompleteReadingStream) {
-			cline.userMessageContentReady = true
+		if (cline.state.didCompleteReadingStream) {
+			cline.state.userMessageContentReady = true
 		}
 
-		cline.presentAssistantMessageLocked = false
+		cline.state.presentAssistantMessageLocked = false
 		return
 	}
 
-	const block = cloneDeep(cline.assistantMessageContent[cline.currentStreamingContentIndex]) // need to create copy bc while stream is updating the array, it could be updating the reference block properties too
+	const block = cloneDeep(cline.state.assistantMessageContent[cline.state.currentStreamingContentIndex]) // need to create copy bc while stream is updating the array, it could be updating the reference block properties too
 
 	switch (block.type) {
 		case "text": {
-			if (cline.didRejectTool || cline.didAlreadyUseTool) {
+			if (cline.state.didRejectTool || cline.state.didAlreadyUseTool) {
 				break
 			}
 
@@ -211,19 +214,25 @@ export async function presentAssistantMessage(cline: Task) {
 						const modeName = getModeBySlug(mode, customModes)?.name ?? mode
 						return `[${block.name} in ${modeName} mode: '${message}']`
 					}
+					case "new_child_task":
+						return `[${block.name} for '${block.params.child_task_prompt}']`
+					case "start_next_child_task":
+						return `[${block.name}]`
+					case "view_pending_tasks":
+						return `[${block.name}]`
 				}
 			}
 
-			if (cline.didRejectTool) {
+			if (cline.state.didRejectTool) {
 				// Ignore any tool content after user has rejected tool once.
 				if (!block.partial) {
-					cline.userMessageContent.push({
+					cline.state.userMessageContent.push({
 						type: "text",
 						text: `Skipping tool ${toolDescription()} due to user rejecting a previous tool.`,
 					})
 				} else {
 					// Partial tool after user rejected a previous tool.
-					cline.userMessageContent.push({
+					cline.state.userMessageContent.push({
 						type: "text",
 						text: `Tool ${toolDescription()} was interrupted and not executed due to user rejecting a previous tool.`,
 					})
@@ -232,9 +241,9 @@ export async function presentAssistantMessage(cline: Task) {
 				break
 			}
 
-			if (cline.didAlreadyUseTool) {
+			if (cline.state.didAlreadyUseTool) {
 				// Ignore any content after a tool has already been used.
-				cline.userMessageContent.push({
+				cline.state.userMessageContent.push({
 					type: "text",
 					text: `Tool [${block.name}] was not executed because a tool has already been used in this message. Only one tool may be used per message. You must assess the first tool's result before proceeding to use the next tool.`,
 				})
@@ -243,50 +252,54 @@ export async function presentAssistantMessage(cline: Task) {
 			}
 
 			const pushToolResult = (content: ToolResponse) => {
-				cline.userMessageContent.push({ type: "text", text: `${toolDescription()} Result:` })
+				cline.state.userMessageContent.push({ type: "text", text: `${toolDescription()} Result:` })
 
 				if (typeof content === "string") {
-					cline.userMessageContent.push({ type: "text", text: content || "(tool did not return anything)" })
+					cline.state.userMessageContent.push({
+						type: "text",
+						text: content || "(tool did not return anything)",
+					})
 				} else {
-					cline.userMessageContent.push(...content)
+					cline.state.userMessageContent.push(...content)
 				}
 
 				// Once a tool result has been collected, ignore all other tool
 				// uses since we should only ever present one tool result per
 				// message.
-				cline.didAlreadyUseTool = true
+				cline.state.didAlreadyUseTool = true
 			}
 
-			const askApproval = async (
+			const askApproval: (
 				type: ClineAsk,
-				partialMessage?: string,
+				text?: string,
+				partial?: boolean,
 				progressStatus?: ToolProgressStatus,
 				isProtected?: boolean,
-			) => {
-				const { response, text, images } = await cline.ask(
-					type,
-					partialMessage,
-					false,
-					progressStatus,
-					isProtected || false,
-				)
+			) => Promise<boolean> = async (type, text, partial, progressStatus, isProtected) => {
+				const {
+					response,
+					text: responseText,
+					images,
+				} = await cline.ask(type, text, partial, progressStatus, isProtected)
 
 				if (response !== "yesButtonClicked") {
-					// Handle both messageResponse and noButtonClicked with text.
-					if (text) {
-						await cline.say("user_feedback", text, images)
-						pushToolResult(formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images))
+					if (responseText) {
+						await cline.say("user_feedback", responseText, images)
+						pushToolResult(
+							formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(responseText), images),
+						)
 					} else {
 						pushToolResult(formatResponse.toolDenied())
 					}
-					cline.didRejectTool = true
+					cline.state.didRejectTool = true
 					return false
 				}
 
-				// Handle yesButtonClicked with text.
-				if (text) {
-					await cline.say("user_feedback", text, images)
-					pushToolResult(formatResponse.toolResult(formatResponse.toolApprovedWithFeedback(text), images))
+				if (responseText) {
+					await cline.say("user_feedback", responseText, images)
+					pushToolResult(
+						formatResponse.toolResult(formatResponse.toolApprovedWithFeedback(responseText), images),
+					)
 				}
 
 				return true
@@ -360,7 +373,7 @@ export async function presentAssistantMessage(cline: Task) {
 					block.params,
 				)
 			} catch (error) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				pushToolResult(formatResponse.toolError(error.message))
 				break
 			}
@@ -381,7 +394,7 @@ export async function presentAssistantMessage(cline: Task) {
 
 					if (response === "messageResponse") {
 						// Add user feedback to userContent.
-						cline.userMessageContent.push(
+						cline.state.userMessageContent.push(
 							{
 								type: "text" as const,
 								text: `Tool repetition limit reached. User feedback: ${text}`,
@@ -516,6 +529,22 @@ export async function presentAssistantMessage(cline: Task) {
 						askFinishSubTaskApproval,
 					)
 					break
+				case "new_child_task":
+					await newChildTaskTool(
+						cline,
+						block as ToolUse & { name: "new_child_task" },
+						askApproval,
+						handleError,
+						pushToolResult,
+						removeClosingTag,
+					)
+					break
+				case "start_next_child_task":
+					await startNextChildTaskTool(cline, askApproval, handleError, pushToolResult)
+					break
+				case "view_pending_tasks":
+					await viewPendingTasksTool(cline, askApproval, handleError, pushToolResult)
+					break
 			}
 
 			break
@@ -536,18 +565,18 @@ export async function presentAssistantMessage(cline: Task) {
 	// was breaking when relpath was undefined, and for invalid relpath it never
 	// presented UI.
 	// This needs to be placed here, if not then calling
-	// cline.presentAssistantMessage below would fail (sometimes) since it's
+	// cline.state.presentAssistantMessage below would fail (sometimes) since it's
 	// locked.
-	cline.presentAssistantMessageLocked = false
+	cline.state.presentAssistantMessageLocked = false
 
 	// NOTE: When tool is rejected, iterator stream is interrupted and it waits
 	// for `userMessageContentReady` to be true. Future calls to present will
 	// skip execution since `didRejectTool` and iterate until `contentIndex` is
 	// set to message length and it sets userMessageContentReady to true itself
 	// (instead of preemptively doing it in iterator).
-	if (!block.partial || cline.didRejectTool || cline.didAlreadyUseTool) {
+	if (!block.partial || cline.state.didRejectTool || cline.state.didAlreadyUseTool) {
 		// Block is finished streaming and executing.
-		if (cline.currentStreamingContentIndex === cline.assistantMessageContent.length - 1) {
+		if (cline.state.currentStreamingContentIndex === cline.state.assistantMessageContent.length - 1) {
 			// It's okay that we increment if !didCompleteReadingStream, it'll
 			// just return because out of bounds and as streaming continues it
 			// will call `presentAssitantMessage` if a new block is ready. If
@@ -555,16 +584,16 @@ export async function presentAssistantMessage(cline: Task) {
 			// true when out of bounds. This gracefully allows the stream to
 			// continue on and all potential content blocks be presented.
 			// Last block is complete and it is finished executing
-			cline.userMessageContentReady = true // Will allow `pWaitFor` to continue.
+			cline.state.userMessageContentReady = true // Will allow `pWaitFor` to continue.
 		}
 
 		// Call next block if it exists (if not then read stream will call it
 		// when it's ready).
 		// Need to increment regardless, so when read stream calls this function
 		// again it will be streaming the next block.
-		cline.currentStreamingContentIndex++
+		cline.state.currentStreamingContentIndex++
 
-		if (cline.currentStreamingContentIndex < cline.assistantMessageContent.length) {
+		if (cline.state.currentStreamingContentIndex < cline.state.assistantMessageContent.length) {
 			// There are already more content blocks to stream, so we'll call
 			// this function ourselves.
 			presentAssistantMessage(cline)
@@ -573,7 +602,7 @@ export async function presentAssistantMessage(cline: Task) {
 	}
 
 	// Block is partial, but the read stream may have finished.
-	if (cline.presentAssistantMessageHasPendingUpdates) {
+	if (cline.state.presentAssistantMessageHasPendingUpdates) {
 		presentAssistantMessage(cline)
 	}
 }

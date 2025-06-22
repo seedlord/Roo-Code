@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
 import { CloudUpload, CloudDownload, FoldVertical } from "lucide-react"
 
-import type { ClineMessage } from "@roo-code/types"
+import type { ClineMessage, HistoryItem } from "@roo-code/types"
 
 import { getModelMaxOutputTokens } from "@roo/api"
 
@@ -14,12 +14,13 @@ import { Button } from "@src/components/ui"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useSelectedModel } from "@/components/ui/hooks/useSelectedModel"
 
-import Thumbnails from "../common/Thumbnails"
+import Thumbnails from "../../common/Thumbnails"
 
-import { TaskActions } from "./TaskActions"
-import { ContextWindowProgress } from "./ContextWindowProgress"
-import { Mention } from "./Mention"
+import { TaskActions } from "../TaskActions"
+import { ContextWindowProgress } from "../ContextWindowProgress"
+import { Mention } from "../Mention"
 import TaskTimeline from "./TaskTimeline"
+import { TaskHierarchy } from "./TaskHierarchy"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
@@ -34,6 +35,7 @@ export interface TaskHeaderProps {
 	handleCondenseContext: (taskId: string) => void
 	onClose: () => void
 	onScrollToMessage?: (messageIndex: number) => void
+	currentTaskItem?: HistoryItem
 }
 
 const TaskHeader = ({
@@ -51,7 +53,7 @@ const TaskHeader = ({
 	onScrollToMessage,
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
-	const { apiConfiguration, currentTaskItem, clineMessages } = useExtensionState()
+	const { apiConfiguration, currentTaskItem, clineMessages, taskHistory } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 
@@ -186,7 +188,19 @@ const TaskHeader = ({
 								</div>
 								{!totalCost && <TaskActions item={currentTaskItem} buttonsDisabled={buttonsDisabled} />}
 							</div>
-							<TaskTimeline messages={clineMessages} onBlockClick={onScrollToMessage} />
+							<div className="flex flex-col">
+								<TaskTimeline messages={clineMessages} onBlockClick={onScrollToMessage} />
+								{currentTaskItem && (
+									<TaskHierarchy
+										currentTask={currentTaskItem}
+										allTasks={taskHistory}
+										isTaskExpanded={isTaskExpanded}
+									/>
+								)}
+							</div>
+							{/* {checkpointTrackerErrorMessage && (
+								<div className="text-vscode-errorForeground text-xs">{checkpointTrackerErrorMessage}</div>
+							)} */}
 							{doesModelSupportPromptCache &&
 								((typeof cacheReads === "number" && cacheReads > 0) ||
 									(typeof cacheWrites === "number" && cacheWrites > 0)) && (

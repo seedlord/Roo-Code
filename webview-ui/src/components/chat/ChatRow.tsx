@@ -30,6 +30,7 @@ import McpResourceRow from "../mcp/McpResourceRow"
 import { Mention } from "./Mention"
 import { CheckpointSaved } from "./checkpoints/CheckpointSaved"
 import { FollowUpSuggest } from "./FollowUpSuggest"
+import { NewChildTask } from "./NewChildTask"
 import { BatchFilePermission } from "./BatchFilePermission"
 import { BatchDiffApproval } from "./BatchDiffApproval"
 import { ProgressIndicator } from "./ProgressIndicator"
@@ -39,6 +40,7 @@ import { CommandExecutionError } from "./CommandExecutionError"
 import { AutoApprovedRequestLimitWarning } from "./AutoApprovedRequestLimitWarning"
 import { CondenseContextErrorRow, CondensingContextRow, ContextCondenseRow } from "./ContextCondenseRow"
 import CodebaseSearchResultsDisplay from "./CodebaseSearchResultsDisplay"
+import BackToParent from "./BackToParent"
 
 interface ChatRowProps {
 	message: ClineMessage
@@ -602,6 +604,106 @@ export const ChatRowContent = ({
 						/>
 					</>
 				)
+			case "newChildTask":
+				return (
+					<>
+						<div style={headerStyle}>
+							{toolIcon("split-horizontal")}
+							<span style={{ fontWeight: "bold" }}>
+								{message.type === "ask"
+									? "Cline wants to create a child task:"
+									: "Cline created a child task:"}
+							</span>
+						</div>
+						<div
+							style={{
+								borderRadius: 3,
+								backgroundColor: "var(--vscode-input-background)",
+								padding: "12px",
+								border: "1px solid var(--vscode-editorGroup-border)",
+							}}>
+							<div style={{ marginBottom: "8px" }}>
+								<strong>Task:</strong> {tool.prompt}
+							</div>
+							{tool.files && tool.files.length > 0 && (
+								<div style={{ marginBottom: "8px" }}>
+									<strong>Files:</strong>
+									<ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+										{tool.files.map((file, index) => (
+											<li key={index} style={{ listStyle: "disc" }}>
+												<code>{file}</code>
+											</li>
+										))}
+									</ul>
+								</div>
+							)}
+							<div>
+								<strong>Execute immediately:</strong> {tool.executeImmediately ? "Yes" : "No"}
+							</div>
+						</div>
+					</>
+				)
+			case "startNextChildTask":
+				return (
+					<>
+						<div style={headerStyle}>
+							{toolIcon("split-horizontal")}
+							<span style={{ fontWeight: "bold" }}>
+								{message.type === "ask"
+									? "Cline wants to start next child task:"
+									: "Cline completed next child task:"}
+							</span>
+						</div>
+						<div
+							style={{
+								borderRadius: 3,
+								backgroundColor: "var(--vscode-input-background)",
+								padding: "12px",
+								border: "1px solid var(--vscode-editorGroup-border)",
+							}}>
+							<div style={{ marginBottom: "8px" }}>
+								<strong>Task:</strong> {tool.prompt}
+							</div>
+							{tool.files && tool.files.length > 0 && (
+								<div style={{ marginBottom: "8px" }}>
+									<strong>Files:</strong>
+									<ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+										{tool.files.map((file, index) => (
+											<li key={index} style={{ listStyle: "disc" }}>
+												<code>{file}</code>
+											</li>
+										))}
+									</ul>
+								</div>
+							)}
+							<div>
+								<strong>Execute immediately:</strong> {tool.executeImmediately ? "Yes" : "No"}
+							</div>
+						</div>
+					</>
+				)
+			case "viewPendingChildTasks":
+				return (
+					<>
+						<div style={headerStyle}>
+							{toolIcon("search")}
+							<span style={{ fontWeight: "bold" }}>
+								{message.type === "ask"
+									? "Cline wants to view pending child tasks."
+									: "Cline viewed pending child tasks:"}
+							</span>
+						</div>
+						{tool.content && (
+							<CodeAccordian
+								code={tool.content!}
+								path={tool.path!}
+								language="plaintext"
+								isExpanded={isExpanded}
+								onToggleExpand={handleToggleExpand}
+							/>
+						)}
+					</>
+				)
 			case "searchFiles":
 				return (
 					<>
@@ -969,6 +1071,7 @@ export const ChatRowContent = ({
 							)}
 						</>
 					)
+
 				case "api_req_finished":
 					return null // we should never see this message type
 				case "text":
@@ -1086,6 +1189,9 @@ export const ChatRowContent = ({
 					const { query = "", results = [] } = parsed?.content || {}
 
 					return <CodebaseSearchResultsDisplay query={query} results={results} />
+
+				case "child_task_completed":
+					return <NewChildTask message={message} />
 				default:
 					return (
 						<>
@@ -1192,6 +1298,7 @@ export const ChatRowContent = ({
 								<div style={{ color: "var(--vscode-charts-green)", paddingTop: 10 }}>
 									<Markdown markdown={message.text} partial={message.partial} />
 								</div>
+								<BackToParent />
 							</div>
 						)
 					} else {

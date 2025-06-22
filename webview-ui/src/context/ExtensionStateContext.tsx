@@ -448,3 +448,11 @@ export const useExtensionState = () => {
 
 	return context
 }
+
+import { WebviewMessage } from "@roo/WebviewMessage"
+
+export const usePostMessage = () => {
+	return useCallback((message: WebviewMessage) => {
+		vscode.postMessage(message)
+	}, [])
+}

@@ -25,8 +25,24 @@ export const useTaskSearch = () => {
 
 	const presentableTasks = useMemo(() => {
 		let tasks = taskHistory.filter((item) => item.ts && item.task)
+
 		if (!showAllWorkspaces) {
-			tasks = tasks.filter((item) => item.workspace === cwd)
+			tasks = tasks.filter((item) => {
+				const currentCwd = cwd?.toLowerCase()
+				// 1. Bevorzuge die neue, korrekte Eigenschaft.
+				if (item.workspace) {
+					return item.workspace.toLowerCase() === currentCwd
+				}
+				// 2. Fallback auf die alte Eigenschaft für Abwärtskompatibilität.
+				if (item.cwdOnTaskInitialization) {
+					const oldWorkspace = item.cwdOnTaskInitialization
+						.replace(/\\/g, "/") // Normalisiere Backslashes
+						.toLowerCase()
+					return oldWorkspace === currentCwd
+				}
+				// 3. Wenn keine Workspace-Info vorhanden ist, nicht anzeigen.
+				return false
+			})
 		}
 		return tasks
 	}, [taskHistory, showAllWorkspaces, cwd])

@@ -128,10 +128,12 @@ describe("writeToFileTool", () => {
 		mockedEveryLineHasLineNumbers.mockReturnValue(false)
 		mockedStripLineNumbers.mockImplementation((content) => content)
 
-		mockCline.cwd = "/"
-		mockCline.consecutiveMistakeCount = 0
-		mockCline.didEditFile = false
-		mockCline.diffStrategy = undefined
+		mockCline.workspacePath = "/"
+		mockCline.state = {
+			consecutiveMistakeCount: 0,
+			didEditFile: false,
+			diffStrategy: undefined,
+		}
 		mockCline.rooIgnoreController = {
 			validateAccess: vi.fn().mockReturnValue(true),
 		}
@@ -312,13 +314,13 @@ describe("writeToFileTool", () => {
 		it("successfully creates new files with full workflow", async () => {
 			await executeWriteFileTool({}, { fileExists: false })
 
-			expect(mockCline.consecutiveMistakeCount).toBe(0)
+			expect(mockCline.state.consecutiveMistakeCount).toBe(0)
 			expect(mockCline.diffViewProvider.open).toHaveBeenCalledWith(testFilePath)
 			expect(mockCline.diffViewProvider.update).toHaveBeenCalledWith(testContent, true)
 			expect(mockAskApproval).toHaveBeenCalled()
 			expect(mockCline.diffViewProvider.saveChanges).toHaveBeenCalled()
 			expect(mockCline.fileContextTracker.trackFileContext).toHaveBeenCalledWith(testFilePath, "roo_edited")
-			expect(mockCline.didEditFile).toBe(true)
+			expect(mockCline.state.didEditFile).toBe(true)
 		})
 
 		it("processes files outside workspace boundary", async () => {
@@ -333,7 +335,7 @@ describe("writeToFileTool", () => {
 			await executeWriteFileTool({ line_count: "999999" })
 
 			// Should process normally without issues
-			expect(mockCline.consecutiveMistakeCount).toBe(0)
+			expect(mockCline.state.consecutiveMistakeCount).toBe(0)
 		})
 	})
 

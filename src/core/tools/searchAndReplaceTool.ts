@@ -28,21 +28,21 @@ async function validateParams(
 	pushToolResult: PushToolResult,
 ): Promise<boolean> {
 	if (!relPath) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("search_and_replace")
 		pushToolResult(await cline.sayAndCreateMissingParamError("search_and_replace", "path"))
 		return false
 	}
 
 	if (!search) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("search_and_replace")
 		pushToolResult(await cline.sayAndCreateMissingParamError("search_and_replace", "search"))
 		return false
 	}
 
 	if (replace === undefined) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("search_and_replace")
 		pushToolResult(await cline.sayAndCreateMissingParamError("search_and_replace", "replace"))
 		return false
@@ -82,7 +82,7 @@ export async function searchAndReplaceTool(
 		if (block.partial) {
 			const partialMessageProps = {
 				tool: "searchAndReplace" as const,
-				path: getReadablePath(cline.cwd, removeClosingTag("path", relPath)),
+				path: getReadablePath(cline.workspacePath, removeClosingTag("path", relPath)),
 				search: removeClosingTag("search", search),
 				replace: removeClosingTag("replace", replace),
 				useRegex: block.params.use_regex === "true",
@@ -106,7 +106,7 @@ export async function searchAndReplaceTool(
 
 		const sharedMessageProps: ClineSayTool = {
 			tool: "searchAndReplace",
-			path: getReadablePath(cline.cwd, validRelPath),
+			path: getReadablePath(cline.workspacePath, validRelPath),
 			search: validSearch,
 			replace: validReplace,
 			useRegex: useRegex,
@@ -126,11 +126,11 @@ export async function searchAndReplaceTool(
 		// Check if file is write-protected
 		const isWriteProtected = cline.rooProtectedController?.isWriteProtected(validRelPath) || false
 
-		const absolutePath = path.resolve(cline.cwd, validRelPath)
+		const absolutePath = path.resolve(cline.workspacePath, validRelPath)
 		const fileExists = await fileExistsAtPath(absolutePath)
 
 		if (!fileExists) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("search_and_replace")
 			const formattedError = formatResponse.toolError(
 				`File does not exist at path: ${absolutePath}\nThe specified file could not be found. Please verify the file path and try again.`,
@@ -141,14 +141,14 @@ export async function searchAndReplaceTool(
 		}
 
 		// Reset consecutive mistakes since all validations passed
-		cline.consecutiveMistakeCount = 0
+		cline.state.consecutiveMistakeCount = 0
 
 		// Read and process file content
 		let fileContent: string
 		try {
 			fileContent = await fs.readFile(absolutePath, "utf-8")
 		} catch (error) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("search_and_replace")
 			const errorMessage = `Error reading file: ${absolutePath}\nFailed to read the file content: ${
 				error instanceof Error ? error.message : String(error)
@@ -234,12 +234,12 @@ export async function searchAndReplaceTool(
 			await cline.fileContextTracker.trackFileContext(relPath, "roo_edited" as RecordSource)
 		}
 
-		cline.didEditFile = true
+		cline.state.didEditFile = true
 
 		// Get the formatted response message
 		const message = await cline.diffViewProvider.pushToolWriteResult(
 			cline,
-			cline.cwd,
+			cline.workspacePath,
 			false, // Always false for search_and_replace
 		)
 

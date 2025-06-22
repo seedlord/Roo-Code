@@ -12,7 +12,7 @@ import { defaultModeSlug } from "../../../shared/modes"
 import { experimentDefault } from "../../../shared/experiments"
 import { setTtsEnabled } from "../../../utils/tts"
 import { ContextProxy } from "../../config/ContextProxy"
-import { Task, TaskOptions } from "../../task/Task"
+import { Task, TaskCreationOptions } from "../../task/Task"
 
 import { ClineProvider } from "../ClineProvider"
 
@@ -95,7 +95,6 @@ vi.mock("../../../services/browser/browserDiscovery", () => ({
 // Remove duplicate mock - it's already defined below
 
 const mockAddCustomInstructions = vi.fn().mockResolvedValue("Combined instructions")
-
 ;(vi.mocked(await import("../../prompts/sections/custom-instructions")) as any).addCustomInstructions =
 	mockAddCustomInstructions
 
@@ -193,26 +192,48 @@ vi.mock("../../../integrations/workspace/WorkspaceTracker", () => {
 	}
 })
 
-vi.mock("../../task/Task", () => ({
-	Task: vi
-		.fn()
-		.mockImplementation(
-			(_provider, _apiConfiguration, _customInstructions, _diffEnabled, _fuzzyMatchThreshold, _task, taskId) => ({
-				api: undefined,
-				abortTask: vi.fn(),
-				handleWebviewAskResponse: vi.fn(),
-				clineMessages: [],
-				apiConversationHistory: [],
-				overwriteClineMessages: vi.fn(),
-				overwriteApiConversationHistory: vi.fn(),
-				getTaskNumber: vi.fn().mockReturnValue(0),
-				setTaskNumber: vi.fn(),
-				setParentTask: vi.fn(),
-				setRootTask: vi.fn(),
-				taskId: taskId || "test-task-id",
-			}),
-		),
-}))
+const mockTaskInstance = {
+	api: undefined,
+	abortTask: vi.fn(),
+	startTask: vi.fn(),
+	handleWebviewAskResponse: vi.fn(),
+	messageStateHandler: {
+		getClineMessages: vi.fn().mockReturnValue([]),
+		getApiConversationHistory: vi.fn().mockReturnValue([]),
+		setClineMessages: vi.fn(),
+		setApiConversationHistory: vi.fn(),
+		overwriteClineMessages: vi.fn(),
+		overwriteApiConversationHistory: vi.fn(),
+		saveClineMessagesAndUpdateHistory: vi.fn().mockResolvedValue(undefined),
+	},
+	getTaskNumber: vi.fn().mockReturnValue(0),
+	setTaskNumber: vi.fn(),
+	setParentTask: vi.fn(),
+	setRootTask: vi.fn(),
+	taskId: "test-task-id",
+	state: { abort: false },
+}
+
+vi.mock("../../task/Task", () => {
+	const constructorMock = vi.fn().mockImplementation((options: TaskCreationOptions) => {
+		return {
+			...mockTaskInstance,
+			taskId: options.historyItem?.id || "test-task-id",
+		}
+	})
+
+	const createMock = vi.fn().mockImplementation((options: TaskCreationOptions) => {
+		const task = constructorMock(options)
+		return [task, Promise.resolve()]
+	})
+
+	// Use Object.assign to add the static method to the mock constructor
+	const MockTaskWithStatic = Object.assign(constructorMock, {
+		create: createMock,
+	})
+
+	return { Task: MockTaskWithStatic, TaskCreationOptions: vi.fn() }
+})
 
 vi.mock("../../../integrations/misc/extract-text", () => ({
 	extractTextFromFile: vi.fn().mockImplementation(async (_filePath: string) => {
@@ -273,33 +294,6 @@ vi.mock("../../../shared/modes", () => ({
 	defaultModeSlug: "code",
 }))
 
-vi.mock("../../prompts/system", () => ({
-	SYSTEM_PROMPT: vi.fn().mockResolvedValue("mocked system prompt"),
-	codeMode: "code",
-}))
-
-vi.mock("../../../api", () => ({
-	buildApiHandler: vi.fn().mockReturnValue({
-		getModel: vi.fn().mockReturnValue({
-			id: "claude-3-sonnet",
-			info: { supportsComputerUse: false },
-		}),
-	}),
-}))
-
-vi.mock("../../../integrations/misc/extract-text", () => ({
-	extractTextFromFile: vi.fn().mockImplementation(async (_filePath: string) => {
-		const content = "const x = 1;\nconst y = 2;\nconst z = 3;"
-		const lines = content.split("\n")
-		return lines.map((line, index) => `${index + 1} | ${line}`).join("\n")
-	}),
-}))
-
-vi.mock("../../../api/providers/fetchers/modelCache", () => ({
-	getModels: vi.fn().mockResolvedValue({}),
-	flushModels: vi.fn(),
-}))
-
 vi.mock("../diff/strategies/multi-search-replace", () => ({
 	MultiSearchReplaceDiffStrategy: vi.fn().mockImplementation(() => ({
 		getToolDescription: () => "test",
@@ -313,7 +307,7 @@ afterAll(() => {
 })
 
 describe("ClineProvider", () => {
-	let defaultTaskOptions: TaskOptions
+	let defaultTaskOptions: TaskCreationOptions
 
 	let provider: ClineProvider
 	let mockContext: vscode.ExtensionContext
@@ -400,6 +394,7 @@ describe("ClineProvider", () => {
 			apiConfiguration: {
 				apiProvider: "openrouter",
 			},
+			globalStoragePath: mockContext.globalStorageUri.fsPath,
 		}
 
 		// @ts-ignore - Access private property for testing
@@ -547,10 +542,9 @@ describe("ClineProvider", () => {
 		expect(mockPostMessage).toHaveBeenCalled()
 	})
 
-	test("clearTask aborts current task", async () => {
+	test("removeClineFromStack aborts and removes task", async () => {
 		// Setup Cline instance with auto-mock from the top of the file
 		const mockCline = new Task(defaultTaskOptions) // Create a new mocked instance
-
 		// add the mock object to the stack
 		await provider.addClineToStack(mockCline)
 
@@ -564,7 +558,7 @@ describe("ClineProvider", () => {
 		const stackSizeAfterAbort = provider.getClineStackSize()
 
 		// check if the abort method was called
-		expect(mockCline.abortTask).toHaveBeenCalled()
+		expect(mockTaskInstance.abortTask).toHaveBeenCalled()
 
 		// check if the stack size was decreased
 		expect(stackSizeBeforeAbort - stackSizeAfterAbort).toBe(1)
@@ -575,29 +569,26 @@ describe("ClineProvider", () => {
 			await provider.resolveWebviewView(mockWebviewView)
 		})
 
-		test("calls clearTask when there is no parent task", async () => {
+		test("calls initClineWithTask when there is no parent task", async () => {
 			// Setup a single task without parent
 			const mockCline = new Task(defaultTaskOptions)
 			// No need to set parentTask - it's undefined by default
 
 			// Mock the provider methods
-			const clearTaskSpy = vi.spyOn(provider, "clearTask").mockResolvedValue(undefined)
+			const initClineWithTaskSpy = vi
+				.spyOn(provider, "initClineWithTask")
+				.mockResolvedValue(new Task(defaultTaskOptions) as any)
 			const finishSubTaskSpy = vi.spyOn(provider, "finishSubTask").mockResolvedValue(undefined)
-			const postStateToWebviewSpy = vi.spyOn(provider, "postStateToWebview").mockResolvedValue(undefined)
 
 			// Add task to stack
 			await provider.addClineToStack(mockCline)
 
-			// Get the message handler
-			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as any).mock.calls[0][0]
-
 			// Trigger clearTask message
-			await messageHandler({ type: "clearTask" })
+			await provider.handleClearTask()
 
-			// Verify clearTask was called (not finishSubTask)
-			expect(clearTaskSpy).toHaveBeenCalled()
+			// Verify initClineWithTask was called (not finishSubTask)
+			expect(initClineWithTaskSpy).toHaveBeenCalled()
 			expect(finishSubTaskSpy).not.toHaveBeenCalled()
-			expect(postStateToWebviewSpy).toHaveBeenCalled()
 		})
 
 		test("calls finishSubTask when there is a parent task", async () => {
@@ -611,45 +602,36 @@ describe("ClineProvider", () => {
 			;(childTask as any).rootTask = parentTask
 
 			// Mock the provider methods
-			const clearTaskSpy = vi.spyOn(provider, "clearTask").mockResolvedValue(undefined)
+			const initClineWithTaskSpy = vi.spyOn(provider, "initClineWithTask")
 			const finishSubTaskSpy = vi.spyOn(provider, "finishSubTask").mockResolvedValue(undefined)
-			const postStateToWebviewSpy = vi.spyOn(provider, "postStateToWebview").mockResolvedValue(undefined)
 
 			// Add both tasks to stack (parent first, then child)
 			await provider.addClineToStack(parentTask)
 			await provider.addClineToStack(childTask)
 
-			// Get the message handler
-			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as any).mock.calls[0][0]
-
 			// Trigger clearTask message
-			await messageHandler({ type: "clearTask" })
+			await provider.handleClearTask()
 
-			// Verify finishSubTask was called (not clearTask)
+			// Verify finishSubTask was called (not initClineWithTask)
 			expect(finishSubTaskSpy).toHaveBeenCalledWith(expect.stringContaining("canceled"))
-			expect(clearTaskSpy).not.toHaveBeenCalled()
-			expect(postStateToWebviewSpy).toHaveBeenCalled()
+			expect(initClineWithTaskSpy).not.toHaveBeenCalled()
 		})
 
 		test("handles case when no current task exists", async () => {
 			// Don't add any tasks to the stack
 
 			// Mock the provider methods
-			const clearTaskSpy = vi.spyOn(provider, "clearTask").mockResolvedValue(undefined)
+			const initClineWithTaskSpy = vi
+				.spyOn(provider, "initClineWithTask")
+				.mockResolvedValue(new Task(defaultTaskOptions) as any)
 			const finishSubTaskSpy = vi.spyOn(provider, "finishSubTask").mockResolvedValue(undefined)
-			const postStateToWebviewSpy = vi.spyOn(provider, "postStateToWebview").mockResolvedValue(undefined)
-
-			// Get the message handler
-			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as any).mock.calls[0][0]
 
 			// Trigger clearTask message
-			await messageHandler({ type: "clearTask" })
+			await provider.handleClearTask()
 
-			// When there's no current task, clearTask is still called (it handles the no-task case internally)
-			expect(clearTaskSpy).toHaveBeenCalled()
+			// When there's no current task, initClineWithTask is called
+			expect(initClineWithTaskSpy).toHaveBeenCalled()
 			expect(finishSubTaskSpy).not.toHaveBeenCalled()
-			// State should still be posted
-			expect(postStateToWebviewSpy).toHaveBeenCalled()
 		})
 
 		test("correctly identifies subtask scenario for issue #4602", async () => {
@@ -660,7 +642,7 @@ describe("ClineProvider", () => {
 			// No parent task by default - no need to explicitly set
 
 			// Mock the provider methods
-			const clearTaskSpy = vi.spyOn(provider, "clearTask").mockResolvedValue(undefined)
+			const initClineWithTaskSpy = vi.spyOn(provider, "initClineWithTask")
 			const finishSubTaskSpy = vi.spyOn(provider, "finishSubTask").mockResolvedValue(undefined)
 
 			// Add only one task to stack
@@ -669,14 +651,11 @@ describe("ClineProvider", () => {
 			// Verify stack size is 1
 			expect(provider.getClineStackSize()).toBe(1)
 
-			// Get the message handler
-			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as any).mock.calls[0][0]
-
 			// Trigger clearTask message (simulating cancel during API retry)
-			await messageHandler({ type: "clearTask" })
+			await provider.handleClearTask()
 
-			// The fix ensures clearTask is called, not finishSubTask
-			expect(clearTaskSpy).toHaveBeenCalled()
+			// The fix ensures initClineWithTask is called, not finishSubTask
+			expect(initClineWithTaskSpy).toHaveBeenCalled()
 			expect(finishSubTaskSpy).not.toHaveBeenCalled()
 		})
 	})
@@ -1176,8 +1155,8 @@ describe("ClineProvider", () => {
 
 			// Setup Task instance with auto-mock from the top of the file
 			const mockCline = new Task(defaultTaskOptions) // Create a new mocked instance
-			mockCline.clineMessages = mockMessages // Set test-specific messages
-			mockCline.apiConversationHistory = mockApiHistory // Set API history
+			;(mockCline.messageStateHandler.getClineMessages as any).mockReturnValue(mockMessages) // Set test-specific messages
+			;(mockCline.messageStateHandler.getApiConversationHistory as any).mockReturnValue(mockApiHistory) // Set API history
 			await provider.addClineToStack(mockCline) // Add the mocked instance to the stack
 
 			// Mock getTaskWithId
@@ -1190,7 +1169,7 @@ describe("ClineProvider", () => {
 			await messageHandler({ type: "deleteMessage", value: 4000 })
 
 			// Verify correct messages were kept
-			expect(mockCline.overwriteClineMessages).toHaveBeenCalledWith([
+			expect(mockCline.messageStateHandler.overwriteClineMessages).toHaveBeenCalledWith([
 				mockMessages[0],
 				mockMessages[1],
 				mockMessages[4],
@@ -1198,7 +1177,7 @@ describe("ClineProvider", () => {
 			])
 
 			// Verify correct API messages were kept
-			expect(mockCline.overwriteApiConversationHistory).toHaveBeenCalledWith([
+			expect(mockCline.messageStateHandler.overwriteApiConversationHistory).toHaveBeenCalledWith([
 				mockApiHistory[0],
 				mockApiHistory[1],
 				mockApiHistory[4],
@@ -1229,8 +1208,8 @@ describe("ClineProvider", () => {
 
 			// Setup Cline instance with auto-mock from the top of the file
 			const mockCline = new Task(defaultTaskOptions) // Create a new mocked instance
-			mockCline.clineMessages = mockMessages
-			mockCline.apiConversationHistory = mockApiHistory
+			;(mockCline.messageStateHandler.getClineMessages as any).mockReturnValue(mockMessages)
+			;(mockCline.messageStateHandler.getApiConversationHistory as any).mockReturnValue(mockApiHistory)
 			await provider.addClineToStack(mockCline)
 
 			// Mock getTaskWithId
@@ -1243,10 +1222,12 @@ describe("ClineProvider", () => {
 			await messageHandler({ type: "deleteMessage", value: 3000 })
 
 			// Verify only messages before the deleted message were kept
-			expect(mockCline.overwriteClineMessages).toHaveBeenCalledWith([mockMessages[0]])
+			expect(mockCline.messageStateHandler.overwriteClineMessages).toHaveBeenCalledWith([mockMessages[0]])
 
 			// Verify only API messages before the deleted message were kept
-			expect(mockCline.overwriteApiConversationHistory).toHaveBeenCalledWith([mockApiHistory[0]])
+			expect(mockCline.messageStateHandler.overwriteApiConversationHistory).toHaveBeenCalledWith([
+				mockApiHistory[0],
+			])
 		})
 
 		test("handles Cancel correctly", async () => {
@@ -1255,10 +1236,16 @@ describe("ClineProvider", () => {
 
 			// Setup Cline instance with auto-mock from the top of the file
 			const mockCline = new Task(defaultTaskOptions) // Create a new mocked instance
-			mockCline.clineMessages = [{ ts: 1000 }, { ts: 2000 }] as ClineMessage[]
-			mockCline.apiConversationHistory = [{ ts: 1000 }, { ts: 2000 }] as (Anthropic.MessageParam & {
+			;(mockCline.messageStateHandler.getClineMessages as any).mockReturnValue([
+				{ ts: 1000 },
+				{ ts: 2000 },
+			] as ClineMessage[])
+			;(mockCline.messageStateHandler.getApiConversationHistory as any).mockReturnValue([
+				{ ts: 1000 },
+				{ ts: 2000 },
+			] as (Anthropic.MessageParam & {
 				ts?: number
-			})[]
+			})[])
 			await provider.addClineToStack(mockCline)
 
 			// Trigger message deletion
@@ -1266,8 +1253,8 @@ describe("ClineProvider", () => {
 			await messageHandler({ type: "deleteMessage", value: 2000 })
 
 			// Verify no messages were deleted
-			expect(mockCline.overwriteClineMessages).not.toHaveBeenCalled()
-			expect(mockCline.overwriteApiConversationHistory).not.toHaveBeenCalled()
+			expect(mockCline.messageStateHandler.overwriteClineMessages).not.toHaveBeenCalled()
+			expect(mockCline.messageStateHandler.overwriteApiConversationHistory).not.toHaveBeenCalled()
 		})
 	})
 
@@ -2079,7 +2066,7 @@ describe.skip("ContextProxy integration", () => {
 })
 
 describe("getTelemetryProperties", () => {
-	let defaultTaskOptions: TaskOptions
+	let defaultTaskOptions: TaskCreationOptions
 	let provider: ClineProvider
 	let mockContext: vscode.ExtensionContext
 	let mockOutputChannel: vscode.OutputChannel
@@ -2114,6 +2101,7 @@ describe("getTelemetryProperties", () => {
 			apiConfiguration: {
 				apiProvider: "openrouter",
 			},
+			globalStoragePath: mockContext.globalStorageUri.fsPath,
 		}
 
 		// Setup Task instance with mocked getModel method

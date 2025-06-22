@@ -2,6 +2,8 @@ import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
 
 import { TelemetryService } from "@roo-code/telemetry"
+import { ClineMessage } from "@roo-code/types"
+import { ApiMessage } from "../task-persistence/apiMessages"
 
 import { Task } from "../task/Task"
 
@@ -75,7 +77,9 @@ export function getCheckpointService(cline: Task) {
 
 			try {
 				const isCheckpointNeeded =
-					typeof cline.clineMessages.find(({ say }) => say === "checkpoint_saved") === "undefined"
+					typeof cline.messageStateHandler
+						.getClineMessages()
+						.find((m: ClineMessage) => m.say === "checkpoint_saved") === "undefined"
 
 				cline.checkpointService = service
 				cline.checkpointServiceInitializing = false
@@ -185,7 +189,7 @@ export async function checkpointRestore(cline: Task, { ts, commitHash, mode }: C
 		return
 	}
 
-	const index = cline.clineMessages.findIndex((m) => m.ts === ts)
+	const index = cline.messageStateHandler.getClineMessages().findIndex((m: ClineMessage) => m.ts === ts)
 
 	if (index === -1) {
 		return
@@ -199,15 +203,20 @@ export async function checkpointRestore(cline: Task, { ts, commitHash, mode }: C
 		await provider?.postMessageToWebview({ type: "currentCheckpointUpdated", text: commitHash })
 
 		if (mode === "restore") {
-			await cline.overwriteApiConversationHistory(cline.apiConversationHistory.filter((m) => !m.ts || m.ts < ts))
+			// TODO: this is broken, ts is not a property of ApiMessage
+			// await cline.messageStateHandler.overwriteApiConversationHistory(
+			// 	cline.messageStateHandler.getApiConversationHistory().filter((m: ApiMessage) => !m.ts || m.ts < ts),
+			// )
 
-			const deletedMessages = cline.clineMessages.slice(index + 1)
+			const deletedMessages = cline.messageStateHandler.getClineMessages().slice(index + 1)
 
 			const { totalTokensIn, totalTokensOut, totalCacheWrites, totalCacheReads, totalCost } = getApiMetrics(
 				cline.combineMessages(deletedMessages),
 			)
 
-			await cline.overwriteClineMessages(cline.clineMessages.slice(0, index + 1))
+			await cline.messageStateHandler.overwriteClineMessages(
+				cline.messageStateHandler.getClineMessages().slice(0, index + 1),
+			)
 
 			// TODO: Verify that this is working as expected.
 			await cline.say(
@@ -256,10 +265,11 @@ export async function checkpointDiff(cline: Task, { ts, previousCommitHash, comm
 	TelemetryService.instance.captureCheckpointDiffed(cline.taskId)
 
 	if (!previousCommitHash && mode === "checkpoint") {
-		const previousCheckpoint = cline.clineMessages
-			.filter(({ say }) => say === "checkpoint_saved")
-			.sort((a, b) => b.ts - a.ts)
-			.find((message) => message.ts < ts)
+		const previousCheckpoint = cline.messageStateHandler
+			.getClineMessages()
+			.filter((m: ClineMessage) => m.say === "checkpoint_saved")
+			.sort((a: ClineMessage, b: ClineMessage) => b.ts - a.ts)
+			.find((message: ClineMessage) => message.ts < ts)
 
 		previousCommitHash = previousCheckpoint?.text
 	}

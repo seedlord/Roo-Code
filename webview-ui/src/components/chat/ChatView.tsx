@@ -38,7 +38,7 @@ import Announcement from "./Announcement"
 import BrowserSessionRow from "./BrowserSessionRow"
 import ChatRow from "./ChatRow"
 import ChatTextArea from "./ChatTextArea"
-import TaskHeader from "./TaskHeader"
+import TaskHeader from "./task-header/TaskHeader"
 import AutoApproveMenu from "./AutoApproveMenu"
 import SystemPromptWarning from "./SystemPromptWarning"
 import ProfileViolationWarning from "./ProfileViolationWarning"
@@ -390,6 +390,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "mcp_server_request_started":
 						case "mcp_server_response":
 						case "completion_result":
+						case "new_child_task":
+						case "start_next_child_task":
+						case "child_task_completed":
 							break
 					}
 					break
@@ -655,11 +658,6 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			switch (message.type) {
 				case "action":
 					switch (message.action!) {
-						case "didBecomeVisible":
-							if (!isHidden && !sendingDisabled && !enableButtons) {
-								textAreaRef.current?.focus()
-							}
-							break
 						case "focusInput":
 							textAreaRef.current?.focus()
 							break
@@ -707,9 +705,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		},
 		[
 			isCondensing,
-			isHidden,
 			sendingDisabled,
-			enableButtons,
 			currentTaskItem,
 			handleChatReset,
 			handleSendMessage,
@@ -720,6 +716,21 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	)
 
 	useEvent("message", handleMessage)
+
+	// Listen for local focusChatInput event
+	useEffect(() => {
+		const handleFocusChatInput = () => {
+			if (!isHidden && !sendingDisabled && !enableButtons) {
+				textAreaRef.current?.focus()
+			}
+		}
+
+		window.addEventListener("focusChatInput", handleFocusChatInput)
+
+		return () => {
+			window.removeEventListener("focusChatInput", handleFocusChatInput)
+		}
+	}, [isHidden, sendingDisabled, enableButtons])
 
 	// NOTE: the VSCode window needs to be focused for this to work.
 	useMount(() => textAreaRef.current?.focus())
@@ -1442,6 +1453,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						handleCondenseContext={handleCondenseContext}
 						onClose={handleTaskCloseButtonClick}
 						onScrollToMessage={scrollToMessage}
+						currentTaskItem={currentTaskItem}
 					/>
 
 					{hasSystemPromptOverride && (

@@ -49,7 +49,7 @@ export async function codebaseSearchTool(
 	}
 
 	if (!query) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		pushToolResult(await cline.sayAndCreateMissingParamError(toolName, "query"))
 		return
 	}
@@ -60,7 +60,7 @@ export async function codebaseSearchTool(
 		return
 	}
 
-	cline.consecutiveMistakeCount = 0
+	cline.state.consecutiveMistakeCount = 0
 
 	// --- Core Logic ---
 	try {

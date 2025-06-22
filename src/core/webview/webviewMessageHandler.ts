@@ -128,12 +128,29 @@ export const webviewMessageHandler = async (
 
 			provider.isViewLaunched = true
 			break
-		case "newTask":
-			// Initializing new instance of Cline will make sure that any
-			// agentically running promises in old instance don't affect our new
-			// task. This essentially creates a fresh slate for the new task.
-			await provider.initClineWithTask(message.text, message.images)
+		case "newTask": {
+			// If the new task has no content, and there's a task running, this is equivalent to clearing the task.
+			const isNewAndEmpty =
+				!message.text &&
+				(!message.images || message.images.length === 0) &&
+				(!message.files || message.files.length === 0)
+			const currentTask = provider.getCurrentCline()
+
+			if (isNewAndEmpty && currentTask && currentTask.messageStateHandler.getClineMessages().length > 0) {
+				await currentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
+				await currentTask.abortTask(true)
+				provider.clineStack.pop()
+				await provider.postStateToWebview()
+				break
+			}
+
+			// Otherwise, proceed with creating/starting the task with the given content.
+			provider.log(
+				`[WebviewDebug] webviewMessageHandler: newTask message received. Provider view exists: ${!!provider["view"]}, webview exists: ${!!provider["view"]?.webview}`,
+			)
+			await provider.initClineWithTask(message.text ?? "", message.images, message.files)
 			break
+		}
 		case "customInstructions":
 			await provider.updateCustomInstructions(message.text)
 			break
@@ -197,18 +214,21 @@ export const webviewMessageHandler = async (
 				provider.getCurrentCline()?.handleTerminalOperation(message.terminalOperation)
 			}
 			break
-		case "clearTask":
+		case "clearTask": {
 			// clear task resets the current session and allows for a new task to be started, if this session is a subtask - it allows the parent task to be resumed
 			// Check if the current task actually has a parent task
 			const currentTask = provider.getCurrentCline()
 			if (currentTask && currentTask.parentTask) {
 				await provider.finishSubTask(t("common:tasks.canceled"))
-			} else {
-				// Regular task - just clear it
-				await provider.clearTask()
+			} else if (currentTask) {
+				// It's a root task. "Clearing" it means saving it and returning to the main menu.
+				await currentTask.abortTask(true) // This saves the final state.
+				provider.clineStack.pop()
+				await provider.postStateToWebview() // This updates the UI to the main menu.
 			}
-			await provider.postStateToWebview()
+			// If there is no current task, do nothing. The UI should already be at the main menu.
 			break
+		}
 		case "didShowAnnouncement":
 			await updateGlobalState("lastShownAnnouncementId", provider.latestAnnouncementId)
 			await provider.postStateToWebview()
@@ -541,7 +561,7 @@ export const webviewMessageHandler = async (
 				await provider.cancelTask()
 
 				try {
-					await pWaitFor(() => provider.getCurrentCline()?.isInitialized === true, { timeout: 3_000 })
+					await pWaitFor(() => provider.getCurrentCline()?.state.isInitialized === true, { timeout: 3_000 })
 				} catch (error) {
 					vscode.window.showErrorMessage(t("common:errors.checkpoint_timeout"))
 				}
@@ -971,11 +991,13 @@ export const webviewMessageHandler = async (
 
 				const messageIndex = provider
 					.getCurrentCline()!
-					.clineMessages.findIndex((msg) => msg.ts && msg.ts >= timeCutoff)
+					.messageStateHandler.getClineMessages()
+					.findIndex((msg) => msg.ts && msg.ts >= timeCutoff)
 
 				const apiConversationHistoryIndex = provider
-					.getCurrentCline()
-					?.apiConversationHistory.findIndex((msg) => msg.ts && msg.ts >= timeCutoff)
+					.getCurrentCline()!
+					.messageStateHandler.getApiConversationHistory()
+					.findIndex((msg: any) => msg.ts && msg.ts >= timeCutoff)
 
 				if (messageIndex !== -1) {
 					const { historyItem } = await provider.getTaskWithId(provider.getCurrentCline()!.taskId)
@@ -984,7 +1006,8 @@ export const webviewMessageHandler = async (
 						// Find the next user message first
 						const nextUserMessage = provider
 							.getCurrentCline()!
-							.clineMessages.slice(messageIndex + 1)
+							.messageStateHandler.getClineMessages()
+							.slice(messageIndex + 1)
 							.find((msg) => msg.type === "say" && msg.say === "user_feedback")
 
 						// Handle UI messages
@@ -992,21 +1015,31 @@ export const webviewMessageHandler = async (
 							// Find absolute index of next user message
 							const nextUserMessageIndex = provider
 								.getCurrentCline()!
-								.clineMessages.findIndex((msg) => msg === nextUserMessage)
+								.messageStateHandler.getClineMessages()
+								.findIndex((msg) => msg === nextUserMessage)
 
 							// Keep messages before current message and after next user message
 							await provider
 								.getCurrentCline()!
-								.overwriteClineMessages([
-									...provider.getCurrentCline()!.clineMessages.slice(0, messageIndex),
-									...provider.getCurrentCline()!.clineMessages.slice(nextUserMessageIndex),
+								.messageStateHandler.overwriteClineMessages([
+									...provider
+										.getCurrentCline()!
+										.messageStateHandler.getClineMessages()
+										.slice(0, messageIndex),
+									...provider
+										.getCurrentCline()!
+										.messageStateHandler.getClineMessages()
+										.slice(nextUserMessageIndex),
 								])
 						} else {
 							// If no next user message, keep only messages before current message
 							await provider
 								.getCurrentCline()!
-								.overwriteClineMessages(
-									provider.getCurrentCline()!.clineMessages.slice(0, messageIndex),
+								.messageStateHandler.overwriteClineMessages(
+									provider
+										.getCurrentCline()!
+										.messageStateHandler.getClineMessages()
+										.slice(0, messageIndex),
 								)
 						}
 
@@ -1014,26 +1047,25 @@ export const webviewMessageHandler = async (
 						if (apiConversationHistoryIndex !== -1) {
 							if (nextUserMessage && nextUserMessage.ts) {
 								// Keep messages before current API message and after next user message
-								await provider
-									.getCurrentCline()!
-									.overwriteApiConversationHistory([
-										...provider
-											.getCurrentCline()!
-											.apiConversationHistory.slice(0, apiConversationHistoryIndex),
-										...provider
-											.getCurrentCline()!
-											.apiConversationHistory.filter(
-												(msg) => msg.ts && msg.ts >= nextUserMessage.ts,
-											),
-									])
+								await provider.getCurrentCline()!.messageStateHandler.overwriteApiConversationHistory([
+									...provider
+										.getCurrentCline()!
+										.messageStateHandler.getApiConversationHistory()
+										.slice(0, apiConversationHistoryIndex),
+									...provider
+										.getCurrentCline()!
+										.messageStateHandler.getApiConversationHistory()
+										.filter((msg: any) => msg.ts && msg.ts >= nextUserMessage.ts!),
+								])
 							} else {
 								// If no next user message, keep only messages before current API message
 								await provider
 									.getCurrentCline()!
-									.overwriteApiConversationHistory(
+									.messageStateHandler.overwriteApiConversationHistory(
 										provider
 											.getCurrentCline()!
-											.apiConversationHistory.slice(0, apiConversationHistoryIndex),
+											.messageStateHandler.getApiConversationHistory()
+											.slice(0, apiConversationHistoryIndex),
 									)
 							}
 						}
@@ -1041,14 +1073,20 @@ export const webviewMessageHandler = async (
 						// Delete this message and all that follow
 						await provider
 							.getCurrentCline()!
-							.overwriteClineMessages(provider.getCurrentCline()!.clineMessages.slice(0, messageIndex))
+							.messageStateHandler.overwriteClineMessages(
+								provider
+									.getCurrentCline()!
+									.messageStateHandler.getClineMessages()
+									.slice(0, messageIndex),
+							)
 						if (apiConversationHistoryIndex !== -1) {
 							await provider
 								.getCurrentCline()!
-								.overwriteApiConversationHistory(
+								.messageStateHandler.overwriteApiConversationHistory(
 									provider
 										.getCurrentCline()!
-										.apiConversationHistory.slice(0, apiConversationHistoryIndex),
+										.messageStateHandler.getApiConversationHistory()
+										.slice(0, apiConversationHistoryIndex),
 								)
 						}
 					}

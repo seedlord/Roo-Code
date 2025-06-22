@@ -56,7 +56,7 @@ describe.each([[RepoPerTaskCheckpointService, "RepoPerTaskCheckpointService"]])(
 		let testFile: string
 		let service: RepoPerTaskCheckpointService
 
-		beforeEach(async () => {
+		beforeAll(async () => {
 			const shadowDir = path.join(tmpDir, `${prefix}-${Date.now()}`)
 			const workspaceDir = path.join(tmpDir, `workspace-${Date.now()}`)
 			const repo = await initWorkspaceRepo({ workspaceDir })
@@ -70,6 +70,16 @@ describe.each([[RepoPerTaskCheckpointService, "RepoPerTaskCheckpointService"]])(
 
 		afterEach(async () => {
 			vitest.restoreAllMocks()
+			// Reset the workspace to the initial commit
+			const log = await workspaceGit.log()
+			await workspaceGit.reset(["--hard", log.latest!.hash])
+			// Remove any untracked files
+			await workspaceGit.clean("f", ["-d"])
+
+			// Reset the shadow service to its base hash
+			if (service.baseHash) {
+				await service.restoreCheckpoint(service.baseHash)
+			}
 		})
 
 		afterAll(async () => {

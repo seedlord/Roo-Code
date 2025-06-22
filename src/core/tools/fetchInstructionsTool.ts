@@ -21,13 +21,13 @@ export async function fetchInstructionsTool(
 			return
 		} else {
 			if (!task) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("fetch_instructions")
 				pushToolResult(await cline.sayAndCreateMissingParamError("fetch_instructions", "task"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			const completeMessage = JSON.stringify({ ...sharedMessageProps, content: task } satisfies ClineSayTool)
 			const didApprove = await askApproval("tool", completeMessage)

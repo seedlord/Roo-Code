@@ -33,7 +33,7 @@ export async function writeToFileTool(
 	}
 
 	if (!relPath) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("write_to_file")
 		pushToolResult(await cline.sayAndCreateMissingParamError("write_to_file", "path"))
 		await cline.diffViewProvider.reset()
@@ -41,7 +41,7 @@ export async function writeToFileTool(
 	}
 
 	if (newContent === undefined) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("write_to_file")
 		pushToolResult(await cline.sayAndCreateMissingParamError("write_to_file", "content"))
 		await cline.diffViewProvider.reset()
@@ -65,7 +65,7 @@ export async function writeToFileTool(
 	if (cline.diffViewProvider.editType !== undefined) {
 		fileExists = cline.diffViewProvider.editType === "modify"
 	} else {
-		const absolutePath = path.resolve(cline.cwd, relPath)
+		const absolutePath = path.resolve(cline.workspacePath, relPath)
 		fileExists = await fileExistsAtPath(absolutePath)
 		cline.diffViewProvider.editType = fileExists ? "modify" : "create"
 	}
@@ -85,12 +85,12 @@ export async function writeToFileTool(
 	}
 
 	// Determine if the path is outside the workspace
-	const fullPath = relPath ? path.resolve(cline.cwd, removeClosingTag("path", relPath)) : ""
+	const fullPath = relPath ? path.resolve(cline.workspacePath, removeClosingTag("path", relPath)) : ""
 	const isOutsideWorkspace = isPathOutsideWorkspace(fullPath)
 
 	const sharedMessageProps: ClineSayTool = {
 		tool: fileExists ? "editedExistingFile" : "newFileCreated",
-		path: getReadablePath(cline.cwd, removeClosingTag("path", relPath)),
+		path: getReadablePath(cline.workspacePath, removeClosingTag("path", relPath)),
 		content: newContent,
 		isOutsideWorkspace,
 		isProtected: isWriteProtected,
@@ -117,7 +117,7 @@ export async function writeToFileTool(
 			return
 		} else {
 			if (predictedLineCount === undefined) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("write_to_file")
 
 				// Calculate the actual number of lines in the content
@@ -146,7 +146,7 @@ export async function writeToFileTool(
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			// if isEditingFile false, that means we have the full contents of the file already.
 			// it's important to note how cline function works, you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data. So cline part of the logic will always be called.
@@ -205,7 +205,7 @@ export async function writeToFileTool(
 					: undefined,
 			} satisfies ClineSayTool)
 
-			const didApprove = await askApproval("tool", completeMessage, undefined, isWriteProtected)
+			const didApprove = await askApproval("tool", completeMessage, undefined, undefined, isWriteProtected)
 
 			if (!didApprove) {
 				await cline.diffViewProvider.revertChanges()
@@ -220,10 +220,10 @@ export async function writeToFileTool(
 				await cline.fileContextTracker.trackFileContext(relPath, "roo_edited" as RecordSource)
 			}
 
-			cline.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
+			cline.state.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
 
 			// Get the formatted response message
-			const message = await cline.diffViewProvider.pushToolWriteResult(cline, cline.cwd, !fileExists)
+			const message = await cline.diffViewProvider.pushToolWriteResult(cline, cline.workspacePath, !fileExists)
 
 			pushToolResult(message)
 

@@ -33,7 +33,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	const visibleFilePaths = vscode.window.visibleTextEditors
 		?.map((editor) => editor.document?.uri?.fsPath)
 		.filter(Boolean)
-		.map((absolutePath) => path.relative(cline.cwd, absolutePath))
+		.map((absolutePath) => path.relative(cline.workspacePath, absolutePath))
 		.slice(0, maxWorkspaceFiles)
 
 	// Filter paths through rooIgnoreController
@@ -54,7 +54,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 		.flatMap((group) => group.tabs)
 		.map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
 		.filter(Boolean)
-		.map((absolutePath) => path.relative(cline.cwd, absolutePath).toPosix())
+		.map((absolutePath) => path.relative(cline.workspacePath, absolutePath).toPosix())
 		.slice(0, maxTabs)
 
 	// Filter paths through rooIgnoreController
@@ -80,7 +80,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	]
 
 	if (busyTerminals.length > 0) {
-		if (cline.didEditFile) {
+		if (cline.state.didEditFile) {
 			await delay(300) // Delay after saving file to let terminals catch up.
 		}
 
@@ -92,7 +92,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	}
 
 	// Reset, this lets us know when to wait for saved files to update terminals.
-	cline.didEditFile = false
+	cline.state.didEditFile = false
 
 	// Waiting for updated diagnostics lets terminal output be the most
 	// up-to-date possible.
@@ -196,7 +196,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
 	// Add context tokens information.
-	const { contextTokens, totalCost } = getApiMetrics(cline.clineMessages)
+	const { contextTokens, totalCost } = getApiMetrics(cline.messageStateHandler.getClineMessages())
 	const { id: modelId, info: modelInfo } = cline.api.getModel()
 	const contextWindow = modelInfo.contextWindow
 
@@ -219,7 +219,7 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	const currentMode = mode ?? defaultModeSlug
 
 	const modeDetails = await getFullModeDetails(currentMode, customModes, customModePrompts, {
-		cwd: cline.cwd,
+		cwd: cline.workspacePath,
 		globalCustomInstructions,
 		language: language ?? formatLanguage(vscode.env.language),
 	})
@@ -248,8 +248,8 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	}
 
 	if (includeFileDetails) {
-		details += `\n\n# Current Workspace Directory (${cline.cwd.toPosix()}) Files\n`
-		const isDesktop = arePathsEqual(cline.cwd, path.join(os.homedir(), "Desktop"))
+		details += `\n\n# Current Workspace Directory (${cline.workspacePath.toPosix()}) Files\n`
+		const isDesktop = arePathsEqual(cline.workspacePath, path.join(os.homedir(), "Desktop"))
 
 		if (isDesktop) {
 			// Don't want to immediately access desktop since it would show
@@ -257,11 +257,11 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 			details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
 		} else {
 			const maxFiles = maxWorkspaceFiles ?? 200
-			const [files, didHitLimit] = await listFiles(cline.cwd, true, maxFiles)
+			const [files, didHitLimit] = await listFiles(cline.workspacePath, true, maxFiles)
 			const { showRooIgnoredFiles = true } = state ?? {}
 
 			const result = formatResponse.formatFilesList(
-				cline.cwd,
+				cline.workspacePath,
 				files,
 				didHitLimit,
 				cline.rooIgnoreController,

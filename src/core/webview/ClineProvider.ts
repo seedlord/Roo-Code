@@ -21,7 +21,6 @@ import {
 	type CodeActionName,
 	type TerminalActionId,
 	type TerminalActionPromptType,
-	type HistoryItem,
 	type CloudUserInfo,
 	type MarketplaceItem,
 	requestyDefaultModelId,
@@ -59,7 +58,9 @@ import { ContextProxy } from "../config/ContextProxy"
 import { ProviderSettingsManager } from "../config/ProviderSettingsManager"
 import { CustomModesManager } from "../config/CustomModesManager"
 import { buildApiHandler } from "../../api"
-import { Task, TaskOptions } from "../task/Task"
+import { Task } from "../task/Task"
+import { type TaskCreationOptions, type TaskItem } from "../task/task-types"
+import crypto from "crypto"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
 import { getSystemPromptFilePath } from "../prompts/sections/custom-system-prompt"
@@ -97,7 +98,8 @@ export class ClineProvider
 	private disposables: vscode.Disposable[] = []
 	private webviewDisposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
-	private clineStack: Task[] = []
+	public clineStack: Task[] = []
+	private isSwitchingTask = false
 	private codeIndexStatusSubscription?: vscode.Disposable
 	private _workspaceTracker?: WorkspaceTracker // workSpaceTracker read-only for access outside this class
 	public get workspaceTracker(): WorkspaceTracker | undefined {
@@ -162,7 +164,7 @@ export class ClineProvider
 	// The instance is pushed to the top of the stack (LIFO order).
 	// When the task is completed, the top instance is removed, reactivating the previous task.
 	async addClineToStack(cline: Task) {
-		console.log(`[subtasks] adding task ${cline.taskId}.${cline.instanceId} to stack`)
+		console.log(`[task] adding task ${cline.taskId}.${cline.instanceId} to stack`)
 
 		// Add this cline instance into the stack that represents the order of all the called tasks.
 		this.clineStack.push(cline)
@@ -175,33 +177,31 @@ export class ClineProvider
 		}
 	}
 
-	// Removes and destroys the top Cline instance (the current finished task),
-	// activating the previous one (resuming the parent task).
+	// Marks the top Cline instance as aborted, but leaves it on the stack
+	// to be visible in history and potentially resumed.
 	async removeClineFromStack() {
 		if (this.clineStack.length === 0) {
 			return
 		}
 
-		// Pop the top Cline instance from the stack.
-		let cline = this.clineStack.pop()
+		// Get the top Cline instance from the stack without removing it.
+		const cline = this.getCurrentCline()
 
-		if (cline) {
-			console.log(`[subtasks] removing task ${cline.taskId}.${cline.instanceId} from stack`)
+		if (cline && !cline.state.abort) {
+			console.log(`[task] aborting task on stack ${cline.taskId}.${cline.instanceId}`)
 
 			try {
-				// Abort the running task and set isAbandoned to true so
-				// all running promises will exit as well.
+				// Abort the running task.
 				await cline.abortTask(true)
+				// Ensure the UI reflects the aborted state.
+				await this.postStateToWebview()
 			} catch (e) {
 				this.log(
 					`[subtasks] encountered error while aborting task ${cline.taskId}.${cline.instanceId}: ${e.message}`,
 				)
 			}
-
-			// Make sure no reference kept, once promises end it will be
-			// garbage collected.
-			cline = undefined
 		}
+		this.clineStack.pop()
 	}
 
 	// returns the current cline object in the stack (the top one)
@@ -226,17 +226,21 @@ export class ClineProvider
 	// and resume the previous task/cline instance (if it exists)
 	// this is used when a sub task is finished and the parent task needs to be resumed
 	async finishSubTask(lastMessage: string) {
-		console.log(`[subtasks] finishing subtask ${lastMessage}`)
-		// remove the last cline instance from the stack (this is the finished sub task)
-		await this.removeClineFromStack()
-		// resume the last cline instance in the stack (if it exists - this is the 'parent' calling task)
-		await this.getCurrentCline()?.resumePausedTask(lastMessage)
-	}
+		console.log(`[task] finishing subtask ${lastMessage}`)
+		const subTask = this.getCurrentCline()
+		if (subTask) {
+			await subTask.abortTask(true)
+		}
 
-	// Clear the current task without treating it as a subtask
-	// This is used when the user cancels a task that is not a subtask
-	async clearTask() {
-		await this.removeClineFromStack()
+		// Pop the subtask from the stack
+		this.clineStack.pop()
+
+		// Resume the parent task
+		const parentTask = this.getCurrentCline()
+		if (parentTask) {
+			await parentTask.resumePausedTask(lastMessage)
+		}
+		await this.postStateToWebview()
 	}
 
 	/*
@@ -483,6 +487,9 @@ export class ClineProvider
 		// This happens when the user closes the view or when the view is closed programmatically
 		webviewView.onDidDispose(
 			async () => {
+				this.log(
+					`[WebviewDebug] onDidDispose triggered. In tab mode: ${inTabMode}. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}`,
+				)
 				if (inTabMode) {
 					this.log("Disposing ClineProvider instance for tab view")
 					await this.dispose()
@@ -506,14 +513,13 @@ export class ClineProvider
 		})
 		this.webviewDisposables.push(configDisposable)
 
-		// If the extension is starting a new session, clear previous task state.
-		await this.removeClineFromStack()
-
 		this.log("Webview view resolved")
 	}
 
-	public async initClineWithSubTask(parent: Task, task?: string, images?: string[]) {
-		return this.initClineWithTask(task, images, parent)
+	public async initClineWithSubTask(parent: Task, task?: string, files?: string[]) {
+		return this.initClineWithTask(task, undefined, files, parent, undefined, {
+			globalStoragePath: parent.globalStoragePath,
+		})
 	}
 
 	// When initializing a new task, (not from history but from a tool command
@@ -525,14 +531,42 @@ export class ClineProvider
 	public async initClineWithTask(
 		task?: string,
 		images?: string[],
+		files?: string[],
 		parentTask?: Task,
+		childTaskId?: string,
 		options: Partial<
 			Pick<
-				TaskOptions,
-				"enableDiff" | "enableCheckpoints" | "fuzzyMatchThreshold" | "consecutiveMistakeLimit" | "experiments"
+				TaskCreationOptions,
+				| "enableDiff"
+				| "enableCheckpoints"
+				| "fuzzyMatchThreshold"
+				| "consecutiveMistakeLimit"
+				| "experiments"
+				| "globalStoragePath"
 			>
 		> = {},
 	) {
+		const isNewAndEmpty = !task && (!images || images.length === 0) && (!files || files.length === 0)
+		const currentTask = this.getCurrentCline()
+
+		// If we are asked to create a new, empty, root task, and a task is already running,
+		// this means we should clear the current task and return to the main menu.
+		if (isNewAndEmpty && !parentTask && currentTask) {
+			await currentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
+			await currentTask.abortTask(true)
+			this.clineStack.pop()
+			await this.postStateToWebview()
+			return currentTask
+		}
+
+		// If the current task is empty and we are not creating a subtask,
+		// just start the current task with the new prompt.
+		const isCurrentTaskEmpty = currentTask?.messageStateHandler.getClineMessages().length === 0
+		if (currentTask && isCurrentTaskEmpty && !parentTask) {
+			await currentTask.startTask(task, images, files)
+			return currentTask
+		}
+
 		const {
 			apiConfiguration,
 			organizationAllowList,
@@ -546,7 +580,7 @@ export class ClineProvider
 			throw new OrganizationAllowListViolationError(t("common:errors.violated_organization_allowlist"))
 		}
 
-		const cline = new Task({
+		const [newCline, newClinePromise] = Task.create({
 			provider: this,
 			apiConfiguration,
 			enableDiff,
@@ -554,57 +588,150 @@ export class ClineProvider
 			fuzzyMatchThreshold,
 			task,
 			images,
+			files,
 			experiments,
-			rootTask: this.clineStack.length > 0 ? this.clineStack[0] : undefined,
+			rootTask: parentTask ? (parentTask.rootTask ?? parentTask) : undefined,
 			parentTask,
-			taskNumber: this.clineStack.length + 1,
+			childTaskId,
+			taskNumber: parentTask ? this.clineStack.length + 1 : this.clineStack.length,
 			onCreated: (cline) => this.emit("clineCreated", cline),
-			...options,
+			globalStoragePath: options.globalStoragePath || this.context.globalStorageUri.fsPath,
 		})
 
-		await this.addClineToStack(cline)
+		newClinePromise.catch((error) => {
+			console.error(`Task creation promise failed for task ${newCline.taskId}`, error)
+			this.log(`Task creation failed: ${error.message}`)
+		})
+
+		if (!parentTask && this.clineStack.length > 0) {
+			await this.replaceTask(newCline)
+		} else {
+			await this.addClineToStack(newCline)
+		}
+
+		// Create a temporary history item for the new task
+		const tempHistoryItem: TaskItem = {
+			id: newCline.taskId,
+			ts: Date.now(),
+			task: task || "Untitled Task",
+			tokensIn: 0,
+			tokensOut: 0,
+			cacheWrites: 0,
+			cacheReads: 0,
+			totalCost: 0,
+			size: 0,
+			status: "running",
+			number: newCline.taskNumber,
+			parentId: newCline.parentTask?.taskId,
+			childTaskIds: [],
+			pendingChildTasks: [],
+			activeChildTaskId: undefined,
+		}
+
+		// Add the new task to history immediately
+		await this.updateTaskHistory(tempHistoryItem)
+
+		// Ensure the UI is updated with the new task state.
+		this.log(
+			`[WebviewDebug] initClineWithTask: Before postStateToWebview. View exists: ${!!this.view}, Webview exists: ${!!this.view?.webview}, View visible: ${this.view?.visible}`,
+		)
+		await this.postStateToWebview()
 
 		this.log(
-			`[subtasks] ${cline.parentTask ? "child" : "parent"} task ${cline.taskId}.${cline.instanceId} instantiated`,
+			`[task] ${newCline.parentTask ? "child" : "parent"} task ${newCline.taskId}.${newCline.instanceId} instantiated`,
 		)
 
-		return cline
+		return newCline
 	}
 
-	public async initClineWithHistoryItem(historyItem: HistoryItem & { rootTask?: Task; parentTask?: Task }) {
-		await this.removeClineFromStack()
+	public async initClineWithHistoryItem(
+		historyItem: TaskItem & { rootTask?: Task; parentTask?: Task; childTaskId?: string },
+	) {
+		if (this.isSwitchingTask) {
+			this.log("Task switch in progress, ignoring new request.")
+			return
+		}
+		this.isSwitchingTask = true
 
-		const {
-			apiConfiguration,
-			diffEnabled: enableDiff,
-			enableCheckpoints,
-			fuzzyMatchThreshold,
-			experiments,
-		} = await this.getState()
+		try {
+			const oldTask = this.getCurrentCline()
 
-		const cline = new Task({
-			provider: this,
-			apiConfiguration,
-			enableDiff,
-			enableCheckpoints,
-			fuzzyMatchThreshold,
-			historyItem,
-			experiments,
-			rootTask: historyItem.rootTask,
-			parentTask: historyItem.parentTask,
-			taskNumber: historyItem.number,
-			onCreated: (cline) => this.emit("clineCreated", cline),
-		})
+			const {
+				apiConfiguration,
+				diffEnabled: enableDiff,
+				enableCheckpoints,
+				fuzzyMatchThreshold,
+				experiments,
+			} = await this.getState()
 
-		await this.addClineToStack(cline)
-		this.log(
-			`[subtasks] ${cline.parentTask ? "child" : "parent"} task ${cline.taskId}.${cline.instanceId} instantiated`,
-		)
-		return cline
+			// Create the new task from history
+			const [newCline, newClinePromise] = Task.create({
+				provider: this,
+				apiConfiguration,
+				enableDiff,
+				enableCheckpoints,
+				fuzzyMatchThreshold,
+				historyItem: {
+					...historyItem,
+					cacheReads: historyItem.cacheReads ?? 0,
+					cacheWrites: historyItem.cacheWrites ?? 0,
+					size: historyItem.size ?? 0,
+					tokensIn: historyItem.tokensIn ?? 0,
+					tokensOut: historyItem.tokensOut ?? 0,
+					totalCost: historyItem.totalCost ?? 0,
+				},
+				experiments,
+				rootTask: historyItem.rootTask,
+				parentTask: historyItem.parentTask,
+				childTaskId: historyItem.childTaskId,
+				taskNumber: historyItem.number, // Use the number from history
+				onCreated: (cline) => this.emit("clineCreated", cline),
+				globalStoragePath: this.context.globalStorageUri.fsPath,
+			})
+
+			// Save and abort the old task if it exists
+			if (oldTask) {
+				// The abortTask method will handle saving the task state to history.
+				await oldTask.abortTask(true)
+				// Atomically replace the task on the stack
+				this.clineStack[this.clineStack.length - 1] = newCline
+				this.log(
+					`[history] replaced task ${oldTask.taskId}.${oldTask.instanceId} with ${newCline.taskId}.${newCline.instanceId}`,
+				)
+			} else {
+				// If there was no old task, just add the new one.
+				await this.addClineToStack(newCline)
+				this.log(
+					`[history] ${newCline.parentTask ? "child" : "parent"} task ${newCline.taskId}.${newCline.instanceId} instantiated`,
+				)
+			}
+			return newCline
+		} finally {
+			this.isSwitchingTask = false
+		}
 	}
 
 	public async postMessageToWebview(message: ExtensionMessage) {
-		await this.view?.webview.postMessage(message)
+		this.log(
+			`[WebviewDebug] postMessageToWebview: view exists: ${!!this.view}, webview exists: ${!!this.view?.webview}, view visible: ${this.view?.visible}, message type: ${message.type}`,
+		)
+		if (!this.view || !this.view.webview) {
+			this.log(
+				`[WebviewDebug] Attempted to post message to a disposed or undefined webview. Message type: ${message.type}`,
+			)
+			// Optionally, you could throw an error here or handle it gracefully
+			// For debugging, just logging is fine.
+			return
+		}
+		try {
+			await this.view.webview.postMessage(message)
+		} catch (error) {
+			this.log(`[WebviewDebug] Error posting message to webview: ${error.message}. Message type: ${message.type}`)
+			// Potentially re-throw or handle if this indicates a disposed webview
+			if (error.message.includes("disposed")) {
+				this.log("[WebviewDebug] Webview was disposed when trying to post message.")
+			}
+		}
 	}
 
 	private async getHMRHtmlContent(webview: vscode.Webview): Promise<string> {
@@ -792,6 +919,20 @@ export class ClineProvider
 		this.webviewDisposables.push(messageDisposable)
 	}
 
+	public async handleClearTask() {
+		const cline = this.getCurrentCline()
+
+		if (cline) {
+			if (cline.parentTask) {
+				await this.finishSubTask(t("common:tasks.canceled"))
+			} else {
+				await this.initClineWithTask()
+			}
+		} else {
+			await this.initClineWithTask()
+		}
+	}
+
 	/**
 	 * Handle switching to a new mode, including updating the associated API configuration
 	 * @param newMode The mode to switch to
@@ -969,7 +1110,7 @@ export class ClineProvider
 			return
 		}
 
-		console.log(`[subtasks] cancelling task ${cline.taskId}.${cline.instanceId}`)
+		console.log(`[task] cancelling task ${cline.taskId}.${cline.instanceId}`)
 
 		const { historyItem } = await this.getTaskWithId(cline.taskId)
 		// Preserve parent and root task information for history item.
@@ -981,12 +1122,12 @@ export class ClineProvider
 		await pWaitFor(
 			() =>
 				this.getCurrentCline()! === undefined ||
-				this.getCurrentCline()!.isStreaming === false ||
-				this.getCurrentCline()!.didFinishAbortingStream ||
+				this.getCurrentCline()!.state.isStreaming === false ||
+				this.getCurrentCline()!.state.didFinishAbortingStream ||
 				// If only the first chunk is processed, then there's no
 				// need to wait for graceful abort (closes edits, browser,
 				// etc).
-				this.getCurrentCline()!.isWaitingForFirstChunk,
+				this.getCurrentCline()!.state.isWaitingForFirstChunk,
 			{
 				timeout: 3_000,
 			},
@@ -998,7 +1139,7 @@ export class ClineProvider
 			// 'abandoned' will prevent this Cline instance from affecting
 			// future Cline instances. This may happen if its hanging on a
 			// streaming request.
-			this.getCurrentCline()!.abandoned = true
+			this.getCurrentCline()!.state.abandoned = true
 		}
 
 		// Clears task again, so we need to abortTask manually above.
@@ -1123,19 +1264,19 @@ export class ClineProvider
 	// Task history
 
 	async getTaskWithId(id: string): Promise<{
-		historyItem: HistoryItem
+		historyItem: TaskItem
 		taskDirPath: string
 		apiConversationHistoryFilePath: string
 		uiMessagesFilePath: string
 		apiConversationHistory: Anthropic.MessageParam[]
 	}> {
-		const history = this.getGlobalState("taskHistory") ?? []
+		const history = (this.getGlobalState("taskHistory") as TaskItem[]) ?? []
 		const historyItem = history.find((item) => item.id === id)
 
 		if (historyItem) {
-			const { getTaskDirectoryPath } = await import("../../utils/storage")
+			const { ensureTaskDirectoryExists } = await import("../../utils/storage")
 			const globalStoragePath = this.contextProxy.globalStorageUri.fsPath
-			const taskDirPath = await getTaskDirectoryPath(globalStoragePath, id)
+			const taskDirPath = await ensureTaskDirectoryExists(globalStoragePath, id)
 			const apiConversationHistoryFilePath = path.join(taskDirPath, GlobalFileNames.apiConversationHistory)
 			const uiMessagesFilePath = path.join(taskDirPath, GlobalFileNames.uiMessages)
 			const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
@@ -1239,7 +1380,7 @@ export class ClineProvider
 	}
 
 	async deleteTaskFromState(id: string) {
-		const taskHistory = this.getGlobalState("taskHistory") ?? []
+		const taskHistory = (this.getGlobalState("taskHistory") as TaskItem[]) ?? []
 		const updatedTaskHistory = taskHistory.filter((task) => task.id !== id)
 		await this.updateGlobalState("taskHistory", updatedTaskHistory)
 		await this.postStateToWebview()
@@ -1388,6 +1529,44 @@ export class ClineProvider
 		const currentMode = mode ?? defaultModeSlug
 		const hasSystemPromptOverride = await this.hasFileBasedSystemPromptOverride(currentMode)
 
+		const currentCline = this.getCurrentCline()
+		let currentTaskItem: TaskItem | undefined
+
+		if (currentCline) {
+			const history = (taskHistory as TaskItem[]) || []
+			currentTaskItem = history.find((item: TaskItem) => item.id === currentCline.taskId)
+
+			// If the task is not in history (i.e., it's a new, empty task),
+			// create a temporary history item for the UI.
+			if (!currentTaskItem) {
+				currentTaskItem = {
+					id: currentCline.taskId,
+					ts: Date.now(),
+					task: "Untitled Task",
+					tokensIn: 0,
+					tokensOut: 0,
+					cacheWrites: 0,
+					cacheReads: 0,
+					totalCost: 0,
+					size: 0,
+					status: "running",
+					number: currentCline.taskNumber,
+					parentId: currentCline.parentTask?.taskId,
+					childTaskIds: [], // Initialize with empty array
+					pendingChildTasks: (currentCline.pendingChildTasks || []).map((t) => ({
+						...t,
+						files: t.files || [],
+					})),
+					activeChildTaskId: currentCline.activeChildTask?.taskId,
+				}
+			}
+		}
+
+		const historyForWebview = ((taskHistory as TaskItem[]) || [])
+			.filter((item: TaskItem) => item.ts && item.task)
+			.sort((a: TaskItem, b: TaskItem) => b.ts - a.ts)
+		//console.log(`[HistoryDebug] postStateToWebview: Sending ${historyForWebview.length} history items to UI. IDs: ${historyForWebview.map(h => h.id).join(', ')}`);
+
 		return {
 			version: this.context.extension?.packageJSON?.version ?? "",
 			apiConfiguration,
@@ -1406,13 +1585,9 @@ export class ClineProvider
 			autoCondenseContext: autoCondenseContext ?? true,
 			autoCondenseContextPercent: autoCondenseContextPercent ?? 100,
 			uriScheme: vscode.env.uriScheme,
-			currentTaskItem: this.getCurrentCline()?.taskId
-				? (taskHistory || []).find((item: HistoryItem) => item.id === this.getCurrentCline()?.taskId)
-				: undefined,
-			clineMessages: this.getCurrentCline()?.clineMessages || [],
-			taskHistory: (taskHistory || [])
-				.filter((item: HistoryItem) => item.ts && item.task)
-				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts),
+			currentTaskItem: currentTaskItem,
+			clineMessages: currentCline?.messageStateHandler.getClineMessages() || [],
+			taskHistory: historyForWebview,
 			soundEnabled: soundEnabled ?? false,
 			ttsEnabled: ttsEnabled ?? false,
 			ttsSpeed: ttsSpeed ?? 1.0,
@@ -1498,6 +1673,20 @@ export class ClineProvider
 		const stateValues = this.contextProxy.getValues()
 		const customModes = await this.customModesManager.getCustomModes()
 
+		// Lade die History aus unserer synchronen Datei
+		let taskHistory: TaskItem[] = []
+		try {
+			const historyPath = path.join(this.context.globalStorageUri.fsPath, "taskHistory.json")
+			if (require("fs").existsSync(historyPath)) {
+				const historyJson = require("fs").readFileSync(historyPath, "utf8")
+				taskHistory = JSON.parse(historyJson)
+			}
+		} catch (e) {
+			console.error("[HistoryDebug] Failed to read history from file:", e)
+			// Fallback auf den alten Mechanismus
+			taskHistory = (stateValues.taskHistory as TaskItem[]) || []
+		}
+
 		// Determine apiProvider with the same logic as before.
 		const apiProvider: ProviderName = stateValues.apiProvider ? stateValues.apiProvider : "anthropic"
 
@@ -1568,7 +1757,7 @@ export class ClineProvider
 			allowedMaxRequests: stateValues.allowedMaxRequests,
 			autoCondenseContext: stateValues.autoCondenseContext ?? true,
 			autoCondenseContextPercent: stateValues.autoCondenseContextPercent ?? 100,
-			taskHistory: stateValues.taskHistory,
+			taskHistory: taskHistory.filter((item: TaskItem) => item.id && item.ts && item.task),
 			allowedCommands: stateValues.allowedCommands,
 			soundEnabled: stateValues.soundEnabled ?? false,
 			ttsEnabled: stateValues.ttsEnabled ?? false,
@@ -1638,18 +1827,42 @@ export class ClineProvider
 		}
 	}
 
-	async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
-		const history = (this.getGlobalState("taskHistory") as HistoryItem[] | undefined) || []
+	async updateTaskHistory(item: TaskItem): Promise<TaskItem[]> {
+		const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
 		const existingItemIndex = history.findIndex((h) => h.id === item.id)
 
-		if (existingItemIndex !== -1) {
+		if (existingItemIndex >= 0) {
 			history[existingItemIndex] = item
 		} else {
 			history.push(item)
 		}
 
+		// Synchrone Speicherung in eine Datei
+		try {
+			const historyPath = path.join(this.context.globalStorageUri.fsPath, "taskHistory.json")
+			const historyJson = JSON.stringify(history, null, 2)
+			require("fs").writeFileSync(historyPath, historyJson, "utf8")
+		} catch (e) {
+			console.error("[HistoryDebug] Failed to write history to file synchronously:", e)
+		}
+
+		// Aktualisiere weiterhin den globalen Zustand für den schnellen Zugriff
 		await this.updateGlobalState("taskHistory", history)
+		this.postStateToWebview()
 		return history
+	}
+
+	private async replaceTask(newCline: Task) {
+		const oldTask = this.getCurrentCline()
+		console.log(`[HistoryDebug] replaceTask called. Old task: ${oldTask?.taskId}, New task: ${newCline.taskId}`)
+		if (oldTask) {
+			// The abortTask method will handle saving the task state to history.
+			await oldTask.abortTask(true)
+		}
+		this.clineStack[this.clineStack.length - 1] = newCline
+		this.log(
+			`[task] replaced task ${oldTask?.taskId}.${oldTask?.instanceId} with ${newCline.taskId}.${newCline.instanceId}`,
+		)
 	}
 
 	// ContextProxy
@@ -1683,7 +1896,7 @@ export class ClineProvider
 	// cwd
 
 	get cwd() {
-		return getWorkspacePath()
+		return getWorkspacePath()?.toPosix()
 	}
 
 	// dev
@@ -1721,7 +1934,7 @@ export class ClineProvider
 	}
 
 	get messages() {
-		return this.getCurrentCline()?.clineMessages || []
+		return this.getCurrentCline()?.messageStateHandler.getClineMessages() || []
 	}
 
 	// Add public getter
@@ -1771,5 +1984,81 @@ export class ClineProvider
 			diffStrategy: task?.diffStrategy?.getName(),
 			isSubtask: task ? !!task.parentTask : undefined,
 		}
+	}
+
+	async handleNewChildTask(
+		parentTaskId: string,
+		prompt: string,
+		files: string[],
+		executeImmediately: boolean,
+	): Promise<Task | string> {
+		const parentTask = this.clineStack.find((task) => task.taskId === parentTaskId)
+		if (!parentTask) {
+			throw new Error(`Parent task with ID ${parentTaskId} not found`)
+		}
+
+		if (executeImmediately) {
+			const childTask = await this.initClineWithSubTask(parentTask, prompt, files)
+			return childTask
+		} else {
+			const newTaskId = crypto.randomUUID()
+			const newPendingTask = {
+				id: newTaskId,
+				prompt,
+				files,
+				createdAt: Date.now(),
+			}
+
+			const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
+			const parentHistoryItem = history.find((item) => item.id === parentTaskId)
+			if (parentHistoryItem) {
+				parentHistoryItem.pendingChildTasks = [...(parentHistoryItem.pendingChildTasks || []), newPendingTask]
+				await this.updateTaskHistory(parentHistoryItem)
+			}
+
+			// Update the parent task instance directly
+			parentTask.pendingChildTasks.push(newPendingTask)
+
+			// Post state to webview to update the UI
+			await this.postStateToWebview()
+
+			return newTaskId
+		}
+	}
+
+	async handleStartNextChildTask(parentTaskId: string): Promise<void> {
+		const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
+		const parentHistoryItem = history.find((item) => item.id === parentTaskId)
+
+		if (
+			!parentHistoryItem ||
+			!parentHistoryItem.pendingChildTasks ||
+			parentHistoryItem.pendingChildTasks.length === 0
+		) {
+			throw new Error("No pending child tasks to start")
+		}
+
+		const nextTask = parentHistoryItem.pendingChildTasks.shift()
+		if (nextTask) {
+			const parentTask = this.clineStack.find((task) => task.taskId === parentTaskId)
+			if (!parentTask) {
+				throw new Error(`Parent task with ID ${parentTaskId} not found`)
+			}
+			// Also update the in-memory task instance
+			parentTask.pendingChildTasks = parentTask.pendingChildTasks.filter((t) => t.id !== nextTask.id)
+
+			const childTask = await this.initClineWithSubTask(parentTask, nextTask.prompt, nextTask.files)
+			parentTask.activeChildTask = childTask
+			await this.updateTaskHistory(parentHistoryItem)
+		}
+	}
+
+	async handleViewPendingTasks(parentTaskId: string): Promise<any[]> {
+		const parentTask = this.clineStack.find((task) => task.taskId === parentTaskId)
+		if (!parentTask) {
+			throw new Error(`Parent task with ID ${parentTaskId} not found`)
+		}
+
+		return parentTask.pendingChildTasks
 	}
 }

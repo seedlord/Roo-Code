@@ -6,7 +6,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import { fileExistsAtPath } from "../../utils/fs"
 
 import { GlobalFileNames } from "../../shared/globalFileNames"
-import { getTaskDirectoryPath } from "../../utils/storage"
+import { ensureTaskDirectoryExists } from "../../utils/storage"
 
 export type ApiMessage = Anthropic.MessageParam & { ts?: number; isSummary?: boolean }
 
@@ -17,7 +17,7 @@ export async function readApiMessages({
 	taskId: string
 	globalStoragePath: string
 }): Promise<ApiMessage[]> {
-	const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
+	const taskDir = await ensureTaskDirectoryExists(globalStoragePath, taskId)
 	const filePath = path.join(taskDir, GlobalFileNames.apiConversationHistory)
 
 	if (await fileExistsAtPath(filePath)) {
@@ -76,7 +76,7 @@ export async function saveApiMessages({
 	taskId: string
 	globalStoragePath: string
 }) {
-	const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
+	const taskDir = await ensureTaskDirectoryExists(globalStoragePath, taskId)
 	const filePath = path.join(taskDir, GlobalFileNames.apiConversationHistory)
 	await fs.writeFile(filePath, JSON.stringify(messages))
 }

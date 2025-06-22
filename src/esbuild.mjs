@@ -1,5 +1,7 @@
 import * as esbuild from "esbuild"
 import * as fs from "fs"
+import { execSync } from "child_process"
+import { setTimeout } from "timers/promises"
 import * as path from "path"
 import { fileURLToPath } from "url"
 import process from "node:process"
@@ -36,7 +38,15 @@ async function main() {
 
 	if (fs.existsSync(distDir)) {
 		console.log(`[${name}] Cleaning dist directory: ${distDir}`)
-		fs.rmSync(distDir, { recursive: true, force: true })
+		if (process.platform === "win32") {
+			try {
+				execSync(`rmdir /s /q "${distDir}"`)
+			} catch (e) {
+				console.error(`Failed to clean dist directory: ${e}`)
+			}
+		} else {
+			fs.rmSync(distDir, { recursive: true, force: true })
+		}
 	}
 
 	/**
@@ -44,34 +54,45 @@ async function main() {
 	 */
 	const plugins = [
 		{
-			name: "copyFiles",
+			name: "copyAssets",
 			setup(build) {
-				build.onEnd(() => {
-					copyPaths(
-						[
-							["../README.md", "README.md"],
-							["../CHANGELOG.md", "CHANGELOG.md"],
-							["../LICENSE", "LICENSE"],
-							["../.env", ".env", { optional: true }],
-							["node_modules/vscode-material-icons/generated", "assets/vscode-material-icons"],
-							["../webview-ui/audio", "webview-ui/audio"],
-						],
-						srcDir,
-						buildDir,
-					)
+				let isFirstRun = true
+				build.onEnd(async (result) => {
+					if (result.errors.length > 0) return
+					if (watch && !isFirstRun) return
+					isFirstRun = false
+
+					const maxRetries = 5
+					let attempt = 0
+					while (attempt < maxRetries) {
+						try {
+							copyPaths(
+								[
+									["../README.md", "README.md"],
+									["../CHANGELOG.md", "CHANGELOG.md"],
+									["../LICENSE", "LICENSE"],
+									["../.env", ".env", { optional: true }],
+									["node_modules/vscode-material-icons/generated", "assets/vscode-material-icons"],
+									["../webview-ui/audio", "webview-ui/audio"],
+								],
+								srcDir,
+								buildDir,
+							)
+							copyWasms(srcDir, distDir)
+							copyLocales(srcDir, distDir)
+							break // Success
+						} catch (error) {
+							if (error.code === "EBUSY" && attempt < maxRetries - 1) {
+								attempt++
+								const delay = Math.pow(2, attempt) * 100
+								console.warn(`[copyAssets] EBUSY error, retrying in ${delay}ms...`)
+								await setTimeout(delay)
+							} else {
+								throw error
+							}
+						}
+					}
 				})
-			},
-		},
-		{
-			name: "copyWasms",
-			setup(build) {
-				build.onEnd(() => copyWasms(srcDir, distDir))
-			},
-		},
-		{
-			name: "copyLocales",
-			setup(build) {
-				build.onEnd(() => copyLocales(srcDir, distDir))
 			},
 		},
 		{
@@ -119,7 +140,6 @@ async function main() {
 
 	if (watch) {
 		await Promise.all([extensionCtx.watch(), workerCtx.watch()])
-		copyLocales(srcDir, distDir)
 		setupLocaleWatcher(srcDir, distDir)
 	} else {
 		await Promise.all([extensionCtx.rebuild(), workerCtx.rebuild()])

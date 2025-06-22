@@ -7,7 +7,7 @@ import { combineApiRequests } from "../../shared/combineApiRequests"
 import { combineCommandSequences } from "../../shared/combineCommandSequences"
 import { getApiMetrics } from "../../shared/getApiMetrics"
 import { findLastIndex } from "../../shared/array"
-import { getTaskDirectoryPath } from "../../utils/storage"
+import { ensureTaskDirectoryExists } from "../../utils/storage"
 
 const taskSizeCache = new NodeCache({ stdTTL: 30, checkperiod: 5 * 60 })
 
@@ -26,7 +26,7 @@ export async function taskMetadata({
 	globalStoragePath,
 	workspace,
 }: TaskMetadataOptions) {
-	const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
+	const taskDir = await ensureTaskDirectoryExists(globalStoragePath, taskId)
 	const taskMessage = messages[0] // First message is always the task say.
 
 	const lastRelevantMessage =

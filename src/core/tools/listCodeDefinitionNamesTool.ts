@@ -20,12 +20,12 @@ export async function listCodeDefinitionNamesTool(
 	const relPath: string | undefined = block.params.path
 
 	// Calculate if the path is outside workspace
-	const absolutePath = relPath ? path.resolve(cline.cwd, relPath) : cline.cwd
+	const absolutePath = relPath ? path.resolve(cline.workspacePath, relPath) : cline.workspacePath
 	const isOutsideWorkspace = isPathOutsideWorkspace(absolutePath)
 
 	const sharedMessageProps: ClineSayTool = {
 		tool: "listCodeDefinitionNames",
-		path: getReadablePath(cline.cwd, removeClosingTag("path", relPath)),
+		path: getReadablePath(cline.workspacePath, removeClosingTag("path", relPath)),
 		isOutsideWorkspace,
 	}
 
@@ -36,13 +36,13 @@ export async function listCodeDefinitionNamesTool(
 			return
 		} else {
 			if (!relPath) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("list_code_definition_names")
 				pushToolResult(await cline.sayAndCreateMissingParamError("list_code_definition_names", "path"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			let result: string
 

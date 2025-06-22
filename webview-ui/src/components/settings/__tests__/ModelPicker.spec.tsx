@@ -58,6 +58,7 @@ describe("ModelPicker", () => {
 	}
 
 	beforeEach(() => {
+		vi.useFakeTimers()
 		vi.clearAllMocks()
 		vi.useFakeTimers()
 	})
@@ -65,6 +66,10 @@ describe("ModelPicker", () => {
 	afterEach(() => {
 		// Clear any pending timers to prevent test flakiness
 		vi.clearAllTimers()
+		vi.useRealTimers()
+	})
+
+	afterEach(() => {
 		vi.useRealTimers()
 	})
 

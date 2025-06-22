@@ -179,6 +179,7 @@ export interface WebviewMessage {
 	askResponse?: ClineAskResponse
 	apiConfiguration?: ProviderSettings
 	images?: string[]
+	files?: string[]
 	bool?: boolean
 	value?: number
 	commands?: string[]
@@ -200,6 +201,10 @@ export interface WebviewMessage {
 	payload?: WebViewMessagePayload
 	source?: "global" | "project"
 	requestId?: string
+	parentId?: string
+	childTaskId?: string
+	childTaskPrompt?: string
+	executeImmediately?: boolean
 	ids?: string[]
 	hasSystemPromptOverride?: boolean
 	terminalOperation?: "continue" | "abort"
@@ -210,6 +215,7 @@ export interface WebviewMessage {
 	mpInstallOptions?: InstallMarketplaceItemOptions
 	config?: Record<string, any> // Add config to the payload
 	visibility?: "organization" | "public" // For share visibility
+	taskId?: string // Add taskId for showTaskWithId
 }
 
 export const checkoutDiffPayloadSchema = z.object({

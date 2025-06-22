@@ -25,7 +25,7 @@ export async function insertContentTool(
 
 	const sharedMessageProps: ClineSayTool = {
 		tool: "insertContent",
-		path: getReadablePath(cline.cwd, removeClosingTag("path", relPath)),
+		path: getReadablePath(cline.workspacePath, removeClosingTag("path", relPath)),
 		diff: content,
 		lineNumber: line ? parseInt(line, 10) : undefined,
 	}
@@ -38,21 +38,21 @@ export async function insertContentTool(
 
 		// Validate required parameters
 		if (!relPath) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("insert_content")
 			pushToolResult(await cline.sayAndCreateMissingParamError("insert_content", "path"))
 			return
 		}
 
 		if (!line) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("insert_content")
 			pushToolResult(await cline.sayAndCreateMissingParamError("insert_content", "line"))
 			return
 		}
 
 		if (!content) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("insert_content")
 			pushToolResult(await cline.sayAndCreateMissingParamError("insert_content", "content"))
 			return
@@ -69,11 +69,11 @@ export async function insertContentTool(
 		// Check if file is write-protected
 		const isWriteProtected = cline.rooProtectedController?.isWriteProtected(relPath) || false
 
-		const absolutePath = path.resolve(cline.cwd, relPath)
+		const absolutePath = path.resolve(cline.workspacePath, relPath)
 		const fileExists = await fileExistsAtPath(absolutePath)
 
 		if (!fileExists) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("insert_content")
 			const formattedError = `File does not exist at path: ${absolutePath}\n\n<error_details>\nThe specified file could not be found. Please verify the file path and try again.\n</error_details>`
 			await cline.say("error", formattedError)
@@ -83,13 +83,13 @@ export async function insertContentTool(
 
 		const lineNumber = parseInt(line, 10)
 		if (isNaN(lineNumber) || lineNumber < 0) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("insert_content")
 			pushToolResult(formatResponse.toolError("Invalid line number. Must be a non-negative integer."))
 			return
 		}
 
-		cline.consecutiveMistakeCount = 0
+		cline.state.consecutiveMistakeCount = 0
 
 		// Read the file
 		const fileContent = await fs.readFile(absolutePath, "utf8")
@@ -148,12 +148,12 @@ export async function insertContentTool(
 			await cline.fileContextTracker.trackFileContext(relPath, "roo_edited" as RecordSource)
 		}
 
-		cline.didEditFile = true
+		cline.state.didEditFile = true
 
 		// Get the formatted response message
 		const message = await cline.diffViewProvider.pushToolWriteResult(
 			cline,
-			cline.cwd,
+			cline.workspacePath,
 			false, // Always false for insert_content
 		)
 

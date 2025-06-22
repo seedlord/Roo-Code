@@ -3,6 +3,7 @@
 import { useMcpToolTool } from "../useMcpToolTool"
 import { Task } from "../../task/Task"
 import { ToolUse } from "../../../shared/tools"
+import { TaskState } from "../../task/TaskState"
 
 // Mock dependencies
 vi.mock("../../prompts/responses", () => ({
@@ -46,12 +47,11 @@ describe("useMcpToolTool", () => {
 		}
 
 		mockTask = {
-			consecutiveMistakeCount: 0,
+			state: new TaskState(),
 			recordToolError: vi.fn(),
 			sayAndCreateMissingParamError: vi.fn(),
 			say: vi.fn(),
 			ask: vi.fn(),
-			lastMessageTs: 123456789,
 			providerRef: mockProviderRef,
 		}
 	})
@@ -79,7 +79,7 @@ describe("useMcpToolTool", () => {
 				mockRemoveClosingTag,
 			)
 
-			expect(mockTask.consecutiveMistakeCount).toBe(1)
+			expect(mockTask.state!.consecutiveMistakeCount).toBe(1)
 			expect(mockTask.recordToolError).toHaveBeenCalledWith("use_mcp_tool")
 			expect(mockTask.sayAndCreateMissingParamError).toHaveBeenCalledWith("use_mcp_tool", "server_name")
 			expect(mockPushToolResult).toHaveBeenCalledWith("Missing server_name error")
@@ -107,7 +107,7 @@ describe("useMcpToolTool", () => {
 				mockRemoveClosingTag,
 			)
 
-			expect(mockTask.consecutiveMistakeCount).toBe(1)
+			expect(mockTask.state!.consecutiveMistakeCount).toBe(1)
 			expect(mockTask.recordToolError).toHaveBeenCalledWith("use_mcp_tool")
 			expect(mockTask.sayAndCreateMissingParamError).toHaveBeenCalledWith("use_mcp_tool", "tool_name")
 			expect(mockPushToolResult).toHaveBeenCalledWith("Missing tool_name error")
@@ -134,7 +134,7 @@ describe("useMcpToolTool", () => {
 				mockRemoveClosingTag,
 			)
 
-			expect(mockTask.consecutiveMistakeCount).toBe(1)
+			expect(mockTask.state!.consecutiveMistakeCount).toBe(1)
 			expect(mockTask.recordToolError).toHaveBeenCalledWith("use_mcp_tool")
 			expect(mockTask.say).toHaveBeenCalledWith("error", expect.stringContaining("invalid JSON argument"))
 			expect(mockPushToolResult).toHaveBeenCalledWith("Tool error: Invalid args for test_server:test_tool")
@@ -205,7 +205,7 @@ describe("useMcpToolTool", () => {
 				mockRemoveClosingTag,
 			)
 
-			expect(mockTask.consecutiveMistakeCount).toBe(0)
+			expect(mockTask.state!.consecutiveMistakeCount).toBe(0)
 			expect(mockAskApproval).toHaveBeenCalled()
 			expect(mockTask.say).toHaveBeenCalledWith("mcp_server_request_started")
 			expect(mockTask.say).toHaveBeenCalledWith("mcp_server_response", "Tool executed successfully")

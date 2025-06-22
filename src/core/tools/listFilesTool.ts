@@ -36,12 +36,12 @@ export async function listFilesTool(
 	const recursive = recursiveRaw?.toLowerCase() === "true"
 
 	// Calculate if the path is outside workspace
-	const absolutePath = relDirPath ? path.resolve(cline.cwd, relDirPath) : cline.cwd
+	const absolutePath = relDirPath ? path.resolve(cline.workspacePath, relDirPath) : cline.workspacePath
 	const isOutsideWorkspace = isPathOutsideWorkspace(absolutePath)
 
 	const sharedMessageProps: ClineSayTool = {
 		tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
-		path: getReadablePath(cline.cwd, removeClosingTag("path", relDirPath)),
+		path: getReadablePath(cline.workspacePath, removeClosingTag("path", relDirPath)),
 		isOutsideWorkspace,
 	}
 
@@ -52,13 +52,13 @@ export async function listFilesTool(
 			return
 		} else {
 			if (!relDirPath) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("list_files")
 				pushToolResult(await cline.sayAndCreateMissingParamError("list_files", "path"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
 			const { showRooIgnoredFiles = true } = (await cline.providerRef.deref()?.getState()) ?? {}

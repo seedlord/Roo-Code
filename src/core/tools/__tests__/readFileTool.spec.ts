@@ -80,7 +80,7 @@ describe("read_file tool with maxReadFileLine setting", () => {
 	const mockedIsBinaryFile = vi.mocked(isBinaryFile)
 	const mockedPathResolve = vi.mocked(path.resolve)
 
-	const mockCline: any = {}
+	let mockCline: any
 	let mockProvider: any
 	let toolResult: ToolResponse | undefined
 
@@ -107,25 +107,29 @@ describe("read_file tool with maxReadFileLine setting", () => {
 			deref: vi.fn().mockReturnThis(),
 		}
 
-		mockCline.cwd = "/"
-		mockCline.task = "Test"
-		mockCline.providerRef = mockProvider
-		mockCline.rooIgnoreController = {
-			validateAccess: vi.fn().mockReturnValue(true),
+		mockCline = {
+			workspacePath: "/",
+			task: "Test",
+			providerRef: mockProvider,
+			rooIgnoreController: {
+				validateAccess: vi.fn().mockReturnValue(true),
+			},
+			say: vi.fn().mockResolvedValue(undefined),
+			ask: vi.fn().mockResolvedValue({ response: "yesButtonClicked" }),
+			presentAssistantMessage: vi.fn(),
+			handleError: vi.fn().mockResolvedValue(undefined),
+			pushToolResult: vi.fn(),
+			removeClosingTag: vi.fn((tag, content) => content),
+			fileContextTracker: {
+				trackFileContext: vi.fn().mockResolvedValue(undefined),
+			},
+			recordToolUsage: vi.fn().mockReturnValue(undefined),
+			recordToolError: vi.fn().mockReturnValue(undefined),
+			state: {
+				didRejectTool: false,
+			},
+			sayAndCreateMissingParamError: vi.fn(),
 		}
-		mockCline.say = vi.fn().mockResolvedValue(undefined)
-		mockCline.ask = vi.fn().mockResolvedValue({ response: "yesButtonClicked" })
-		mockCline.presentAssistantMessage = vi.fn()
-		mockCline.handleError = vi.fn().mockResolvedValue(undefined)
-		mockCline.pushToolResult = vi.fn()
-		mockCline.removeClosingTag = vi.fn((tag, content) => content)
-
-		mockCline.fileContextTracker = {
-			trackFileContext: vi.fn().mockResolvedValue(undefined),
-		}
-
-		mockCline.recordToolUsage = vi.fn().mockReturnValue(undefined)
-		mockCline.recordToolError = vi.fn().mockReturnValue(undefined)
 
 		toolResult = undefined
 	})
@@ -341,7 +345,7 @@ describe("read_file tool XML output structure", () => {
 	const mockedIsBinaryFile = vi.mocked(isBinaryFile)
 	const mockedPathResolve = vi.mocked(path.resolve)
 
-	const mockCline: any = {}
+	let mockCline: any
 	let mockProvider: any
 	let toolResult: ToolResponse | undefined
 
@@ -364,24 +368,26 @@ describe("read_file tool XML output structure", () => {
 			deref: vi.fn().mockReturnThis(),
 		}
 
-		mockCline.cwd = "/"
-		mockCline.task = "Test"
-		mockCline.providerRef = mockProvider
-		mockCline.rooIgnoreController = {
-			validateAccess: vi.fn().mockReturnValue(true),
+		mockCline = {
+			workspacePath: "/",
+			task: "Test",
+			providerRef: mockProvider,
+			rooIgnoreController: {
+				validateAccess: vi.fn().mockReturnValue(true),
+			},
+			say: vi.fn().mockResolvedValue(undefined),
+			ask: vi.fn().mockResolvedValue({ response: "yesButtonClicked" }),
+			presentAssistantMessage: vi.fn(),
+			sayAndCreateMissingParamError: vi.fn().mockResolvedValue("Missing required parameter"),
+			fileContextTracker: {
+				trackFileContext: vi.fn().mockResolvedValue(undefined),
+			},
+			recordToolUsage: vi.fn().mockReturnValue(undefined),
+			recordToolError: vi.fn().mockReturnValue(undefined),
+			state: {
+				didRejectTool: false,
+			},
 		}
-		mockCline.say = vi.fn().mockResolvedValue(undefined)
-		mockCline.ask = vi.fn().mockResolvedValue({ response: "yesButtonClicked" })
-		mockCline.presentAssistantMessage = vi.fn()
-		mockCline.sayAndCreateMissingParamError = vi.fn().mockResolvedValue("Missing required parameter")
-
-		mockCline.fileContextTracker = {
-			trackFileContext: vi.fn().mockResolvedValue(undefined),
-		}
-
-		mockCline.recordToolUsage = vi.fn().mockReturnValue(undefined)
-		mockCline.recordToolError = vi.fn().mockReturnValue(undefined)
-		mockCline.didRejectTool = false
 
 		toolResult = undefined
 	})

@@ -1,21 +1,12 @@
 import type { Mock } from "vitest"
 import * as vscode from "vscode"
+vi.mock("vscode")
 import { ClineProvider } from "../../core/webview/ClineProvider"
 
 import { getVisibleProviderOrLog } from "../registerCommands"
 
 vi.mock("execa", () => ({
 	execa: vi.fn(),
-}))
-
-vi.mock("vscode", () => ({
-	CodeActionKind: {
-		QuickFix: { value: "quickfix" },
-		RefactorRewrite: { value: "refactor.rewrite" },
-	},
-	window: {
-		createTextEditorDecorationType: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-	},
 }))
 
 vi.mock("../../core/webview/ClineProvider")

@@ -29,7 +29,7 @@ export async function attemptCompletionTool(
 	const command: string | undefined = block.params.command
 
 	try {
-		const lastMessage = cline.clineMessages.at(-1)
+		const lastMessage = cline.messageStateHandler.getClineMessages().at(-1)
 
 		if (block.partial) {
 			if (command) {
@@ -46,7 +46,7 @@ export async function attemptCompletionTool(
 					await cline.say("completion_result", removeClosingTag("result", result), undefined, false)
 
 					TelemetryService.instance.captureTaskCompleted(cline.taskId)
-					cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.toolUsage)
+					cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.state.toolUsage)
 
 					await cline.ask("command", removeClosingTag("command", command), block.partial).catch(() => {})
 				}
@@ -57,19 +57,19 @@ export async function attemptCompletionTool(
 			return
 		} else {
 			if (!result) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("attempt_completion")
 				pushToolResult(await cline.sayAndCreateMissingParamError("attempt_completion", "result"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			// Command execution is permanently disabled in attempt_completion
 			// Users must use execute_command tool separately before attempt_completion
 			await cline.say("completion_result", result, undefined, false)
 			TelemetryService.instance.captureTaskCompleted(cline.taskId)
-			cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.toolUsage)
+			cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.state.toolUsage)
 
 			if (cline.parentTask) {
 				const didApprove = await askFinishSubTaskApproval()
@@ -105,8 +105,8 @@ export async function attemptCompletionTool(
 			})
 
 			toolResults.push(...formatResponse.imageBlocks(images))
-			cline.userMessageContent.push({ type: "text", text: `${toolDescription()} Result:` })
-			cline.userMessageContent.push(...toolResults)
+			cline.state.userMessageContent.push({ type: "text", text: `${toolDescription()} Result:` })
+			cline.state.userMessageContent.push(...toolResults)
 
 			return
 		}

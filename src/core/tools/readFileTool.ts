@@ -96,10 +96,10 @@ export async function readFileTool(
 			filePath = legacyPath
 		}
 
-		const fullPath = filePath ? path.resolve(cline.cwd, filePath) : ""
+		const fullPath = filePath ? path.resolve(cline.workspacePath, filePath) : ""
 		const sharedMessageProps: ClineSayTool = {
 			tool: "readFile",
-			path: getReadablePath(cline.cwd, filePath),
+			path: getReadablePath(cline.workspacePath, filePath),
 			isOutsideWorkspace: filePath ? isPathOutsideWorkspace(fullPath) : false,
 		}
 		const partialMessage = JSON.stringify({
@@ -171,7 +171,7 @@ export async function readFileTool(
 
 	// If, after trying both new and legacy, no valid file entries are found.
 	if (fileEntries.length === 0) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("read_file")
 		const errorMsg = await cline.sayAndCreateMissingParamError("read_file", "args (containing valid file paths)")
 		pushToolResult(`<files><error>${errorMsg}</error></files>`)
@@ -200,7 +200,7 @@ export async function readFileTool(
 		for (let i = 0; i < fileResults.length; i++) {
 			const fileResult = fileResults[i]
 			const relPath = fileResult.path
-			const fullPath = path.resolve(cline.cwd, relPath)
+			const fullPath = path.resolve(cline.workspacePath, relPath)
 
 			// Validate line ranges first
 			if (fileResult.lineRanges) {
@@ -258,7 +258,7 @@ export async function readFileTool(
 			// Prepare batch file data
 			const batchFiles = filesToApprove.map((fileResult) => {
 				const relPath = fileResult.path
-				const fullPath = path.resolve(cline.cwd, relPath)
+				const fullPath = path.resolve(cline.workspacePath, relPath)
 				const isOutsideWorkspace = isPathOutsideWorkspace(fullPath)
 
 				// Create line snippet for this file
@@ -274,7 +274,7 @@ export async function readFileTool(
 					lineSnippet = t("tools:readFile.maxLines", { max: maxReadFileLine })
 				}
 
-				const readablePath = getReadablePath(cline.cwd, relPath)
+				const readablePath = getReadablePath(cline.workspacePath, relPath)
 				const key = `${readablePath}${lineSnippet ? ` (${lineSnippet})` : ""}`
 
 				return {
@@ -311,7 +311,7 @@ export async function readFileTool(
 				if (text) {
 					await cline.say("user_feedback", text, images)
 				}
-				cline.didRejectTool = true
+				cline.state.didRejectTool = true
 				filesToApprove.forEach((fileResult) => {
 					updateFileResult(fileResult.path, {
 						status: "denied",
@@ -348,12 +348,12 @@ export async function readFileTool(
 					})
 
 					if (hasAnyDenial) {
-						cline.didRejectTool = true
+						cline.state.didRejectTool = true
 					}
 				} catch (error) {
 					// Fallback: if JSON parsing fails, deny all files
 					console.error("Failed to parse individual permissions:", error)
-					cline.didRejectTool = true
+					cline.state.didRejectTool = true
 					filesToApprove.forEach((fileResult) => {
 						updateFileResult(fileResult.path, {
 							status: "denied",
@@ -366,7 +366,7 @@ export async function readFileTool(
 			// Handle single file approval (existing logic)
 			const fileResult = filesToApprove[0]
 			const relPath = fileResult.path
-			const fullPath = path.resolve(cline.cwd, relPath)
+			const fullPath = path.resolve(cline.workspacePath, relPath)
 			const isOutsideWorkspace = isPathOutsideWorkspace(fullPath)
 			const { maxReadFileLine = -1 } = (await cline.providerRef.deref()?.getState()) ?? {}
 
@@ -385,7 +385,7 @@ export async function readFileTool(
 
 			const completeMessage = JSON.stringify({
 				tool: "readFile",
-				path: getReadablePath(cline.cwd, relPath),
+				path: getReadablePath(cline.workspacePath, relPath),
 				isOutsideWorkspace,
 				content: fullPath,
 				reason: lineSnippet,
@@ -398,7 +398,7 @@ export async function readFileTool(
 				if (text) {
 					await cline.say("user_feedback", text, images)
 				}
-				cline.didRejectTool = true
+				cline.state.didRejectTool = true
 
 				updateFileResult(relPath, {
 					status: "denied",
@@ -428,7 +428,7 @@ export async function readFileTool(
 			}
 
 			const relPath = fileResult.path
-			const fullPath = path.resolve(cline.cwd, relPath)
+			const fullPath = path.resolve(cline.workspacePath, relPath)
 			const { maxReadFileLine = -1 } = (await cline.providerRef.deref()?.getState()) ?? {}
 
 			// Process approved files
@@ -558,7 +558,7 @@ export async function readFileTool(
 			feedbackImages = deniedWithFeedback.feedbackImages || []
 		}
 		// Handle generic denial
-		else if (cline.didRejectTool) {
+		else if (cline.state.didRejectTool) {
 			statusMessage = formatResponse.toolDenied()
 		}
 		// Handle approval with feedback

@@ -64,7 +64,22 @@ export const usePromptHistory = ({
 
 		// Extract user prompts from task history for the current workspace only
 		return taskHistory
-			.filter((item) => item.task?.trim() && (!item.workspace || item.workspace === cwd))
+			.filter((item) => {
+				const taskMatchesWorkspace = () => {
+					// Wenn ein Task keine Workspace-Info hat, soll er im Prompt-Verlauf nicht herausgefiltert werden.
+					if (!item.workspace && !item.cwdOnTaskInitialization) return true
+
+					const currentCwd = cwd?.toLowerCase()
+					if (item.workspace) {
+						return item.workspace.toLowerCase() === currentCwd
+					}
+					if (item.cwdOnTaskInitialization) {
+						return item.cwdOnTaskInitialization.replace(/\\/g, "/").toLowerCase() === currentCwd
+					}
+					return false
+				}
+				return item.task?.trim() && taskMatchesWorkspace()
+			})
 			.map((item) => item.task)
 			.slice(0, MAX_PROMPT_HISTORY_SIZE)
 	}, [clineMessages, taskHistory, cwd])

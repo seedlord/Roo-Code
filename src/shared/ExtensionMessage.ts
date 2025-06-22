@@ -9,6 +9,10 @@ import type {
 	ClineMessage,
 	OrganizationAllowList,
 	CloudUserInfo,
+	ClineAsk,
+	ClineSay,
+	ToolProgressStatus,
+	ContextCondense,
 } from "@roo-code/types"
 
 import { GitCommit } from "../utils/git"
@@ -99,6 +103,10 @@ export interface ExtensionMessage {
 		| "marketplaceData"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	childTaskId?: string
+	childTaskPrompt?: string
+	executeImmediately?: boolean
+	parentId?: string
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"
@@ -280,6 +288,9 @@ export interface ClineSayTool {
 		| "finishTask"
 		| "searchAndReplace"
 		| "insertContent"
+		| "newChildTask"
+		| "startNextChildTask"
+		| "viewPendingChildTasks"
 	path?: string
 	diff?: string
 	content?: string
@@ -290,6 +301,9 @@ export interface ClineSayTool {
 	isOutsideWorkspace?: boolean
 	isProtected?: boolean
 	additionalFileCount?: number // Number of additional files in the same read_file request
+	prompt?: string
+	files?: string[]
+	executeImmediately?: boolean
 	search?: string
 	replace?: string
 	useRegex?: boolean

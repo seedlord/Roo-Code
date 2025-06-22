@@ -17,6 +17,8 @@ import { processUserContentMentions } from "../../mentions/processUserContentMen
 import { MultiSearchReplaceDiffStrategy } from "../../diff/strategies/multi-search-replace"
 import { MultiFileSearchReplaceDiffStrategy } from "../../diff/strategies/multi-file-search-replace"
 import { EXPERIMENT_IDS } from "../../../shared/experiments"
+import { ToolUse } from "../../../shared/tools"
+import { presentAssistantMessage } from "../../assistant-message"
 
 // Mock delay before any imports that might use it
 vi.mock("delay", () => ({
@@ -25,6 +27,7 @@ vi.mock("delay", () => ({
 }))
 
 import delay from "delay"
+import { McpServerManager } from "../../../services/mcp/McpServerManager"
 
 vi.mock("execa", () => ({
 	execa: vi.fn(),
@@ -69,7 +72,7 @@ vi.mock("fs/promises", async (importOriginal) => {
 })
 
 vi.mock("p-wait-for", () => ({
-	default: vi.fn().mockImplementation(async () => Promise.resolve()),
+	default: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock("vscode", () => {
@@ -148,9 +151,24 @@ vi.mock("../../environment/getEnvironmentDetails", () => ({
 
 vi.mock("../../ignore/RooIgnoreController")
 
+vi.mock("../../services/mcp/McpServerManager", () => ({
+	McpServerManager: {
+		getInstance: vi.fn().mockResolvedValue({
+			isConnecting: false,
+			getHub: () => ({
+				isConnecting: false,
+			}),
+		}),
+	},
+}))
+
+vi.spyOn(Task.prototype, "attemptApiRequest").mockImplementation(async function* () {
+	yield { type: "text", text: "mocked response" }
+})
+
 // Mock storagePathManager to prevent dynamic import issues.
 vi.mock("../../../utils/storage", () => ({
-	getTaskDirectoryPath: vi
+	ensureTaskDirectoryExists: vi
 		.fn()
 		.mockImplementation((globalStoragePath, taskId) => Promise.resolve(`${globalStoragePath}/tasks/${taskId}`)),
 	getSettingsDirectoryPath: vi
@@ -299,6 +317,7 @@ describe("Cline", () => {
 				fuzzyMatchThreshold: 0.95,
 				task: "test task",
 				startTask: false,
+				globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 			})
 
 			expect(cline.diffEnabled).toBe(false)
@@ -312,6 +331,7 @@ describe("Cline", () => {
 				fuzzyMatchThreshold: 0.95,
 				task: "test task",
 				startTask: false,
+				globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 			})
 
 			expect(cline.diffEnabled).toBe(true)
@@ -322,8 +342,12 @@ describe("Cline", () => {
 
 		it("should require either task or historyItem", () => {
 			expect(() => {
-				new Task({ provider: mockProvider, apiConfiguration: mockApiConfig })
-			}).toThrow("Either historyItem or task/images must be provided")
+				new Task({
+					provider: mockProvider,
+					apiConfiguration: mockApiConfig,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
+				})
+			}).toThrow("Either historyItem or task/images/files must be provided")
 		})
 	})
 
@@ -335,9 +359,10 @@ describe("Cline", () => {
 					provider: mockProvider,
 					apiConfiguration: mockApiConfig,
 					task: "test task",
+					globalStoragePath: mockProvider.context.globalStorageUri.fsPath,
 				})
 
-				cline.abandoned = true
+				cline.state.abandoned = true
 				await task
 
 				// Set up mock stream.
@@ -350,13 +375,12 @@ describe("Cline", () => {
 				vi.spyOn(cline.api, "createMessage").mockImplementation(cleanMessageSpy)
 
 				// Add test message to conversation history.
-				cline.apiConversationHistory = [
+				cline.messageStateHandler.setApiConversationHistory([
 					{
 						role: "user" as const,
 						content: [{ type: "text" as const, text: "test message" }],
-						ts: Date.now(),
 					},
-				]
+				])
 
 				// Mock abort state
 				Object.defineProperty(cline, "abort", {
@@ -373,7 +397,7 @@ describe("Cline", () => {
 					extraProp: "should be removed",
 				}
 
-				cline.apiConversationHistory = [messageWithExtra]
+				cline.messageStateHandler.setApiConversationHistory([messageWithExtra])
 
 				// Trigger an API request
 				await cline.recursivelyMakeClineRequests([{ type: "text", text: "test request" }], false)
@@ -444,6 +468,7 @@ describe("Cline", () => {
 					provider: mockProvider,
 					apiConfiguration: configWithImages,
 					task: "test task",
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the model info to indicate image support
@@ -460,13 +485,14 @@ describe("Cline", () => {
 					} as ModelInfo,
 				})
 
-				clineWithImages.apiConversationHistory = conversationHistory
+				clineWithImages.messageStateHandler.setApiConversationHistory(conversationHistory)
 
 				// Test with model that doesn't support images
 				const [clineWithoutImages, taskWithoutImages] = Task.create({
 					provider: mockProvider,
 					apiConfiguration: configWithoutImages,
 					task: "test task",
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the model info to indicate no image support
@@ -483,7 +509,7 @@ describe("Cline", () => {
 					} as ModelInfo,
 				})
 
-				clineWithoutImages.apiConversationHistory = conversationHistory
+				clineWithoutImages.messageStateHandler.setApiConversationHistory(conversationHistory)
 
 				// Mock abort state for both instances
 				Object.defineProperty(clineWithImages, "abort", {
@@ -515,7 +541,7 @@ describe("Cline", () => {
 				vi.spyOn(clineWithoutImages.api, "createMessage").mockImplementation(noImagesSpy)
 
 				// Set up conversation history with images
-				clineWithImages.apiConversationHistory = [
+				clineWithImages.messageStateHandler.setApiConversationHistory([
 					{
 						role: "user",
 						content: [
@@ -523,12 +549,12 @@ describe("Cline", () => {
 							{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: "base64data" } },
 						],
 					},
-				]
+				])
 
-				clineWithImages.abandoned = true
+				clineWithImages.state.abandoned = true
 				await taskWithImages.catch(() => {})
 
-				clineWithoutImages.abandoned = true
+				clineWithoutImages.state.abandoned = true
 				await taskWithoutImages.catch(() => {})
 
 				// Trigger API requests
@@ -564,6 +590,7 @@ describe("Cline", () => {
 					provider: mockProvider,
 					apiConfiguration: mockApiConfig,
 					task: "test task",
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock delay to track countdown timing
@@ -630,7 +657,7 @@ describe("Cline", () => {
 				})
 
 				// Mock previous API request message
-				cline.clineMessages = [
+				cline.messageStateHandler.setClineMessages([
 					{
 						ts: Date.now(),
 						type: "say",
@@ -643,7 +670,7 @@ describe("Cline", () => {
 							request: "test request",
 						}),
 					},
-				]
+				])
 
 				// Trigger API request
 				const iterator = cline.attemptApiRequest(0)
@@ -689,6 +716,7 @@ describe("Cline", () => {
 					provider: mockProvider,
 					apiConfiguration: mockApiConfig,
 					task: "test task",
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock delay to track countdown timing
@@ -755,7 +783,7 @@ describe("Cline", () => {
 				})
 
 				// Mock previous API request message
-				cline.clineMessages = [
+				cline.messageStateHandler.setClineMessages([
 					{
 						ts: Date.now(),
 						type: "say",
@@ -768,7 +796,7 @@ describe("Cline", () => {
 							request: "test request",
 						}),
 					},
-				]
+				])
 
 				// Trigger API request
 				const iterator = cline.attemptApiRequest(0)
@@ -814,6 +842,7 @@ describe("Cline", () => {
 						provider: mockProvider,
 						apiConfiguration: mockApiConfig,
 						task: "test task",
+						globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 					})
 
 					const userContent = [
@@ -849,7 +878,7 @@ describe("Cline", () => {
 
 					const processedContent = await processUserContentMentions({
 						userContent,
-						cwd: cline.cwd,
+						cwd: cline.workspacePath,
 						urlContentFetcher: cline.urlContentFetcher,
 						fileContextTracker: cline.fileContextTracker,
 					})
@@ -884,6 +913,144 @@ describe("Cline", () => {
 					await task.catch(() => {})
 				})
 			})
+
+			describe("Parent and child task management", () => {
+				beforeEach(() => {
+					vi.spyOn(Task.prototype, "attemptApiRequest").mockImplementation(async function* () {
+						yield { type: "text", text: "mocked response" }
+					})
+				})
+
+				afterEach(() => {
+					vi.mocked(Task.prototype.attemptApiRequest).mockRestore()
+				})
+
+				it("should create a new child task", async () => {
+					const cline = new Task({
+						provider: mockProvider,
+						apiConfiguration: mockApiConfig,
+						task: "parent task",
+						globalStoragePath: mockProvider.context.globalStorageUri.fsPath,
+						startTask: false,
+					})
+					cline.state.isInitialized = true
+
+					const childTaskPrompt = "child task"
+					const childTaskFiles = ["file1.ts"]
+					const executeImmediately = true
+
+					const newChildTaskToolUse: ToolUse = {
+						type: "tool_use",
+						name: "new_child_task",
+						params: {
+							child_task_prompt: childTaskPrompt,
+							child_task_files: JSON.stringify(childTaskFiles),
+							execute_immediately: executeImmediately.toString(),
+						},
+						partial: false,
+					}
+
+					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
+						response: "yesButtonClicked",
+					})
+
+					const handleNewChildTaskSpy = vi
+						.spyOn(mockProvider, "handleNewChildTask")
+						.mockResolvedValue("child-task-id")
+
+					cline.state.assistantMessageContent = [newChildTaskToolUse]
+					await presentAssistantMessage(cline)
+
+					expect(askApprovalSpy).toHaveBeenCalledWith(
+						"tool",
+						expect.any(String),
+						undefined,
+						undefined,
+						undefined,
+					)
+					expect(handleNewChildTaskSpy).toHaveBeenCalledWith(
+						cline.taskId,
+						childTaskPrompt,
+						childTaskFiles,
+						executeImmediately,
+					)
+				})
+
+				it("should start the next pending child task", async () => {
+					const cline = new Task({
+						provider: mockProvider,
+						apiConfiguration: mockApiConfig,
+						task: "parent task",
+						globalStoragePath: mockProvider.context.globalStorageUri.fsPath,
+						startTask: false,
+					})
+					cline.state.isInitialized = true
+					const startNextChildTaskToolUse: ToolUse = {
+						type: "tool_use",
+						name: "start_next_child_task",
+						params: {},
+						partial: false,
+					}
+
+					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
+						response: "yesButtonClicked",
+					})
+
+					const handleStartNextChildTaskSpy = vi
+						.spyOn(mockProvider, "handleStartNextChildTask")
+						.mockResolvedValue(undefined)
+
+					cline.state.assistantMessageContent = [startNextChildTaskToolUse]
+					await presentAssistantMessage(cline)
+
+					expect(askApprovalSpy).toHaveBeenCalledWith(
+						"tool",
+						expect.any(String),
+						undefined,
+						undefined,
+						undefined,
+					)
+					expect(handleStartNextChildTaskSpy).toHaveBeenCalledWith(cline.taskId)
+				})
+
+				it("should view pending child tasks", async () => {
+					const cline = new Task({
+						provider: mockProvider,
+						apiConfiguration: mockApiConfig,
+						task: "parent task",
+						globalStoragePath: mockProvider.context.globalStorageUri.fsPath,
+						startTask: false,
+					})
+					cline.state.isInitialized = true
+					const viewPendingTasksToolUse: ToolUse = {
+						type: "tool_use",
+						name: "view_pending_tasks",
+						params: {},
+						partial: false,
+					}
+
+					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
+						response: "yesButtonClicked",
+					})
+
+					const pendingTasks = [{ id: "child-task-id", prompt: "child task", createdAt: Date.now() }]
+					const handleViewPendingTasksSpy = vi
+						.spyOn(mockProvider, "handleViewPendingTasks")
+						.mockResolvedValue(pendingTasks)
+
+					cline.state.assistantMessageContent = [viewPendingTasksToolUse]
+					await presentAssistantMessage(cline)
+
+					expect(askApprovalSpy).toHaveBeenCalledWith(
+						"tool",
+						expect.any(String),
+						undefined,
+						undefined,
+						undefined,
+					)
+					expect(handleViewPendingTasksSpy).toHaveBeenCalledWith(cline.taskId)
+				})
+			})
 		})
 
 		describe("Subtask Rate Limiting", () => {
@@ -892,8 +1059,7 @@ describe("Cline", () => {
 			let mockDelay: ReturnType<typeof vi.fn>
 
 			beforeEach(() => {
-				vi.clearAllMocks()
-				// Reset the global timestamp before each test
+				// Don't use vi.clearAllMocks() as it clears the p-wait-for mock implementation
 				Task.resetGlobalApiRequestTime()
 
 				mockApiConfig = {
@@ -915,9 +1081,21 @@ describe("Cline", () => {
 					updateTaskHistory: vi.fn().mockResolvedValue(undefined),
 				}
 
-				// Get the mocked delay function
+				// Get the mocked delay function and clear it
 				mockDelay = delay as ReturnType<typeof vi.fn>
 				mockDelay.mockClear()
+
+				// Manually clear mocks that are modified in this test suite
+				vi.mocked(mockProvider.getState).mockClear()
+				vi.mocked(mockProvider.say).mockClear()
+
+				// Ensure McpServerManager is mocked for this suite
+				vi.spyOn(McpServerManager, "getInstance").mockResolvedValue({
+					isConnecting: false,
+					getHub: () => ({
+						isConnecting: false,
+					}),
+				} as any)
 			})
 
 			afterEach(() => {
@@ -935,6 +1113,7 @@ describe("Cline", () => {
 					apiConfiguration: mockApiConfig,
 					task: "parent task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the API stream response
@@ -971,6 +1150,7 @@ describe("Cline", () => {
 					parentTask: parent,
 					rootTask: parent,
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the child's API stream
@@ -1008,6 +1188,7 @@ describe("Cline", () => {
 					apiConfiguration: mockApiConfig,
 					task: "parent task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the API stream response
@@ -1046,6 +1227,7 @@ describe("Cline", () => {
 					parentTask: parent,
 					rootTask: parent,
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				vi.spyOn(child.api, "createMessage").mockReturnValue(mockStream)
@@ -1068,6 +1250,7 @@ describe("Cline", () => {
 					apiConfiguration: mockApiConfig,
 					task: "parent task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the API stream response
@@ -1101,6 +1284,7 @@ describe("Cline", () => {
 					parentTask: parent,
 					rootTask: parent,
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				vi.spyOn(child1.api, "createMessage").mockReturnValue(mockStream)
@@ -1124,6 +1308,7 @@ describe("Cline", () => {
 					parentTask: parent,
 					rootTask: parent,
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				vi.spyOn(child2.api, "createMessage").mockReturnValue(mockStream)
@@ -1149,6 +1334,7 @@ describe("Cline", () => {
 					apiConfiguration: mockApiConfig,
 					task: "parent task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the API stream response
@@ -1182,6 +1368,7 @@ describe("Cline", () => {
 					parentTask: parent,
 					rootTask: parent,
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				vi.spyOn(child.api, "createMessage").mockReturnValue(mockStream)
@@ -1201,6 +1388,7 @@ describe("Cline", () => {
 					apiConfiguration: mockApiConfig,
 					task: "test task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Mock the API stream response
@@ -1266,6 +1454,7 @@ describe("Cline", () => {
 					enableDiff: true,
 					task: "test task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Initially should be MultiSearchReplaceDiffStrategy
@@ -1286,6 +1475,7 @@ describe("Cline", () => {
 					enableDiff: true,
 					task: "test task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Initially should be MultiSearchReplaceDiffStrategy
@@ -1308,6 +1498,7 @@ describe("Cline", () => {
 					enableDiff: true,
 					task: "test task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				// Initially should be MultiSearchReplaceDiffStrategy
@@ -1328,6 +1519,7 @@ describe("Cline", () => {
 					enableDiff: false,
 					task: "test task",
 					startTask: false,
+					globalStoragePath: mockExtensionContext.globalStorageUri.fsPath,
 				})
 
 				expect(task.diffEnabled).toBe(false)

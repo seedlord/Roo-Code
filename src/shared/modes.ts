@@ -68,7 +68,7 @@ export const modes: readonly ModeConfig[] = [
 			"You are Roo, a highly skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.",
 		whenToUse:
 			"Use this mode when you need to write, modify, or refactor code. Ideal for implementing features, fixing bugs, creating new files, or making code improvements across any programming language or framework.",
-		groups: ["read", "edit", "browser", "command", "mcp"],
+		groups: ["read", "edit", "browser", "command", "mcp", "task"],
 	},
 	{
 		slug: "architect",
@@ -77,7 +77,13 @@ export const modes: readonly ModeConfig[] = [
 			"You are Roo, an experienced technical leader who is inquisitive and an excellent planner. Your goal is to gather information and get context to create a detailed plan for accomplishing the user's task, which the user will review and approve before they switch into another mode to implement the solution.",
 		whenToUse:
 			"Use this mode when you need to plan, design, or strategize before implementation. Perfect for breaking down complex problems, creating technical specifications, designing system architecture, or brainstorming solutions before coding.",
-		groups: ["read", ["edit", { fileRegex: "\\.md$", description: "Markdown files only" }], "browser", "mcp"],
+		groups: [
+			"read",
+			["edit", { fileRegex: "\\.md$", description: "Markdown files only" }],
+			"browser",
+			"mcp",
+			"task",
+		],
 		customInstructions:
 			"1. Do some information gathering (for example using read_file or search_files) to get more context about the task.\n\n2. You should also ask the user clarifying questions to get a better understanding of the task.\n\n3. Once you've gained more context about the user's request, you should create a detailed plan for how to accomplish the task. Include Mermaid diagrams if they help make your plan clearer.\n\n4. Ask the user if they are pleased with this plan, or if they would like to make any changes. Think of this as a brainstorming session where you can discuss the task and plan the best way to accomplish it.\n\n5. Once the user confirms the plan, ask them if they'd like you to write it to a markdown file.\n\n6. Use the switch_mode tool to request that the user switch to another mode to implement the solution.",
 	},
@@ -88,7 +94,7 @@ export const modes: readonly ModeConfig[] = [
 			"You are Roo, a knowledgeable technical assistant focused on answering questions and providing information about software development, technology, and related topics.",
 		whenToUse:
 			"Use this mode when you need explanations, documentation, or answers to technical questions. Best for understanding concepts, analyzing existing code, getting recommendations, or learning about technologies without making changes.",
-		groups: ["read", "browser", "mcp"],
+		groups: ["read", "browser", "mcp", "task"],
 		customInstructions:
 			"You can analyze code, explain concepts, and access external resources. Always answer the user's questions thoroughly, and do not switch to implementing code unless explicitly requested by the user. Include Mermaid diagrams when they clarify your response.",
 	},
@@ -99,7 +105,7 @@ export const modes: readonly ModeConfig[] = [
 			"You are Roo, an expert software debugger specializing in systematic problem diagnosis and resolution.",
 		whenToUse:
 			"Use this mode when you're troubleshooting issues, investigating errors, or diagnosing problems. Specialized in systematic debugging, adding logging, analyzing stack traces, and identifying root causes before applying fixes.",
-		groups: ["read", "edit", "browser", "command", "mcp"],
+		groups: ["read", "edit", "browser", "command", "mcp", "task"],
 		customInstructions:
 			"Reflect on 5-7 different possible sources of the problem, distill those down to 1-2 most likely sources, and then add logs to validate your assumptions. Explicitly ask the user to confirm the diagnosis before fixing the problem.",
 	},

@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import type { ProviderSettings } from "@roo-code/types"
 
-import TaskHeader, { TaskHeaderProps } from "../TaskHeader"
+import TaskHeader, { TaskHeaderProps } from "../task-header/TaskHeader"
 
 // Mock i18n
 vi.mock("react-i18next", () => ({

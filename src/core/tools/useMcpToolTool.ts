@@ -41,14 +41,14 @@ async function validateParams(
 	pushToolResult: PushToolResult,
 ): Promise<ValidationResult> {
 	if (!params.server_name) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("use_mcp_tool")
 		pushToolResult(await cline.sayAndCreateMissingParamError("use_mcp_tool", "server_name"))
 		return { isValid: false }
 	}
 
 	if (!params.tool_name) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("use_mcp_tool")
 		pushToolResult(await cline.sayAndCreateMissingParamError("use_mcp_tool", "tool_name"))
 		return { isValid: false }
@@ -60,7 +60,7 @@ async function validateParams(
 		try {
 			parsedArguments = JSON.parse(params.arguments)
 		} catch (error) {
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("use_mcp_tool")
 			await cline.say("error", t("mcp:errors.invalidJsonArgument", { toolName: params.tool_name }))
 
@@ -194,7 +194,7 @@ export async function useMcpToolTool(
 		const { serverName, toolName, parsedArguments } = validation
 
 		// Reset mistake count on successful validation
-		cline.consecutiveMistakeCount = 0
+		cline.state.consecutiveMistakeCount = 0
 
 		// Get user approval
 		const completeMessage = JSON.stringify({
@@ -204,7 +204,7 @@ export async function useMcpToolTool(
 			arguments: params.arguments,
 		} satisfies ClineAskUseMcpServer)
 
-		const executionId = cline.lastMessageTs?.toString() ?? Date.now().toString()
+		const executionId = cline.state.lastMessageTs?.toString() ?? Date.now().toString()
 		const didApprove = await askApproval("use_mcp_server", completeMessage)
 
 		if (!didApprove) {

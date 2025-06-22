@@ -28,13 +28,13 @@ export async function switchModeTool(
 			return
 		} else {
 			if (!mode_slug) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("switch_mode")
 				pushToolResult(await cline.sayAndCreateMissingParamError("switch_mode", "mode_slug"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			// Verify the mode exists
 			const targetMode = getModeBySlug(mode_slug, (await cline.providerRef.deref()?.getState())?.customModes)

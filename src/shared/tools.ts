@@ -6,9 +6,10 @@ export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.I
 
 export type AskApproval = (
 	type: ClineAsk,
-	partialMessage?: string,
+	text?: string,
+	partial?: boolean,
 	progressStatus?: ToolProgressStatus,
-	forceApproval?: boolean,
+	isProtected?: boolean,
 ) => Promise<boolean>
 
 export type HandleError = (action: string, error: Error) => Promise<void>
@@ -64,6 +65,9 @@ export const toolParamNames = [
 	"end_line",
 	"query",
 	"args",
+	"child_task_prompt",
+	"child_task_files",
+	"execute_immediately",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
@@ -157,6 +161,13 @@ export interface NewTaskToolUse extends ToolUse {
 	params: Partial<Pick<Record<ToolParamName, string>, "mode" | "message">>
 }
 
+export interface NewChildTaskToolUse extends ToolUse {
+	name: "new_child_task"
+	params: Partial<
+		Pick<Record<ToolParamName, string>, "child_task_prompt" | "child_task_files" | "execute_immediately">
+	>
+}
+
 export interface SearchAndReplaceToolUse extends ToolUse {
 	name: "search_and_replace"
 	params: Required<Pick<Record<ToolParamName, string>, "path" | "search" | "replace">> &
@@ -185,6 +196,9 @@ export const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
 	attempt_completion: "complete tasks",
 	switch_mode: "switch modes",
 	new_task: "create new task",
+	new_child_task: "create child task",
+	start_next_child_task: "start next child task",
+	view_pending_tasks: "view pending tasks",
 	insert_content: "insert content",
 	search_and_replace: "search and replace",
 	codebase_search: "codebase search",
@@ -217,6 +231,9 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolGroupConfig> = {
 	modes: {
 		tools: ["switch_mode", "new_task"],
 		alwaysAvailable: true,
+	},
+	task: {
+		tools: ["new_child_task", "start_next_child_task", "view_pending_tasks"],
 	},
 }
 

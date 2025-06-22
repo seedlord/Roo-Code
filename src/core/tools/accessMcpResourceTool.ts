@@ -26,20 +26,20 @@ export async function accessMcpResourceTool(
 			return
 		} else {
 			if (!server_name) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("access_mcp_resource")
 				pushToolResult(await cline.sayAndCreateMissingParamError("access_mcp_resource", "server_name"))
 				return
 			}
 
 			if (!uri) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("access_mcp_resource")
 				pushToolResult(await cline.sayAndCreateMissingParamError("access_mcp_resource", "uri"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			const completeMessage = JSON.stringify({
 				type: "access_mcp_resource",

@@ -29,20 +29,20 @@ export async function newTaskTool(
 			return
 		} else {
 			if (!mode) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("new_task")
 				pushToolResult(await cline.sayAndCreateMissingParamError("new_task", "mode"))
 				return
 			}
 
 			if (!message) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("new_task")
 				pushToolResult(await cline.sayAndCreateMissingParamError("new_task", "message"))
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 			// Un-escape one level of backslashes before '@' for hierarchical subtasks
 			// Un-escape one level: \\@ -> \@ (removes one backslash for hierarchical subtasks)
 			const unescapedMessage = message.replace(/\\\\@/g, "\\@")
@@ -78,7 +78,7 @@ export async function newTaskTool(
 			}
 
 			// Preserve the current mode so we can resume with it later.
-			cline.pausedModeSlug = (await provider.getState()).mode ?? defaultModeSlug
+			cline.state.pausedModeSlug = (await provider.getState()).mode ?? defaultModeSlug
 
 			// Switch mode first, then create new task instance.
 			await provider.handleModeSwitch(mode)
@@ -86,7 +86,7 @@ export async function newTaskTool(
 			// Delay to allow mode change to take effect before next tool is executed.
 			await delay(500)
 
-			const newCline = await provider.initClineWithTask(unescapedMessage, undefined, cline)
+			const newCline = await provider.initClineWithTask(unescapedMessage, undefined, undefined, cline)
 			if (!newCline) {
 				pushToolResult(t("tools:newTask.errors.policy_restriction"))
 				return
@@ -97,7 +97,7 @@ export async function newTaskTool(
 
 			// Set the isPaused flag to true so the parent
 			// task can wait for the sub-task to finish.
-			cline.isPaused = true
+			cline.state.isPaused = true
 			cline.emit("taskPaused")
 
 			return

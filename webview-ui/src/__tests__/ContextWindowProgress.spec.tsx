@@ -3,7 +3,7 @@
 import { render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
-import TaskHeader from "@src/components/chat/TaskHeader"
+import TaskHeader from "@/components/chat/task-header/TaskHeader"
 
 // Mock formatLargeNumber function
 vi.mock("@/utils/format", () => ({

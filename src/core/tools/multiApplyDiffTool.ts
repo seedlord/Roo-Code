@@ -97,7 +97,7 @@ export async function applyDiffTool(
 
 		const sharedMessageProps: ClineSayTool = {
 			tool: "appliedDiff",
-			path: getReadablePath(cline.cwd, filePath),
+			path: getReadablePath(cline.workspacePath, filePath),
 		}
 		const partialMessage = JSON.stringify(sharedMessageProps)
 		await cline.ask("tool", partialMessage, block.partial).catch(() => {})
@@ -175,7 +175,7 @@ Original error: ${errorMessage}`
 		}
 	} else {
 		// Neither new XML args nor old path/diff params are sufficient
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("apply_diff")
 		const errorMsg = await cline.sayAndCreateMissingParamError(
 			"apply_diff",
@@ -187,7 +187,7 @@ Original error: ${errorMessage}`
 
 	// If no operations were extracted, bail out
 	if (Object.keys(operationsMap).length === 0) {
-		cline.consecutiveMistakeCount++
+		cline.state.consecutiveMistakeCount++
 		cline.recordToolError("apply_diff")
 		pushToolResult(
 			await cline.sayAndCreateMissingParamError(
@@ -240,7 +240,7 @@ Original error: ${errorMessage}`
 			const isWriteProtected = cline.rooProtectedController?.isWriteProtected(relPath) || false
 
 			// Verify file exists
-			const absolutePath = path.resolve(cline.cwd, relPath)
+			const absolutePath = path.resolve(cline.workspacePath, relPath)
 			const fileExists = await fileExistsAtPath(absolutePath)
 			if (!fileExists) {
 				updateOperationResult(relPath, {
@@ -268,7 +268,7 @@ Original error: ${errorMessage}`
 
 			// Prepare batch diff data
 			const batchDiffs = operationsToApprove.map((opResult) => {
-				const readablePath = getReadablePath(cline.cwd, opResult.path)
+				const readablePath = getReadablePath(cline.workspacePath, opResult.path)
 				const changeCount = opResult.diffItems?.length || 0
 				const changeText = changeCount === 1 ? "1 change" : `${changeCount} changes`
 
@@ -306,7 +306,7 @@ Original error: ${errorMessage}`
 				if (text) {
 					await cline.say("user_feedback", text, images)
 				}
-				cline.didRejectTool = true
+				cline.state.didRejectTool = true
 				operationsToApprove.forEach((opResult) => {
 					updateOperationResult(opResult.path, {
 						status: "denied",
@@ -337,7 +337,7 @@ Original error: ${errorMessage}`
 						})
 
 						if (hasAnyDenial) {
-							cline.didRejectTool = true
+							cline.state.didRejectTool = true
 						}
 					} else {
 						// Legacy individual permissions format
@@ -360,13 +360,13 @@ Original error: ${errorMessage}`
 						})
 
 						if (hasAnyDenial) {
-							cline.didRejectTool = true
+							cline.state.didRejectTool = true
 						}
 					}
 				} catch (error) {
 					// Fallback: if JSON parsing fails, deny all files
 					console.error("Failed to parse individual permissions:", error)
-					cline.didRejectTool = true
+					cline.state.didRejectTool = true
 					operationsToApprove.forEach((opResult) => {
 						updateOperationResult(opResult.path, {
 							status: "denied",
@@ -423,7 +423,7 @@ Original error: ${errorMessage}`
 				originalContent = null
 
 				if (!diffResult.success) {
-					cline.consecutiveMistakeCount++
+					cline.state.consecutiveMistakeCount++
 					const currentCount = (cline.consecutiveMistakeCountForApplyDiff.get(relPath) || 0) + 1
 					cline.consecutiveMistakeCountForApplyDiff.set(relPath, currentCount)
 
@@ -488,7 +488,7 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 						if (operationsToApprove.length === 1) {
 							const sharedMessageProps: ClineSayTool = {
 								tool: "appliedDiff",
-								path: getReadablePath(cline.cwd, relPath),
+								path: getReadablePath(cline.workspacePath, relPath),
 								diff: diffItems.map((item) => item.content).join("\n\n"),
 							}
 							// Send a complete message (partial: false) to update the UI and stop the spinner
@@ -498,7 +498,7 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 					continue
 				}
 
-				cline.consecutiveMistakeCount = 0
+				cline.state.consecutiveMistakeCount = 0
 				cline.consecutiveMistakeCountForApplyDiff.delete(relPath)
 
 				// Show diff view before asking for approval (only for single file or after batch approval)
@@ -511,7 +511,7 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 				const isWriteProtected = cline.rooProtectedController?.isWriteProtected(relPath) || false
 				const sharedMessageProps: ClineSayTool = {
 					tool: "appliedDiff",
-					path: getReadablePath(cline.cwd, relPath),
+					path: getReadablePath(cline.workspacePath, relPath),
 					isProtected: isWriteProtected,
 				}
 
@@ -538,7 +538,13 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 
 					// Check if file is write-protected
 					const isWriteProtected = cline.rooProtectedController?.isWriteProtected(relPath) || false
-					didApprove = await askApproval("tool", operationMessage, toolProgressStatus, isWriteProtected)
+					didApprove = await askApproval(
+						"tool",
+						operationMessage,
+						undefined,
+						toolProgressStatus,
+						isWriteProtected,
+					)
 				}
 
 				if (!didApprove) {
@@ -554,7 +560,7 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 				await cline.fileContextTracker.trackFileContext(relPath, "roo_edited" as RecordSource)
 
 				// Used to determine if we should wait for busy terminal to update before sending api request
-				cline.didEditFile = true
+				cline.state.didEditFile = true
 				let partFailHint = ""
 
 				if (successCount < diffItems.length) {
@@ -562,7 +568,11 @@ ${errorDetails ? `\nTechnical details:\n${errorDetails}\n` : ""}
 				}
 
 				// Get the formatted response message
-				const message = await cline.diffViewProvider.pushToolWriteResult(cline, cline.cwd, !fileExists)
+				const message = await cline.diffViewProvider.pushToolWriteResult(
+					cline,
+					cline.workspacePath,
+					!fileExists,
+				)
 
 				if (partFailHint) {
 					results.push(partFailHint + "\n" + message)

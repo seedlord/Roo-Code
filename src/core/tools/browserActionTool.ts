@@ -26,7 +26,7 @@ export async function browserActionTool(
 		// checking for action to ensure it is complete and valid
 		if (!block.partial) {
 			// if the block is complete and we don't have a valid action cline is a mistake
-			cline.consecutiveMistakeCount++
+			cline.state.consecutiveMistakeCount++
 			cline.recordToolError("browser_action")
 			pushToolResult(await cline.sayAndCreateMissingParamError("browser_action", "action"))
 			await cline.browserSession.closeBrowser()
@@ -58,14 +58,14 @@ export async function browserActionTool(
 
 			if (action === "launch") {
 				if (!url) {
-					cline.consecutiveMistakeCount++
+					cline.state.consecutiveMistakeCount++
 					cline.recordToolError("browser_action")
 					pushToolResult(await cline.sayAndCreateMissingParamError("browser_action", "url"))
 					await cline.browserSession.closeBrowser()
 					return
 				}
 
-				cline.consecutiveMistakeCount = 0
+				cline.state.consecutiveMistakeCount = 0
 				const didApprove = await askApproval("browser_action_launch", url)
 
 				if (!didApprove) {
@@ -82,7 +82,7 @@ export async function browserActionTool(
 			} else {
 				if (action === "click" || action === "hover") {
 					if (!coordinate) {
-						cline.consecutiveMistakeCount++
+						cline.state.consecutiveMistakeCount++
 						cline.recordToolError("browser_action")
 						pushToolResult(await cline.sayAndCreateMissingParamError("browser_action", "coordinate"))
 						await cline.browserSession.closeBrowser()
@@ -92,7 +92,7 @@ export async function browserActionTool(
 
 				if (action === "type") {
 					if (!text) {
-						cline.consecutiveMistakeCount++
+						cline.state.consecutiveMistakeCount++
 						cline.recordToolError("browser_action")
 						pushToolResult(await cline.sayAndCreateMissingParamError("browser_action", "text"))
 						await cline.browserSession.closeBrowser()
@@ -102,7 +102,7 @@ export async function browserActionTool(
 
 				if (action === "resize") {
 					if (!size) {
-						cline.consecutiveMistakeCount++
+						cline.state.consecutiveMistakeCount++
 						cline.recordToolError("browser_action")
 						pushToolResult(await cline.sayAndCreateMissingParamError("browser_action", "size"))
 						await cline.browserSession.closeBrowser()
@@ -110,7 +110,7 @@ export async function browserActionTool(
 					}
 				}
 
-				cline.consecutiveMistakeCount = 0
+				cline.state.consecutiveMistakeCount = 0
 
 				await cline.say(
 					"browser_action",

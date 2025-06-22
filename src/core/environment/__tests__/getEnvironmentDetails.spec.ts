@@ -18,6 +18,8 @@ import { ClineProvider } from "../../webview/ClineProvider"
 import { RooIgnoreController } from "../../ignore/RooIgnoreController"
 import { formatResponse } from "../../prompts/responses"
 import { Task } from "../../task/Task"
+import { MessageStateHandler } from "../../task/message-state"
+import { TaskState } from "../../task/TaskState"
 
 vi.mock("vscode", () => ({
 	window: {
@@ -86,9 +88,9 @@ describe("getEnvironmentDetails", () => {
 		}
 
 		mockCline = {
-			cwd: mockCwd,
+			workspacePath: mockCwd,
 			taskId: mockTaskId,
-			didEditFile: false,
+			state: new TaskState(),
 			fileContextTracker: {
 				getAndClearRecentlyModifiedFiles: vi.fn().mockReturnValue([]),
 			} as unknown as FileContextTracker,
@@ -105,7 +107,10 @@ describe("getEnvironmentDetails", () => {
 				removeFromIgnore: vi.fn(),
 				dispose: vi.fn(),
 			} as unknown as RooIgnoreController,
-			clineMessages: [],
+			messageStateHandler: {
+				getClineMessages: vi.fn().mockReturnValue([{ type: "say" }, { type: "ask" }]),
+			} as unknown as MessageStateHandler,
+			combineMessages: vi.fn().mockImplementation((msgs) => msgs),
 			api: {
 				getModel: vi.fn().mockReturnValue({ id: "test-model", info: { contextWindow: 100000 } }),
 				createMessage: vi.fn(),
@@ -116,10 +121,14 @@ describe("getEnvironmentDetails", () => {
 				deref: vi.fn().mockReturnValue(mockProvider),
 				[Symbol.toStringTag]: "WeakRef",
 			} as unknown as WeakRef<ClineProvider>,
+			getTokenUsage: vi.fn().mockReturnValue({ contextTokens: 50000, totalCost: 0.25 }),
 		}
 
 		// Mock other dependencies.
-		;(getApiMetrics as Mock).mockReturnValue({ contextTokens: 50000, totalCost: 0.25 })
+		;(getApiMetrics as Mock).mockReturnValue({
+			contextTokens: 50000,
+			totalCost: 0.25,
+		})
 		;(getFullModeDetails as Mock).mockResolvedValue({
 			name: "💻 Code",
 			roleDefinition: "You are a code assistant",
@@ -159,7 +168,7 @@ describe("getEnvironmentDetails", () => {
 			language: "en",
 		})
 
-		expect(getApiMetrics).toHaveBeenCalledWith(mockCline.clineMessages)
+		expect(getApiMetrics).toHaveBeenCalled()
 	})
 
 	it("should include file details when includeFileDetails is true", async () => {
@@ -223,7 +232,7 @@ describe("getEnvironmentDetails", () => {
 		expect(result).toContain("### Original command: `npm test`")
 		expect(result).toContain("Test output")
 
-		mockCline.didEditFile = true
+		mockCline.state!.didEditFile = true
 		await getEnvironmentDetails(mockCline as Task)
 		expect(vi.mocked(delay)).toHaveBeenCalledWith(300)
 

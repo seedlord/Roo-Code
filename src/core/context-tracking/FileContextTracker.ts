@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as vscode from "vscode"
-import { getTaskDirectoryPath } from "../../utils/storage"
+import { ensureTaskDirectoryExists } from "../../utils/storage"
 import { GlobalFileNames } from "../../shared/globalFileNames"
 import { fileExistsAtPath } from "../../utils/fs"
 import fs from "fs/promises"
@@ -112,7 +112,7 @@ export class FileContextTracker {
 	// Gets task metadata from storage
 	async getTaskMetadata(taskId: string): Promise<TaskMetadata> {
 		const globalStoragePath = this.getContextProxy()?.globalStorageUri.fsPath ?? ""
-		const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
+		const taskDir = await ensureTaskDirectoryExists(globalStoragePath, taskId)
 		const filePath = path.join(taskDir, GlobalFileNames.taskMetadata)
 		try {
 			if (await fileExistsAtPath(filePath)) {
@@ -128,7 +128,7 @@ export class FileContextTracker {
 	async saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
 		try {
 			const globalStoragePath = this.getContextProxy()!.globalStorageUri.fsPath
-			const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
+			const taskDir = await ensureTaskDirectoryExists(globalStoragePath, taskId)
 			const filePath = path.join(taskDir, GlobalFileNames.taskMetadata)
 			await fs.writeFile(filePath, JSON.stringify(metadata, null, 2))
 		} catch (error) {

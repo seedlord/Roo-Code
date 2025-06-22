@@ -34,7 +34,7 @@ export async function executeCommandTool(
 			return
 		} else {
 			if (!command) {
-				cline.consecutiveMistakeCount++
+				cline.state.consecutiveMistakeCount++
 				cline.recordToolError("execute_command")
 				pushToolResult(await cline.sayAndCreateMissingParamError("execute_command", "command"))
 				return
@@ -48,7 +48,7 @@ export async function executeCommandTool(
 				return
 			}
 
-			cline.consecutiveMistakeCount = 0
+			cline.state.consecutiveMistakeCount = 0
 
 			command = unescapeHtmlEntities(command) // Unescape HTML entities.
 			const didApprove = await askApproval("command", command)
@@ -57,7 +57,7 @@ export async function executeCommandTool(
 				return
 			}
 
-			const executionId = cline.lastMessageTs?.toString() ?? Date.now().toString()
+			const executionId = cline.state.lastMessageTs?.toString() ?? Date.now().toString()
 			const clineProvider = await cline.providerRef.deref()
 			const clineProviderState = await clineProvider?.getState()
 			const { terminalOutputLineLimit = 500, terminalShellIntegrationDisabled = false } = clineProviderState ?? {}
@@ -74,7 +74,7 @@ export async function executeCommandTool(
 				const [rejected, result] = await executeCommand(cline, options)
 
 				if (rejected) {
-					cline.didRejectTool = true
+					cline.state.didRejectTool = true
 				}
 
 				pushToolResult(result)
@@ -90,7 +90,7 @@ export async function executeCommandTool(
 					})
 
 					if (rejected) {
-						cline.didRejectTool = true
+						cline.state.didRejectTool = true
 					}
 
 					pushToolResult(result)
@@ -128,11 +128,11 @@ export async function executeCommand(
 	let workingDir: string
 
 	if (!customCwd) {
-		workingDir = cline.cwd
+		workingDir = cline.workspacePath
 	} else if (path.isAbsolute(customCwd)) {
 		workingDir = customCwd
 	} else {
-		workingDir = path.resolve(cline.cwd, customCwd)
+		workingDir = path.resolve(cline.workspacePath, customCwd)
 	}
 
 	try {
