@@ -239,7 +239,7 @@ export class ClineProvider
 		const parentTask = this.getCurrentCline()
 		if (parentTask) {
 			parentTask.activeChildTask = undefined
-			await parentTask.resumePausedTask(lastMessage)
+			await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber)
 		}
 		await this.postStateToWebview()
 	}
