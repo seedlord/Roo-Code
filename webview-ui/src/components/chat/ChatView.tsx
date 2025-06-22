@@ -39,6 +39,7 @@ import BrowserSessionRow from "./BrowserSessionRow"
 import ChatRow from "./ChatRow"
 import ChatTextArea from "./ChatTextArea"
 import TaskHeader from "./task-header/TaskHeader"
+import BackToParent from "./BackToParent"
 import AutoApproveMenu from "./AutoApproveMenu"
 import SystemPromptWarning from "./SystemPromptWarning"
 import ProfileViolationWarning from "./ProfileViolationWarning"
@@ -1455,6 +1456,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						onScrollToMessage={scrollToMessage}
 						currentTaskItem={currentTaskItem}
 					/>
+					<div className="px-3">
+						<BackToParent />
+					</div>
 
 					{hasSystemPromptOverride && (
 						<div className="px-3">

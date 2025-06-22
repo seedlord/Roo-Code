@@ -1831,25 +1831,26 @@ export class ClineProvider
 		const history = (this.getGlobalState("taskHistory") as TaskItem[] | undefined) || []
 		const existingItemIndex = history.findIndex((h) => h.id === item.id)
 
+		let newHistory: TaskItem[]
 		if (existingItemIndex >= 0) {
-			history[existingItemIndex] = item
+			newHistory = history.map((h, index) => (index === existingItemIndex ? item : h))
 		} else {
-			history.push(item)
+			newHistory = [...history, item]
 		}
 
 		// Synchrone Speicherung in eine Datei
 		try {
 			const historyPath = path.join(this.context.globalStorageUri.fsPath, "taskHistory.json")
-			const historyJson = JSON.stringify(history, null, 2)
+			const historyJson = JSON.stringify(newHistory, null, 2)
 			require("fs").writeFileSync(historyPath, historyJson, "utf8")
 		} catch (e) {
 			console.error("[HistoryDebug] Failed to write history to file synchronously:", e)
 		}
 
 		// Aktualisiere weiterhin den globalen Zustand für den schnellen Zugriff
-		await this.updateGlobalState("taskHistory", history)
+		await this.updateGlobalState("taskHistory", newHistory)
 		this.postStateToWebview()
-		return history
+		return newHistory
 	}
 
 	private async replaceTask(newCline: Task) {
