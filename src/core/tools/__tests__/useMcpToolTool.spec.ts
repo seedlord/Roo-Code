@@ -154,7 +154,7 @@ describe("useMcpToolTool", () => {
 				partial: true,
 			}
 
-			mockTask.ask = vi.fn().mockResolvedValue(true)
+			mockTask.ask = vi.fn().mockResolvedValue({ response: "yesButtonClicked" })
 
 			await useMcpToolTool(
 				mockTask as Task,
@@ -165,7 +165,13 @@ describe("useMcpToolTool", () => {
 				mockRemoveClosingTag,
 			)
 
-			expect(mockTask.ask).toHaveBeenCalledWith("use_mcp_server", expect.stringContaining("use_mcp_tool"), true)
+			const expectedMessage = JSON.stringify({
+				type: "use_mcp_tool",
+				serverName: "test_server",
+				toolName: "test_tool",
+				arguments: "{}",
+			})
+			expect(mockTask.ask).toHaveBeenCalledWith("use_mcp_server", expectedMessage, true)
 		})
 	})
 
@@ -182,7 +188,7 @@ describe("useMcpToolTool", () => {
 				partial: false,
 			}
 
-			mockAskApproval.mockResolvedValue(true)
+			mockAskApproval.mockResolvedValue({ response: "yesButtonClicked" })
 
 			const mockToolResult = {
 				content: [{ type: "text", text: "Tool executed successfully" }],
@@ -224,7 +230,7 @@ describe("useMcpToolTool", () => {
 				partial: false,
 			}
 
-			mockAskApproval.mockResolvedValue(false)
+			mockAskApproval.mockResolvedValue({ response: "noButtonClicked" })
 
 			await useMcpToolTool(
 				mockTask as Task,

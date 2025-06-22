@@ -1912,20 +1912,20 @@ export class Task extends EventEmitter<ClineEvents> {
 
 	// Child Task Management
 	public async executeNewChildTaskTool(
-		childTaskPrompt: string,
-		childTaskFiles?: string[],
+		tasks: { prompt: string; files?: string[]; mode?: string }[],
 		executeImmediately = false,
-		mode?: string,
 	): Promise<Task | void> {
-		const newTaskId = crypto.randomUUID()
-		this.pendingChildTasks.push({
-			id: newTaskId,
-			prompt: childTaskPrompt,
-			files: childTaskFiles ?? [],
-			createdAt: Date.now(),
-			mode: mode,
-		})
-		this.childTaskIds.push(newTaskId)
+		for (const task of tasks) {
+			const newTaskId = crypto.randomUUID()
+			this.pendingChildTasks.push({
+				id: newTaskId,
+				prompt: task.prompt,
+				files: task.files ?? [],
+				createdAt: Date.now(),
+				mode: task.mode,
+			})
+			this.childTaskIds.push(newTaskId)
+		}
 
 		if (executeImmediately) {
 			return await this.startNextChildTask()

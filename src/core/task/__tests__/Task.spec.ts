@@ -951,6 +951,8 @@ describe("Cline", () => {
 
 					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
 						response: "yesButtonClicked",
+						text: "",
+						images: [],
 					})
 
 					const executeNewChildTaskToolSpy = vi
@@ -968,8 +970,7 @@ describe("Cline", () => {
 						undefined,
 					)
 					expect(executeNewChildTaskToolSpy).toHaveBeenCalledWith(
-						childTaskPrompt,
-						childTaskFiles,
+						[{ prompt: childTaskPrompt, files: childTaskFiles }],
 						executeImmediately,
 					)
 				})
@@ -992,6 +993,8 @@ describe("Cline", () => {
 
 					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
 						response: "yesButtonClicked",
+						text: "",
+						images: [],
 					})
 
 					const handleStartNextChildTaskSpy = vi
@@ -1029,9 +1032,10 @@ describe("Cline", () => {
 
 					const askApprovalSpy = vi.spyOn(cline, "ask").mockResolvedValue({
 						response: "yesButtonClicked",
+						text: "",
+						images: [],
 					})
 
-					const pendingTasks = [{ id: "child-task-id", prompt: "child task", createdAt: Date.now() }]
 					const handleViewPendingTasksSpy = vi
 						.spyOn(cline, "viewPendingTasksTool")
 						.mockResolvedValue(undefined)

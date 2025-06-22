@@ -18,13 +18,8 @@ export async function viewPendingTasksTool(
 	}
 
 	try {
-		const provider = cline.providerRef.deref()
-		if (!provider) {
-			throw new Error("Provider not available")
-		}
-
-		const pendingTasks = await provider.handleViewPendingTasks(cline.taskId)
-		pushToolResult(formatResponse.toolResult(JSON.stringify(pendingTasks, null, 2)))
+		await cline.viewPendingTasksTool()
+		pushToolResult(formatResponse.toolResult("Displayed pending tasks."))
 	} catch (error) {
 		await handleError("viewing pending tasks", error as Error)
 	}

@@ -110,7 +110,7 @@ describe("writeToFileTool", () => {
 	const mockedPathResolve = path.resolve as MockedFunction<typeof path.resolve>
 
 	const mockCline: any = {}
-	let mockAskApproval: ReturnType<typeof vi.fn>
+	let mockAskApproval: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue({ response: "yesButtonClicked" })
 	let mockHandleError: ReturnType<typeof vi.fn>
 	let mockPushToolResult: ReturnType<typeof vi.fn>
 	let mockRemoveClosingTag: ReturnType<typeof vi.fn>
@@ -182,7 +182,7 @@ describe("writeToFileTool", () => {
 		mockCline.recordToolError = vi.fn()
 		mockCline.sayAndCreateMissingParamError = vi.fn().mockResolvedValue("Missing param error")
 
-		mockAskApproval = vi.fn().mockResolvedValue(true)
+		mockAskApproval.mockResolvedValue({ response: "yesButtonClicked" })
 		mockHandleError = vi.fn().mockResolvedValue(undefined)
 		mockRemoveClosingTag = vi.fn((tag, content) => content)
 
@@ -363,7 +363,7 @@ describe("writeToFileTool", () => {
 
 	describe("user interaction", () => {
 		it("reverts changes when user rejects approval", async () => {
-			mockAskApproval.mockResolvedValue(false)
+			mockAskApproval.mockResolvedValue({ response: "noButtonClicked" })
 
 			await executeWriteFileTool({})
 

@@ -23,7 +23,10 @@ export async function newChildTaskTool(
 	let tasks: ChildTaskInfo[] = []
 	try {
 		tasks = tasksStr ? JSON.parse(tasksStr) : []
-		if (!Array.isArray(tasks) || tasks.some((t) => typeof t.prompt !== "string" || typeof t.mode !== "string")) {
+		if (
+			!Array.isArray(tasks) ||
+			tasks.some((t) => typeof t.prompt !== "string" || (t.mode !== undefined && typeof t.mode !== "string"))
+		) {
 			throw new Error("Invalid tasks format. Expected an array of objects with 'prompt' and 'mode' properties.")
 		}
 	} catch (error) {
@@ -46,14 +49,7 @@ export async function newChildTaskTool(
 	try {
 		const finalExecuteImmediately = approvalResult.params?.execute_immediately ?? executeImmediately
 
-		for (const taskInfo of tasks) {
-			await cline.executeNewChildTaskTool(
-				taskInfo.prompt,
-				taskInfo.files ?? [],
-				finalExecuteImmediately,
-				taskInfo.mode,
-			)
-		}
+		await cline.executeNewChildTaskTool(tasks, finalExecuteImmediately)
 
 		const taskCount = tasks.length
 		const plural = taskCount > 1 ? "s" : ""

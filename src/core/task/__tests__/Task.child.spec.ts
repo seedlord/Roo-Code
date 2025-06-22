@@ -113,7 +113,7 @@ describe("Task Child Task Management", () => {
 		const childPrompt = "This is a child task"
 		const childFiles = ["/path/to/file1.ts", "/path/to/file2.ts"]
 
-		await parentTask.executeNewChildTaskTool(childPrompt, childFiles, false)
+		await parentTask.executeNewChildTaskTool([{ prompt: childPrompt, files: childFiles }], false)
 
 		expect(parentTask.pendingChildTasks).toHaveLength(1)
 		const pendingTask = parentTask.pendingChildTasks[0]
@@ -124,17 +124,23 @@ describe("Task Child Task Management", () => {
 	test("should start the next pending child task", async () => {
 		const childPrompt = "This is a child task to be executed"
 		const childFiles: string[] = []
-		await parentTask.executeNewChildTaskTool(childPrompt, childFiles, false)
+		await parentTask.executeNewChildTaskTool([{ prompt: childPrompt, files: childFiles }], false)
 
-		const initClineWithSubTaskSpy = vi
-			.spyOn(provider, "initClineWithSubTask")
-			.mockResolvedValue({ taskId: "mock-child-id" } as any)
+		const mockChildTask = new Task({
+			provider,
+			apiConfiguration: { apiProvider: "anthropic" },
+			task: "mock child task",
+			globalStoragePath: "/mock/storage",
+			startTask: false,
+		})
+		const initClineWithSubTaskSpy = vi.spyOn(provider, "initClineWithSubTask").mockResolvedValue(mockChildTask)
 
 		await parentTask.startNextChildTaskTool()
 
 		expect(parentTask.pendingChildTasks).toHaveLength(0)
 		expect(initClineWithSubTaskSpy).toHaveBeenCalledWith(parentTask, childPrompt, childFiles)
 		expect(parentTask.activeChildTask).toBeDefined()
+		expect(parentTask.activeChildTask?.taskId).toBe(mockChildTask.taskId)
 	}, 10000)
 
 	test("should create and execute a child task immediately", async () => {
@@ -144,7 +150,7 @@ describe("Task Child Task Management", () => {
 		// Ensure the spy is on the actual implementation
 		const initClineWithSubTaskSpy = vi.spyOn(provider, "initClineWithSubTask")
 
-		const childTask = await parentTask.executeNewChildTaskTool(childPrompt, childFiles, true)
+		const childTask = await parentTask.executeNewChildTaskTool([{ prompt: childPrompt, files: childFiles }], true)
 
 		expect(initClineWithSubTaskSpy).toHaveBeenCalledWith(parentTask, childPrompt, childFiles)
 
