@@ -987,12 +987,6 @@ export class Task extends EventEmitter<ClineEvents> {
 	}
 
 	public dispose(): void {
-		// Stop waiting for child task completion.
-		if (this.state.pauseInterval) {
-			clearInterval(this.state.pauseInterval)
-			this.state.pauseInterval = undefined
-		}
-
 		// Release any terminals associated with this task.
 		try {
 			// Release any terminals associated with this task.
@@ -1040,6 +1034,9 @@ export class Task extends EventEmitter<ClineEvents> {
 	}
 
 	public async abortTask(save = false) {
+		if (this.state.abort) {
+			return // Task is already aborted, do nothing.
+		}
 		console.log(`[task] aborting task ${this.taskId}.${this.instanceId}`)
 
 		// Will stop any autonomously running promises.
@@ -1061,22 +1058,6 @@ export class Task extends EventEmitter<ClineEvents> {
 			console.error(`Error during task ${this.taskId}.${this.instanceId} disposal:`, error)
 			// Don't rethrow - we want abort to always succeed
 		}
-	}
-
-	// Used when a sub-task is launched and the parent task is waiting for it to
-	// finish.
-	// TBD: The 1s should be added to the settings, also should add a timeout to
-	// prevent infinite waiting.
-	public async waitForResume() {
-		await new Promise<void>((resolve) => {
-			this.state.pauseInterval = setInterval(() => {
-				if (!this.state.isPaused) {
-					clearInterval(this.state.pauseInterval)
-					this.state.pauseInterval = undefined
-					resolve()
-				}
-			}, 1000)
-		})
 	}
 
 	// Task Loop
@@ -1155,7 +1136,7 @@ export class Task extends EventEmitter<ClineEvents> {
 
 		if (this.state.isPaused && provider) {
 			provider.log(`[subtasks] paused ${this.taskId}.${this.instanceId}`)
-			await this.waitForResume()
+			// No longer need to wait for resume, the provider will handle it
 			provider.log(`[subtasks] resumed ${this.taskId}.${this.instanceId}`)
 			const currentMode = (await provider.getState())?.mode ?? defaultModeSlug
 

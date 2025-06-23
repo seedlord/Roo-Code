@@ -100,6 +100,7 @@ export class ClineProvider
 	private view?: vscode.WebviewView | vscode.WebviewPanel
 	public clineStack: Task[] = []
 	private isSwitchingTask = false
+	private isFinishingSubTask = false
 	private codeIndexStatusSubscription?: vscode.Disposable
 	private _workspaceTracker?: WorkspaceTracker // workSpaceTracker read-only for access outside this class
 	public get workspaceTracker(): WorkspaceTracker | undefined {
@@ -175,6 +176,23 @@ export class ClineProvider
 		if (!state || typeof state.mode !== "string") {
 			throw new Error(t("common:errors.retrieve_current_mode"))
 		}
+
+		// Listen for task completion and failure events to resume the parent task
+		cline.on("taskCompleted", (taskId, tokenUsage, toolUsage) => {
+			const lastMessage = `Task ${taskId} completed. Tokens: ${
+				tokenUsage.totalTokensIn + tokenUsage.totalTokensOut
+			}, Tools: ${Object.keys(toolUsage).length}`
+			this.finishSubTask(lastMessage)
+		})
+
+		cline.on("taskAborted", () => {
+			this.finishSubTask("Task aborted")
+		})
+
+		cline.on("taskToolFailed", (taskId, tool, error) => {
+			const lastMessage = `Task ${taskId} failed on tool ${tool} with error: ${error}`
+			this.finishSubTask(lastMessage)
+		})
 	}
 
 	// Marks the top Cline instance as aborted, but leaves it on the stack
@@ -226,27 +244,41 @@ export class ClineProvider
 	// and resume the previous task/cline instance (if it exists)
 	// this is used when a sub task is finished and the parent task needs to be resumed
 	async finishSubTask(lastMessage: string) {
-		console.log(`[task] finishing subtask ${lastMessage}`)
-		const subTask = this.getCurrentCline()
-		if (subTask) {
-			await subTask.abortTask(true)
+		if (this.isFinishingSubTask) {
+			return // Prevent re-entrancy
 		}
+		this.isFinishingSubTask = true
 
-		// Pop the subtask from the stack
-		this.clineStack.pop()
-
-		// Resume the parent task
-		const parentTask = this.getCurrentCline()
-		if (parentTask) {
-			// Restore the parent's mode before resuming
-			if (parentTask.state.pausedModeSlug) {
-				await this.handleModeSwitch(parentTask.state.pausedModeSlug as Mode)
+		try {
+			const subTask = this.getCurrentCline()
+			if (!subTask) {
+				return
 			}
-			parentTask.activeChildTask = undefined
-			await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber)
-			await parentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
+
+			console.log(`[task] finishing subtask ${lastMessage}`)
+
+			// Remove all listeners to prevent re-triggering finishSubTask and memory leaks
+			subTask.removeAllListeners()
+			await subTask.abortTask(true)
+
+			// Pop the subtask from the stack
+			this.clineStack.pop()
+
+			// Resume the parent task
+			const parentTask = this.getCurrentCline()
+			if (parentTask) {
+				// Restore the parent's mode before resuming
+				if (parentTask.state.pausedModeSlug) {
+					await this.handleModeSwitch(parentTask.state.pausedModeSlug as Mode)
+				}
+				parentTask.activeChildTask = undefined
+				await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber)
+				await parentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
+			}
+			await this.postStateToWebview()
+		} finally {
+			this.isFinishingSubTask = false
 		}
-		await this.postStateToWebview()
 	}
 
 	/*

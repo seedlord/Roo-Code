@@ -8,7 +8,6 @@ export class TaskState {
 	// Core task state
 	isPaused: boolean = false
 	pausedModeSlug: string = defaultModeSlug
-	pauseInterval: NodeJS.Timeout | undefined
 
 	// Task loop state
 	abort: boolean = false
