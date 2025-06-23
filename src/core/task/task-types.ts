@@ -15,6 +15,7 @@ export interface TaskItem {
 		prompt: string
 		files: string[]
 		createdAt: number
+		mode?: string
 	}>
 	// Add other fields derived from .proto files or Task.ts logic
 	ts: number // Timestamp for ordering
@@ -31,6 +32,7 @@ export interface TaskItem {
 	isFavorited?: boolean // Whether the task is favorited
 	number: number // Task number
 	workspace?: string
+	mode?: string
 }
 
 export interface NewChildTaskParams {
@@ -63,4 +65,5 @@ export interface TaskCreationOptions {
 	onCreated?: (cline: Task) => void
 	globalStoragePath: string
 	workspace?: string
+	mode?: string
 }

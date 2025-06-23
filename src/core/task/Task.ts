@@ -111,6 +111,7 @@ export class Task extends EventEmitter<ClineEvents> {
 	readonly parentTask: Task | undefined = undefined
 	readonly taskNumber: number
 	readonly workspacePath: string
+	public mode: string
 
 	providerRef: WeakRef<ClineProvider>
 	public readonly globalStoragePath: string
@@ -178,14 +179,16 @@ export class Task extends EventEmitter<ClineEvents> {
 		startTask = true,
 		rootTask,
 		parentTask,
+		childTaskId,
 		taskNumber = -1,
 		onCreated,
 		globalStoragePath,
+		mode,
 	}: TaskCreationOptions) {
 		super()
 
 		this.state = new TaskState()
-		this.taskId = historyItem ? historyItem.id : crypto.randomUUID()
+		this.taskId = historyItem ? historyItem.id : (childTaskId ?? crypto.randomUUID())
 		this.childTaskIds = historyItem?.childTaskIds ?? []
 		this.pendingChildTasks = historyItem?.pendingChildTasks ?? []
 		// normal use-case is usually retry similar history task with new workspace
@@ -195,6 +198,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		this.instanceId = crypto.randomUUID().slice(0, 8)
 		this.taskNumber = taskNumber
 
+		this.mode = mode ?? parentTask?.mode ?? historyItem?.mode ?? defaultModeSlug
 		this.rooIgnoreController = new RooIgnoreController(this.workspacePath)
 		this.rooProtectedController = new RooProtectedController(this.workspacePath)
 		this.fileContextTracker = new FileContextTracker(provider, this.taskId)
@@ -240,6 +244,7 @@ export class Task extends EventEmitter<ClineEvents> {
 					activeChildTaskId: this.activeChildTask?.taskId,
 					status: this.state.isComplete ? "completed" : this.state.abort ? "failed" : "running",
 					pendingChildTasks: this.pendingChildTasks,
+					mode: this.mode,
 					number: this.taskNumber,
 					workspace: this.workspacePath?.split(path.sep).join(path.posix.sep),
 					childTaskIds: this.childTaskIds,
@@ -1913,10 +1918,24 @@ export class Task extends EventEmitter<ClineEvents> {
 	}
 
 	// Child Task Management
+	public async promotePendingChildToRunning(childId: string): Promise<void> {
+		const index = this.pendingChildTasks.findIndex((task) => task.id === childId)
+		if (index > -1) {
+			this.pendingChildTasks.splice(index, 1)
+		}
+
+		if (!this.childTaskIds.includes(childId)) {
+			this.childTaskIds.push(childId)
+		}
+
+		await this.messageStateHandler.saveClineMessagesAndUpdateHistory()
+	}
+
 	public async executeNewChildTaskTool(
 		tasks: { prompt: string; files?: string[]; mode?: string }[],
 		executeImmediately = false,
 	): Promise<Task | void> {
+		let stateModified = false
 		for (const task of tasks) {
 			const newTaskId = crypto.randomUUID()
 			this.pendingChildTasks.push({
@@ -1927,6 +1946,11 @@ export class Task extends EventEmitter<ClineEvents> {
 				mode: task.mode,
 			})
 			this.childTaskIds.push(newTaskId)
+			stateModified = true
+		}
+
+		if (stateModified) {
+			await this.messageStateHandler.saveClineMessagesAndUpdateHistory()
 		}
 
 		if (executeImmediately) {
@@ -1967,10 +1991,17 @@ export class Task extends EventEmitter<ClineEvents> {
 			return
 		}
 
-		const childTask = await provider.initClineWithSubTask(this, nextTaskInfo.prompt, nextTaskInfo.files)
+		const childTask = await provider.initClineWithSubTask(
+			this,
+			nextTaskInfo.prompt,
+			nextTaskInfo.files,
+			nextTaskInfo.mode,
+			nextTaskInfo.id,
+		)
 		this.activeChildTask = childTask
 
 		this.state.isPaused = true
+		this.state.pausedModeSlug = this.mode
 		this.emit("taskPaused")
 		return childTask
 	}

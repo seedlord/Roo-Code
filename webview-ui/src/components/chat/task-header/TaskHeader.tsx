@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from "react"
+import { memo, useMemo, useRef, useState } from "react"
 import { useWindowSize } from "react-use"
 import { useTranslation } from "react-i18next"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
@@ -58,6 +58,69 @@ const TaskHeader = ({
 	const { apiConfiguration, currentTaskItem, clineMessages, taskHistory } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
+
+	const childTasks = useMemo(() => {
+		if (!currentTaskItem) {
+			return []
+		}
+
+		// 1. Create a map of all tasks for quick O(1) access.
+		const taskMap = new Map<string, HistoryItem>()
+		taskHistory.forEach((task) => {
+			taskMap.set(task.id, task)
+		})
+
+		// 2. Get the list of child IDs directly from the parent task. This is the "source of truth".
+		const childIds = currentTaskItem.childTaskIds || []
+
+		// 3. Reconstruct the list of initialized children by looking up the IDs.
+		const childrenFromIds = childIds.map((id) => taskMap.get(id)).filter((task): task is HistoryItem => !!task)
+
+		// 4. Add pending children and deduplicate.
+		const finalTaskMap = new Map<string, HistoryItem>()
+		childrenFromIds.forEach((task) => finalTaskMap.set(task.id, task))
+
+		const pendingChildren = currentTaskItem.pendingChildTasks || []
+		pendingChildren.forEach((pendingTaskInfo) => {
+			if (!finalTaskMap.has(pendingTaskInfo.id)) {
+				finalTaskMap.set(pendingTaskInfo.id, {
+					id: pendingTaskInfo.id,
+					ts: pendingTaskInfo.createdAt,
+					task: pendingTaskInfo.prompt,
+					status: "pending" as const,
+					parentId: currentTaskItem.id,
+					tokensIn: 0,
+					tokensOut: 0,
+					totalCost: 0,
+					number: 0,
+				} as HistoryItem)
+			}
+		})
+
+		// 5. Convert the map back to an array and sort with status priority.
+		const statusOrder: Record<string, number> = {
+			running: 1,
+			paused: 2,
+			pending: 3,
+			completed: 4,
+			failed: 5,
+			unknown: 6,
+		}
+
+		return Array.from(finalTaskMap.values()).sort((a, b) => {
+			const statusA = a.status || "unknown"
+			const statusB = b.status || "unknown"
+			const orderA = statusOrder[statusA] || 99
+			const orderB = statusOrder[statusB] || 99
+
+			if (orderA !== orderB) {
+				return orderA - orderB
+			}
+
+			// If statuses are the same, sort by timestamp (oldest first)
+			return a.ts - b.ts
+		})
+	}, [taskHistory, currentTaskItem])
 
 	const textContainerRef = useRef<HTMLDivElement>(null)
 	const textRef = useRef<HTMLDivElement>(null)
@@ -204,11 +267,7 @@ const TaskHeader = ({
 							<div className="flex flex-col">
 								<TaskTimeline messages={clineMessages} onBlockClick={onScrollToMessage} />
 								{currentTaskItem && (
-									<TaskHierarchy
-										currentTask={currentTaskItem}
-										allTasks={taskHistory}
-										isTaskExpanded={isTaskExpanded}
-									/>
+									<TaskHierarchy childTasks={childTasks} isTaskExpanded={isTaskExpanded} />
 								)}
 							</div>
 							{/* {checkpointTrackerErrorMessage && (

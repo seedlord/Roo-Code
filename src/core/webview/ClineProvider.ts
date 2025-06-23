@@ -238,8 +238,13 @@ export class ClineProvider
 		// Resume the parent task
 		const parentTask = this.getCurrentCline()
 		if (parentTask) {
+			// Restore the parent's mode before resuming
+			if (parentTask.state.pausedModeSlug) {
+				await this.handleModeSwitch(parentTask.state.pausedModeSlug as Mode)
+			}
 			parentTask.activeChildTask = undefined
 			await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber)
+			await parentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
 		}
 		await this.postStateToWebview()
 	}
@@ -517,10 +522,24 @@ export class ClineProvider
 		this.log("Webview view resolved")
 	}
 
-	public async initClineWithSubTask(parent: Task, task?: string, files?: string[]) {
-		return this.initClineWithTask(task, undefined, files, parent, undefined, {
-			globalStoragePath: parent.globalStoragePath,
-		})
+	public async initClineWithSubTask(
+		parent: Task,
+		task?: string,
+		files?: string[],
+		mode?: string,
+		childTaskId?: string,
+	) {
+		return this.initClineWithTask(
+			task,
+			undefined,
+			files,
+			parent,
+			childTaskId,
+			{
+				globalStoragePath: parent.globalStoragePath,
+			},
+			mode,
+		)
 	}
 
 	// When initializing a new task, (not from history but from a tool command
@@ -546,6 +565,7 @@ export class ClineProvider
 				| "globalStoragePath"
 			>
 		> = {},
+		mode?: string,
 	) {
 		const isNewAndEmpty = !task && (!images || images.length === 0) && (!files || files.length === 0)
 		const currentTask = this.getCurrentCline()
@@ -568,6 +588,10 @@ export class ClineProvider
 			return currentTask
 		}
 
+		if (parentTask && childTaskId) {
+			await parentTask.promotePendingChildToRunning(childTaskId)
+		}
+
 		const {
 			apiConfiguration,
 			organizationAllowList,
@@ -575,6 +599,7 @@ export class ClineProvider
 			enableCheckpoints,
 			fuzzyMatchThreshold,
 			experiments,
+			mode: currentMode,
 		} = await this.getState()
 
 		if (!ProfileValidator.isProfileAllowed(apiConfiguration, organizationAllowList)) {
@@ -594,9 +619,10 @@ export class ClineProvider
 			rootTask: parentTask ? (parentTask.rootTask ?? parentTask) : undefined,
 			parentTask,
 			childTaskId,
-			taskNumber: parentTask ? this.clineStack.length + 1 : this.clineStack.length,
+			taskNumber: parentTask ? this.clineStack.length : this.clineStack.length,
 			onCreated: (cline) => this.emit("clineCreated", cline),
 			globalStoragePath: options.globalStoragePath || this.context.globalStorageUri.fsPath,
+			mode: mode || currentMode,
 		})
 
 		newClinePromise.catch((error) => {
@@ -627,6 +653,7 @@ export class ClineProvider
 			childTaskIds: [],
 			pendingChildTasks: [],
 			activeChildTaskId: undefined,
+			mode: newCline.mode,
 		}
 
 		// Add the new task to history immediately
@@ -688,6 +715,7 @@ export class ClineProvider
 				taskNumber: historyItem.number, // Use the number from history
 				onCreated: (cline) => this.emit("clineCreated", cline),
 				globalStoragePath: this.context.globalStorageUri.fsPath,
+				mode: historyItem.mode,
 			})
 
 			// Save and abort the old task if it exists
@@ -1563,9 +1591,7 @@ export class ClineProvider
 			}
 		}
 
-		const historyForWebview = ((taskHistory as TaskItem[]) || [])
-			.filter((item: TaskItem) => item.ts && item.task)
-			.sort((a: TaskItem, b: TaskItem) => b.ts - a.ts)
+		const historyForWebview = ((taskHistory as TaskItem[]) || []).sort((a: TaskItem, b: TaskItem) => b.ts - a.ts)
 		//console.log(`[HistoryDebug] postStateToWebview: Sending ${historyForWebview.length} history items to UI. IDs: ${historyForWebview.map(h => h.id).join(', ')}`);
 
 		return {
@@ -1758,7 +1784,7 @@ export class ClineProvider
 			allowedMaxRequests: stateValues.allowedMaxRequests,
 			autoCondenseContext: stateValues.autoCondenseContext ?? true,
 			autoCondenseContextPercent: stateValues.autoCondenseContextPercent ?? 100,
-			taskHistory: taskHistory.filter((item: TaskItem) => item.id && item.ts && item.task),
+			taskHistory: taskHistory,
 			allowedCommands: stateValues.allowedCommands,
 			soundEnabled: stateValues.soundEnabled ?? false,
 			ttsEnabled: stateValues.ttsEnabled ?? false,
