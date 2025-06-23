@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, ReactNode } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { Checkbox } from "@src/components/ui/checkbox"
 import { HistoryItem } from "@roo-code/types"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@src/components/ui/tooltip"
@@ -128,7 +128,7 @@ export const TaskHierarchy: React.FC<TaskHierarchyProps> = ({ childTasks, onTask
 	if (childTasks.length === 0) {
 		return null
 	}
-	const renderListInContainer = (childTask: HistoryItem, children: ReactNode) => {
+	const renderListInContainer = (childTask: HistoryItem, children: React.ReactElement): React.ReactElement => {
 		if (childTask.status === "pending") {
 			return (
 				<TooltipProvider>
@@ -209,88 +209,90 @@ export const TaskHierarchy: React.FC<TaskHierarchyProps> = ({ childTasks, onTask
 					transition: "all 0.2s ease-in-out",
 				}}>
 				{displayTasks.map((childTask, index) =>
-					renderListInContainer(
-						childTask,
-						<div
-							key={childTask.id}
-							style={{
-								display: "flex",
-								alignItems: "center",
-								gap: "8px",
-								padding: "6px 8px",
-								backgroundColor: "var(--vscode-list-hoverBackground)",
-								borderRadius: "3px",
-								cursor: onTaskClick ? "pointer" : "default",
-								fontSize: "12px",
-								transition: "background-color 0.1s ease",
-							}}
-							onClick={(e) => {
-								if (childTask.status === "pending") {
-									return
-								}
-								e.stopPropagation()
-								onTaskClick?.(childTask.id)
-							}}
-							onMouseEnter={(e) => {
-								if (onTaskClick) {
-									e.currentTarget.style.backgroundColor =
-										"var(--vscode-list-activeSelectionBackground)"
-								}
-							}}
-							onMouseLeave={(e) => {
-								e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"
-							}}>
-							<span
+					React.cloneElement(
+						renderListInContainer(
+							childTask,
+							<div
 								style={{
-									minWidth: "16px",
-									fontSize: "14px",
-									color: "var(--vscode-descriptionForeground)",
+									display: "flex",
+									alignItems: "center",
+									gap: "8px",
+									padding: "6px 8px",
+									backgroundColor: "var(--vscode-list-hoverBackground)",
+									borderRadius: "3px",
+									cursor: onTaskClick ? "pointer" : "default",
+									fontSize: "12px",
+									transition: "background-color 0.1s ease",
+								}}
+								onClick={(e) => {
+									if (childTask.status === "pending") {
+										return
+									}
+									e.stopPropagation()
+									onTaskClick?.(childTask.id)
+								}}
+								onMouseEnter={(e) => {
+									if (onTaskClick) {
+										e.currentTarget.style.backgroundColor =
+											"var(--vscode-list-activeSelectionBackground)"
+									}
+								}}
+								onMouseLeave={(e) => {
+									e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"
 								}}>
-								{index + 1}.
-							</span>
-
-							{childTask.status && (
-								<div
+								<span
 									style={{
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										minWidth: "20px",
-										height: "20px",
+										minWidth: "16px",
+										fontSize: "14px",
+										color: "var(--vscode-descriptionForeground)",
 									}}>
-									{getStatusIcon(childTask.status)}
-								</div>
-							)}
+									{index + 1}.
+								</span>
 
-							<span
-								style={{
-									flex: 1,
-									color: "var(--vscode-foreground)",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								}}>
+								{childTask.status && (
+									<div
+										style={{
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											minWidth: "20px",
+											height: "20px",
+										}}>
+										{getStatusIcon(childTask.status)}
+									</div>
+								)}
+
+								<span
+									style={{
+										flex: 1,
+										color: "var(--vscode-foreground)",
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+									}}>
+									<span
+										style={{
+											fontSize: "10px",
+											color: "var(--vscode-descriptionForeground)",
+											marginRight: "6px",
+											fontStyle: "italic",
+										}}>
+										[{childTask.status}]
+									</span>
+									{childTask.task}
+								</span>
+
 								<span
 									style={{
 										fontSize: "10px",
 										color: "var(--vscode-descriptionForeground)",
-										marginRight: "6px",
-										fontStyle: "italic",
+										minWidth: "fit-content",
 									}}>
-									[{childTask.status}]
+									{new Date(childTask.ts).toLocaleTimeString()}
 								</span>
-								{childTask.task}
-							</span>
-
-							<span
-								style={{
-									fontSize: "10px",
-									color: "var(--vscode-descriptionForeground)",
-									minWidth: "fit-content",
-								}}>
-								{new Date(childTask.ts).toLocaleTimeString()}
-							</span>
-						</div>,
+							</div>,
+						),
+						{ key: childTask.id },
 					),
 				)}
 			</div>
