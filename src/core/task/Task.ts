@@ -422,15 +422,21 @@ export class Task extends EventEmitter<ClineEvents> {
 			await this.messageStateHandler.addToClineMessages({ ts: askTs, type: "ask", ask: type, text, isProtected })
 		}
 
-		await pWaitFor(() => this.state.askResponse !== undefined || this.state.lastMessageTs !== askTs, {
-			interval: 100,
-		})
+		await pWaitFor(
+			() => {
+				// The ask is resolved if we have a response OR if a newer message has been posted.
+				// A newer message indicates that this ask was superseded.
+				return this.state.askResponse !== undefined || this.state.lastMessageTs !== askTs
+			},
+			{
+				interval: 100,
+			},
+		)
 
-		if (this.state.lastMessageTs !== askTs) {
-			// Could happen if we send multiple asks in a row i.e. with
-			// command_output. It's important that when we know an ask could
-			// fail, it is handled gracefully.
-			throw new Error("Current ask promise was ignored")
+		if (this.state.askResponse === undefined) {
+			// This can happen if a new message is posted while waiting for the ask response.
+			// The promise is rejected to prevent the task from hanging.
+			throw new Error("Current ask promise was ignored because a new message was posted.")
 		}
 
 		const result = {

@@ -228,11 +228,8 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolGroupConfig> = {
 		tools: ["use_mcp_tool", "access_mcp_resource"],
 	},
 	modes: {
-		tools: ["switch_mode", "new_task"],
+		tools: ["switch_mode", "new_task", "new_child_task", "start_next_child_task", "view_pending_tasks"],
 		alwaysAvailable: true,
-	},
-	task: {
-		tools: ["new_child_task", "start_next_child_task", "view_pending_tasks"],
 	},
 }
 

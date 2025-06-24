@@ -41,6 +41,7 @@ export const clineAsks = [
 	"plan_mode_respond",
 	"subtask_result_approval",
 	"start_child_task_approval",
+	"finish_subtask_approval",
 ] as const
 
 export const clineAskSchema = z.enum(clineAsks)

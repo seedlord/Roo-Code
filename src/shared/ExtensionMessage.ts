@@ -287,7 +287,6 @@ export interface ClineSayTool {
 		| "searchFiles"
 		| "switchMode"
 		| "newTask"
-		| "finishTask"
 		| "searchAndReplace"
 		| "insertContent"
 		| "new_child_task"

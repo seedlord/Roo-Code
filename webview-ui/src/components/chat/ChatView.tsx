@@ -180,6 +180,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	// UI layout depends on the last 2 messages
 	// (since it relies on the content of these messages, we are deep comparing. i.e. the button state after hitting button sets enableButtons to false, and this effect otherwise would have to true again even if messages didn't change
 	const lastMessage = useMemo(() => messages.at(-1), [messages])
+	const lastAskMessage = useMemo(() => findLast(messages, (m) => m.type === "ask"), [messages])
 	const secondLastMessage = useMemo(() => messages.at(-2), [messages])
 
 	// Setup sound hooks with use-sound
@@ -225,11 +226,12 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		// if last message is an ask, show user ask UI
 		// if user finished a task, then start a new task with a new conversation history since in this moment that the extension is waiting for user response, the user could close the extension and the conversation history would be lost.
 		// basically as long as a task is active, the conversation history will be persisted
-		if (lastMessage) {
-			switch (lastMessage.type) {
+		const messageForUi = lastAskMessage ?? lastMessage
+		if (messageForUi) {
+			switch (messageForUi.type) {
 				case "ask":
-					const isPartial = lastMessage.partial === true
-					switch (lastMessage.ask) {
+					const isPartial = messageForUi.partial === true
+					switch (messageForUi.ask) {
 						case "api_req_failed":
 							playSound("progress_loop")
 							setSendingDisabled(true)
@@ -261,13 +263,13 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							setSecondaryButtonText(undefined)
 							break
 						case "tool":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
+							if (!isAutoApproved(messageForUi) && !isPartial) {
 								playSound("notification")
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("tool")
 							setEnableButtons(!isPartial)
-							const tool = JSON.parse(lastMessage.text || "{}") as ClineSayTool
+							const tool = JSON.parse(messageForUi.text || "{}") as ClineSayTool
 							switch (tool.tool) {
 								case "editedExistingFile":
 								case "appliedDiff":
@@ -276,9 +278,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 									setPrimaryButtonText(t("chat:save.title"))
 									setSecondaryButtonText(t("chat:reject.title"))
 									break
-								case "finishTask":
-									setPrimaryButtonText(t("chat:completeSubtaskAndReturn"))
-									setSecondaryButtonText(undefined)
+								case "new_child_task":
+									setPrimaryButtonText(t("chat:approve.title"))
+									setSecondaryButtonText(t("chat:reject.title"))
 									break
 								case "readFile":
 									if (tool.batchFiles && Array.isArray(tool.batchFiles)) {
@@ -296,7 +298,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							}
 							break
 						case "browser_action_launch":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
+							if (!isAutoApproved(messageForUi) && !isPartial) {
 								playSound("notification")
 							}
 							setSendingDisabled(isPartial)
@@ -306,7 +308,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							setSecondaryButtonText(t("chat:reject.title"))
 							break
 						case "command":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
+							if (!isAutoApproved(messageForUi) && !isPartial) {
 								playSound("notification")
 							}
 							setSendingDisabled(isPartial)
@@ -323,7 +325,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							setSecondaryButtonText(t("chat:killCommand.title"))
 							break
 						case "use_mcp_server":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
+							if (!isAutoApproved(messageForUi) && !isPartial) {
 								playSound("notification")
 							}
 							setSendingDisabled(isPartial)
@@ -344,7 +346,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							setSecondaryButtonText(undefined)
 							break
 						case "resume_task":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
+							if (!isAutoApproved(messageForUi) && !isPartial) {
 								playSound("notification")
 							}
 							setSendingDisabled(false)
@@ -375,12 +377,22 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							setPrimaryButtonText(t("chat:approve.title"))
 							setSecondaryButtonText(t("chat:reject.title"))
 							break
+						case "finish_subtask_approval":
+							if (!isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("finish_subtask_approval")
+							setEnableButtons(!isPartial)
+							setPrimaryButtonText(t("chat:completeSubtaskAndReturn"))
+							setSecondaryButtonText(undefined)
+							break
 					}
 					break
 				case "say":
 					// Don't want to reset since there could be a "say" after
 					// an "ask" while ask is waiting for response.
-					switch (lastMessage.say) {
+					switch (messageForUi.say) {
 						case "api_req_retry_delayed":
 							setSendingDisabled(true)
 							break
@@ -575,6 +587,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				case "resume_task":
 				case "mistake_limit_reached":
 				case "start_child_task_approval":
+				case "finish_subtask_approval":
 					// Only send text/images if they exist
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
@@ -634,6 +647,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				case "browser_action_launch":
 				case "use_mcp_server":
 				case "start_child_task_approval":
+				case "finish_subtask_approval":
 					// Only send text/images if they exist
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
@@ -907,7 +921,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				return false
 			}
 
-			if (message.ask === "start_child_task_approval") {
+			if (message.ask === "start_child_task_approval" || message.ask === "finish_subtask_approval") {
 				return alwaysAllowSubtasks
 			}
 
@@ -952,7 +966,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					return alwaysAllowModeSwitch
 				}
 
-				if (["newTask", "new_child_task", "finishTask"].includes(tool?.tool)) {
+				if (["newTask", "new_child_task"].includes(tool?.tool)) {
 					return alwaysAllowSubtasks
 				}
 

@@ -313,7 +313,7 @@ export async function presentAssistantMessage(cline: Task) {
 						pushToolResult(formatResponse.toolDenied())
 					}
 					cline.state.didRejectTool = true
-				} else if (result.text) {
+				} else if (result.text && type !== "tool") {
 					await cline.say("user_feedback", result.text, result.images)
 					pushToolResult(
 						formatResponse.toolResult(formatResponse.toolApprovedWithFeedback(result.text), result.images),
@@ -323,8 +323,7 @@ export async function presentAssistantMessage(cline: Task) {
 			}
 
 			const askFinishSubTaskApproval = async (): Promise<boolean> => {
-				const toolMessage = JSON.stringify({ tool: "finishTask" })
-				const result = await askApproval("tool", toolMessage)
+				const result = await askApproval("finish_subtask_approval")
 				return result.response === "yesButtonClicked"
 			}
 
