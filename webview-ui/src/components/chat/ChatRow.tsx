@@ -899,86 +899,6 @@ export const ChatRowContent = ({
 						</div>
 					</>
 				)
-			case "newTask":
-				return (
-					<>
-						<div style={headerStyle}>
-							{toolIcon("tasklist")}
-							<span style={{ fontWeight: "bold" }}>
-								<Trans
-									i18nKey="chat:subtasks.wantsToCreate"
-									components={{ code: <code>{tool.mode}</code> }}
-									values={{ mode: tool.mode }}
-								/>
-							</span>
-						</div>
-						<div
-							style={{
-								marginTop: "4px",
-								backgroundColor: "var(--vscode-badge-background)",
-								border: "1px solid var(--vscode-badge-background)",
-								borderRadius: "4px 4px 0 0",
-								overflow: "hidden",
-								marginBottom: "2px",
-							}}>
-							<div
-								style={{
-									padding: "9px 10px 9px 14px",
-									backgroundColor: "var(--vscode-badge-background)",
-									borderBottom: "1px solid var(--vscode-editorGroup-border)",
-									fontWeight: "bold",
-									fontSize: "var(--vscode-font-size)",
-									color: "var(--vscode-badge-foreground)",
-									display: "flex",
-									alignItems: "center",
-									gap: "6px",
-								}}>
-								<span className="codicon codicon-arrow-right"></span>
-								{t("chat:subtasks.newTaskContent")}
-							</div>
-							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
-								<MarkdownBlock markdown={tool.content} />
-							</div>
-						</div>
-					</>
-				)
-			case "finishTask":
-				return (
-					<>
-						<div style={headerStyle}>
-							{toolIcon("check-all")}
-							<span style={{ fontWeight: "bold" }}>{t("chat:subtasks.wantsToFinish")}</span>
-						</div>
-						<div
-							style={{
-								marginTop: "4px",
-								backgroundColor: "var(--vscode-editor-background)",
-								border: "1px solid var(--vscode-badge-background)",
-								borderRadius: "4px",
-								overflow: "hidden",
-								marginBottom: "8px",
-							}}>
-							<div
-								style={{
-									padding: "9px 10px 9px 14px",
-									backgroundColor: "var(--vscode-badge-background)",
-									borderBottom: "1px solid var(--vscode-editorGroup-border)",
-									fontWeight: "bold",
-									fontSize: "var(--vscode-font-size)",
-									color: "var(--vscode-badge-foreground)",
-									display: "flex",
-									alignItems: "center",
-									gap: "6px",
-								}}>
-								<span className="codicon codicon-check"></span>
-								{t("chat:subtasks.completionContent")}
-							</div>
-							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
-								<MarkdownBlock markdown={t("chat:subtasks.completionInstructions")} />
-							</div>
-						</div>
-					</>
-				)
 			default:
 				return null
 		}
@@ -1076,51 +996,6 @@ export const ChatRowContent = ({
 							</div>
 						</div>
 					)
-				case "subtask_result": {
-					const payload = safeJsonParse<{ result: string; taskNumber?: number }>(message.text)
-					const resultText = payload?.result ?? message.text // fallback for old messages
-					const taskNumber = payload?.taskNumber
-					const title = taskNumber
-						? t("chat:subtasks.resultContentWithNumber", { number: taskNumber })
-						: t("chat:subtasks.resultContent")
-
-					return (
-						<div>
-							<div
-								style={{
-									marginTop: "0px",
-									backgroundColor: "var(--vscode-badge-background)",
-									border: "1px solid var(--vscode-badge-background)",
-									borderRadius: "0 0 4px 4px",
-									overflow: "hidden",
-									marginBottom: "8px",
-								}}>
-								<div
-									style={{
-										padding: "9px 10px 9px 14px",
-										backgroundColor: "var(--vscode-badge-background)",
-										borderBottom: "1px solid var(--vscode-editorGroup-border)",
-										fontWeight: "bold",
-										fontSize: "var(--vscode-font-size)",
-										color: "var(--vscode-badge-foreground)",
-										display: "flex",
-										alignItems: "center",
-										gap: "6px",
-									}}>
-									<span className="codicon codicon-arrow-left"></span>
-									{title}
-								</div>
-								<div
-									style={{
-										padding: "12px 16px",
-										backgroundColor: "var(--vscode-editor-background)",
-									}}>
-									<MarkdownBlock markdown={resultText} />
-								</div>
-							</div>
-						</div>
-					)
-				}
 				case "reasoning":
 					return (
 						<ReasoningBlock
@@ -1331,6 +1206,95 @@ export const ChatRowContent = ({
 			}
 		case "ask":
 			switch (message.ask) {
+				case "subtask_result_approval": {
+					const payload = safeJsonParse<{
+						result: string
+						taskNumber?: number
+						metadata?: {
+							tokenUsage: { totalTokensIn: number; totalTokensOut: number }
+							toolUsage: Record<string, unknown>
+							taskId: string
+						}
+					}>(message.text)
+
+					const resultText = payload?.result ?? message.text // fallback for old messages
+					const taskNumber = payload?.taskNumber
+					const metadata = payload?.metadata
+
+					const title = taskNumber
+						? t("chat:subtasks.resultContentWithNumber", { number: taskNumber })
+						: t("chat:subtasks.resultContent")
+
+					const metadataText = metadata
+						? `(Tokens: ${
+								metadata.tokenUsage.totalTokensIn + metadata.tokenUsage.totalTokensOut
+							}, Tools: ${Object.keys(metadata.toolUsage).length})`
+						: ""
+
+					return (
+						<div>
+							<div
+								style={{
+									marginTop: "0px",
+									backgroundColor: "var(--vscode-badge-background)",
+									border: "1px solid var(--vscode-badge-background)",
+									borderRadius: "4px",
+									overflow: "hidden",
+									marginBottom: "8px",
+								}}>
+								<div
+									style={{
+										padding: "9px 10px 9px 14px",
+										backgroundColor: "var(--vscode-badge-background)",
+										borderBottom: "1px solid var(--vscode-editorGroup-border)",
+										fontWeight: "bold",
+										fontSize: "var(--vscode-font-size)",
+										color: "var(--vscode-badge-foreground)",
+										display: "flex",
+										alignItems: "center",
+										gap: "6px",
+										justifyContent: "space-between",
+									}}>
+									<div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+										<span className="codicon codicon-arrow-left"></span>
+										{title}
+									</div>
+									{metadataText && (
+										<span
+											style={{
+												fontSize: "10px",
+												color: "var(--vscode-descriptionForeground)",
+												fontStyle: "italic",
+											}}>
+											{metadataText}
+										</span>
+									)}
+								</div>
+								<div
+									style={{
+										padding: "12px 16px",
+										backgroundColor: "var(--vscode-editor-background)",
+									}}>
+									<MarkdownBlock markdown={resultText} />
+								</div>
+							</div>
+						</div>
+					)
+				}
+				case "start_child_task_approval":
+					return (
+						<>
+							<div style={headerStyle}>
+								<span
+									className="codicon codicon-play"
+									style={{ color: normalColor, marginBottom: "-1.5px" }}></span>
+								<span style={{ color: normalColor, fontWeight: "bold" }}>
+									{t("chat:subtasks.startApprovalTitle")}
+								</span>
+							</div>
+							<MarkdownBlock markdown={message.text} />
+						</>
+					)
 				case "mistake_limit_reached":
 					return (
 						<>

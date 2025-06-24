@@ -27,6 +27,8 @@ import {
 	openRouterDefaultModelId,
 	glamaDefaultModelId,
 	ORGANIZATION_ALLOW_ALL,
+	TokenUsage,
+	ToolUsage,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService } from "@roo-code/cloud"
@@ -176,23 +178,6 @@ export class ClineProvider
 		if (!state || typeof state.mode !== "string") {
 			throw new Error(t("common:errors.retrieve_current_mode"))
 		}
-
-		// Listen for task completion and failure events to resume the parent task
-		cline.on("taskCompleted", (taskId, tokenUsage, toolUsage) => {
-			const lastMessage = `Task ${taskId} completed. Tokens: ${
-				tokenUsage.totalTokensIn + tokenUsage.totalTokensOut
-			}, Tools: ${Object.keys(toolUsage).length}`
-			this.finishSubTask(lastMessage)
-		})
-
-		cline.on("taskAborted", () => {
-			this.finishSubTask("Task aborted")
-		})
-
-		cline.on("taskToolFailed", (taskId, tool, error) => {
-			const lastMessage = `Task ${taskId} failed on tool ${tool} with error: ${error}`
-			this.finishSubTask(lastMessage)
-		})
 	}
 
 	// Marks the top Cline instance as aborted, but leaves it on the stack
@@ -243,7 +228,10 @@ export class ClineProvider
 	// remove the current task/cline instance (at the top of the stack), so this task is finished
 	// and resume the previous task/cline instance (if it exists)
 	// this is used when a sub task is finished and the parent task needs to be resumed
-	async finishSubTask(lastMessage: string) {
+	async finishSubTask(
+		lastMessage: string,
+		metadata?: { tokenUsage: TokenUsage; toolUsage: ToolUsage; taskId: string },
+	) {
 		if (this.isFinishingSubTask) {
 			return // Prevent re-entrancy
 		}
@@ -272,7 +260,7 @@ export class ClineProvider
 					await this.handleModeSwitch(parentTask.state.pausedModeSlug as Mode)
 				}
 				parentTask.activeChildTask = undefined
-				await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber)
+				await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber, metadata)
 				await parentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
 			}
 			await this.postStateToWebview()

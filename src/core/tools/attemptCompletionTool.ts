@@ -46,7 +46,13 @@ export async function attemptCompletionTool(
 					await cline.say("completion_result", removeClosingTag("result", result), undefined, false)
 
 					TelemetryService.instance.captureTaskCompleted(cline.taskId)
-					cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.state.toolUsage)
+					cline.emit(
+						"taskCompleted",
+						cline.taskId,
+						cline.getTokenUsage(),
+						cline.state.toolUsage,
+						result ?? "",
+					)
 
 					await cline.ask("command", removeClosingTag("command", command), block.partial).catch(() => {})
 				}
@@ -69,17 +75,24 @@ export async function attemptCompletionTool(
 			// Users must use execute_command tool separately before attempt_completion
 			await cline.say("completion_result", result, undefined, false)
 			TelemetryService.instance.captureTaskCompleted(cline.taskId)
-			cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.state.toolUsage)
+			cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage(), cline.state.toolUsage, result)
 
 			if (cline.parentTask) {
-				const didApprove = await askFinishSubTaskApproval()
-
-				if (!didApprove) {
-					return
+				const { alwaysAllowSubtasks } = await cline.providerRef.deref()!.getState()
+				if (!alwaysAllowSubtasks) {
+					const didApprove = await askFinishSubTaskApproval()
+					if (!didApprove) {
+						return
+					}
 				}
 
-				// tell the provider to remove the current subtask and resume the previous task in the stack
-				await cline.providerRef.deref()?.finishSubTask(result)
+				// The sub-task is complete. Signal the provider to finish it.
+				const metadata = {
+					tokenUsage: cline.getTokenUsage(),
+					toolUsage: cline.state.toolUsage,
+					taskId: cline.taskId,
+				}
+				await cline.providerRef.deref()?.finishSubTask(result, metadata)
 				return
 			}
 

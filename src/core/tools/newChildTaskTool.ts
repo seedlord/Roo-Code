@@ -40,7 +40,21 @@ export async function newChildTaskTool(
 		execute_immediately: executeImmediately,
 	})
 
-	const approvalResult = await askApproval("tool", toolMessage)
+	const { alwaysAllowSubtasks } = await cline.providerRef.deref()!.getState()
+	let approvalResult: {
+		response: "yesButtonClicked" | "noButtonClicked" | "messageResponse" | "objectResponse"
+		params?: Record<string, any>
+	}
+
+	if (alwaysAllowSubtasks) {
+		approvalResult = { response: "yesButtonClicked" }
+	} else {
+		const askResult = await askApproval("tool", toolMessage)
+		approvalResult = {
+			response: askResult.response,
+			params: askResult.params,
+		}
+	}
 
 	if (approvalResult.response !== "yesButtonClicked") {
 		return
@@ -55,7 +69,7 @@ export async function newChildTaskTool(
 		const plural = taskCount > 1 ? "s" : ""
 		const message = finalExecuteImmediately
 			? `Created and started ${taskCount} new child task${plural}.`
-			: `Queued ${taskCount} new child task${plural}. Awaiting user's instruction to start.`
+			: `Created ${taskCount} new child task${plural}. You will be asked to start it.`
 		pushToolResult(formatResponse.toolResult(message))
 	} catch (error) {
 		await handleError("creating new child task(s)", error as Error)

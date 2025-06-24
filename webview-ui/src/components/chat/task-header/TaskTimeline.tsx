@@ -60,8 +60,6 @@ const getBlockColor = (message: ClineMessage): string => {
 		switch (message.ask) {
 			case "followup":
 				return COLOR_GRAY // Gray for user messages
-			case "plan_mode_respond":
-				return COLOR_GRAY // Gray for planning responses
 			case "tool":
 				// Match the color of the tool approval with the tool type
 				if (message.text) {

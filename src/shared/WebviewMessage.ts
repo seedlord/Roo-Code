@@ -39,6 +39,7 @@ export interface WebviewMessage {
 		| "webviewDidLaunch"
 		| "newTask"
 		| "askResponse"
+		| "webview_ask_response"
 		| "terminalOperation"
 		| "clearTask"
 		| "didShowAnnouncement"

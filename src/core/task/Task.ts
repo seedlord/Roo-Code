@@ -98,7 +98,7 @@ export type ClineEvents = {
 	taskAskResponded: []
 	taskAborted: []
 	taskSpawned: [taskId: string]
-	taskCompleted: [taskId: string, tokenUsage: TokenUsage, toolUsage: ToolUsage]
+	taskCompleted: [taskId: string, tokenUsage: TokenUsage, toolUsage: ToolUsage, completionMessage: string]
 	taskTokenUsageUpdated: [taskId: string, tokenUsage: TokenUsage]
 	taskToolFailed: [taskId: string, tool: ToolName, error: string]
 }
@@ -714,31 +714,52 @@ export class Task extends EventEmitter<ClineEvents> {
 		})
 	}
 
-	public async resumePausedTask(lastMessage: string, childTaskNumber?: number) {
+	public async resumePausedTask(
+		lastMessage: string,
+		childTaskNumber?: number,
+		metadata?: { tokenUsage: TokenUsage; toolUsage: ToolUsage; taskId: string },
+	) {
 		// Release this Cline instance from paused state.
 		this.state.isPaused = false
 		this.emit("taskUnpaused")
 
-		// Fake an answer from the subtask that it has completed running and
-		// this is the result of what it has done  add the message to the chat
-		// history and to the webview ui.
-		try {
-			const payload = JSON.stringify({ result: lastMessage, taskNumber: childTaskNumber })
-			// Use a "subtask_result" message for the UI to ensure it's displayed correctly.
-			await this.say("subtask_result", payload)
+		// Ask the user for the next action, now that the sub-task is complete.
+		// This prevents a race condition where the parent task would continue automatically.
+		const { alwaysAllowSubtasks } = await this.providerRef.deref()!.getState()
+		const payload = JSON.stringify({ result: lastMessage, taskNumber: childTaskNumber, metadata })
 
-			// Format the message to the API as a tool result, so the parent task
-			// continues its execution loop instead of terminating.
+		let response: "yesButtonClicked" | "noButtonClicked" | "messageResponse" | "objectResponse"
+		let text: string | undefined
+		let images: string[] | undefined
+
+		if (alwaysAllowSubtasks) {
+			response = "yesButtonClicked"
+		} else {
+			const askResult = await this.ask("subtask_result_approval", payload)
+			response = askResult.response
+			text = askResult.text
+			images = askResult.images
+		}
+
+		if (response === "messageResponse") {
+			// User provided feedback, add it to the conversation.
+			await this.say("user_feedback", text, images)
+			await this.messageStateHandler.addToApiConversationHistory({
+				role: "user",
+				content: [
+					{
+						type: "text",
+						text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
+					},
+					...formatResponse.imageBlocks(images),
+				],
+			})
+		} else {
+			// User clicked "Continue", add the sub-task result to the conversation.
 			await this.messageStateHandler.addToApiConversationHistory({
 				role: "user",
 				content: [{ type: "text", text: `[subtask_result]\n${lastMessage}` }],
 			})
-		} catch (error) {
-			this.providerRef
-				.deref()
-				?.log(`Error failed to add reply from subtask into conversation of parent task, error: ${error}`)
-
-			throw error
 		}
 	}
 
@@ -1934,8 +1955,22 @@ export class Task extends EventEmitter<ClineEvents> {
 			await this.messageStateHandler.saveClineMessagesAndUpdateHistory()
 		}
 
+		const { alwaysAllowSubtasks } = await this.providerRef.deref()!.getState()
 		if (executeImmediately) {
 			return await this.startNextChildTask()
+		} else if (this.pendingChildTasks.length > 0) {
+			if (alwaysAllowSubtasks) {
+				return await this.startNextChildTask()
+			}
+			const nextTask = this.pendingChildTasks[0]
+			const { response } = await this.ask(
+				"start_child_task_approval",
+				`Start the following sub-task now?\n\n**Task:** ${nextTask.prompt}`,
+			)
+
+			if (response === "yesButtonClicked") {
+				return await this.startNextChildTask()
+			}
 		}
 	}
 

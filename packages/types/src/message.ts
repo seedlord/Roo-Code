@@ -39,6 +39,8 @@ export const clineAsks = [
 	"use_mcp_server",
 	"auto_approval_max_req_reached",
 	"plan_mode_respond",
+	"subtask_result_approval",
+	"start_child_task_approval",
 ] as const
 
 export const clineAskSchema = z.enum(clineAsks)
