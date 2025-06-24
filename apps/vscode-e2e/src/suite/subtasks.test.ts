@@ -30,7 +30,7 @@ suite.skip("Roo Code Subtasks", () => {
 			},
 			text:
 				"You are the parent task. " +
-				`Create a subtask by using the new_task tool with the message '${childPrompt}'.` +
+				`Create a subtask by using the new_child_task tool with the message '${childPrompt}'.` +
 				"After creating the subtask, wait for it to complete and then respond 'Parent task resumed'.",
 		})
 

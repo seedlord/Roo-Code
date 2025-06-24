@@ -157,11 +157,6 @@ export interface SwitchModeToolUse extends ToolUse {
 	params: Partial<Pick<Record<ToolParamName, string>, "mode_slug" | "reason">>
 }
 
-export interface NewTaskToolUse extends ToolUse {
-	name: "new_task"
-	params: Partial<Pick<Record<ToolParamName, string>, "mode" | "message">>
-}
-
 export interface NewChildTaskToolUse extends ToolUse {
 	name: "new_child_task"
 	params: Partial<Pick<Record<ToolParamName, string>, "tasks" | "execute_immediately">>
@@ -194,7 +189,6 @@ export const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
 	ask_followup_question: "ask questions",
 	attempt_completion: "complete tasks",
 	switch_mode: "switch modes",
-	new_task: "create new task",
 	new_child_task: "create child task",
 	start_next_child_task: "start next child task",
 	view_pending_tasks: "view pending tasks",
@@ -228,7 +222,7 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolGroupConfig> = {
 		tools: ["use_mcp_tool", "access_mcp_resource"],
 	},
 	modes: {
-		tools: ["switch_mode", "new_task", "new_child_task", "start_next_child_task", "view_pending_tasks"],
+		tools: ["switch_mode", "new_child_task", "start_next_child_task", "view_pending_tasks"],
 		alwaysAvailable: true,
 	},
 }
@@ -238,7 +232,9 @@ export const ALWAYS_AVAILABLE_TOOLS: ToolName[] = [
 	"ask_followup_question",
 	"attempt_completion",
 	"switch_mode",
-	"new_task",
+	"new_child_task",
+	"start_next_child_task",
+	"view_pending_tasks",
 ] as const
 
 export type DiffResult =

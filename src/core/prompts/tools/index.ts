@@ -20,12 +20,11 @@ import { getAttemptCompletionDescription } from "./attempt-completion"
 import { getUseMcpToolDescription } from "./use-mcp-tool"
 import { getAccessMcpResourceDescription } from "./access-mcp-resource"
 import { getSwitchModeDescription } from "./switch-mode"
-import { getNewTaskDescription } from "./new-task"
-import { getCodebaseSearchDescription } from "./codebase-search"
-import { CodeIndexManager } from "../../../services/code-index/manager"
 import { getNewChildTaskDescription } from "./new-child-task"
 import { getStartNextChildTaskDescription } from "./start-next-child-task"
 import { getViewPendingTasksDescription } from "./view-pending-tasks"
+import { getCodebaseSearchDescription } from "./codebase-search"
+import { CodeIndexManager } from "../../../services/code-index/manager"
 
 // Map of tool names to their description functions
 const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined> = {
@@ -43,7 +42,6 @@ const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined>
 	access_mcp_resource: (args) => getAccessMcpResourceDescription(args),
 	codebase_search: () => getCodebaseSearchDescription(),
 	switch_mode: () => getSwitchModeDescription(),
-	new_task: (args) => getNewTaskDescription(args),
 	insert_content: (args) => getInsertContentDescription(args),
 	search_and_replace: (args) => getSearchAndReplaceDescription(args),
 	apply_diff: (args) =>

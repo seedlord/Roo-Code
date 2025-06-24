@@ -116,7 +116,7 @@ customModes:
 
       5. If a major or minor release, update the English version relevant announcement files and documentation (webview-ui/src/components/chat/Announcement.tsx, README.md, and the `latestAnnouncementId` in src/core/webview/ClineProvider.ts)
       6. Ask the user to confirm the English version
-      7. Use the new_task tool to create a subtask in `translate` mode with detailed instructions of which content needs to be translated into all supported languages
+      7. Use the new_child_task tool to create a subtask in `translate` mode with detailed instructions of which content needs to be translated into all supported languages
       8. Commit and push the changeset file to the repository
       9. The GitHub Actions workflow will automatically:
          - Create a version bump PR when changesets are merged to main

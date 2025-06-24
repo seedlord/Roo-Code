@@ -30,7 +30,6 @@ export const toolNames = [
 	"ask_followup_question",
 	"attempt_completion",
 	"switch_mode",
-	"new_task",
 	"fetch_instructions",
 	"codebase_search",
 	"new_child_task",

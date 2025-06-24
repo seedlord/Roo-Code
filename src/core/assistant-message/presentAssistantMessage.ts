@@ -23,7 +23,6 @@ import { accessMcpResourceTool } from "../tools/accessMcpResourceTool"
 import { askFollowupQuestionTool } from "../tools/askFollowupQuestionTool"
 import { switchModeTool } from "../tools/switchModeTool"
 import { attemptCompletionTool } from "../tools/attemptCompletionTool"
-import { newTaskTool } from "../tools/newTaskTool"
 import { newChildTaskTool } from "../tools/newChildTaskTool"
 import { startNextChildTaskTool } from "../tools/startNextChildTaskTool"
 import { viewPendingTasksTool } from "../tools/viewPendingTasksTool"
@@ -217,12 +216,6 @@ export async function presentAssistantMessage(cline: Task) {
 						return `[${block.name} to '${block.params.mode_slug}'${block.params.reason ? ` because: ${block.params.reason}` : ""}]`
 					case "codebase_search": // Add case for the new tool
 						return `[${block.name} for '${block.params.query}']`
-					case "new_task": {
-						const mode = block.params.mode ?? defaultModeSlug
-						const message = block.params.message ?? "(no message)"
-						const modeName = getModeBySlug(mode, customModes)?.name ?? mode
-						return `[${block.name} in ${modeName} mode: '${message}']`
-					}
 					case "new_child_task": {
 						const tasksParam = block.params.tasks
 						let taskCount = 0
@@ -527,9 +520,6 @@ export async function presentAssistantMessage(cline: Task) {
 				case "switch_mode":
 					await switchModeTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
 					break
-				case "new_task":
-					await newTaskTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
-					break
 				case "attempt_completion":
 					await attemptCompletionTool(
 						cline,
@@ -543,14 +533,7 @@ export async function presentAssistantMessage(cline: Task) {
 					)
 					break
 				case "new_child_task":
-					await newChildTaskTool(
-						cline,
-						block as ToolUse & { name: "new_child_task" },
-						askApproval,
-						handleError,
-						pushToolResult,
-						removeClosingTag,
-					)
+					await newChildTaskTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
 					break
 				case "start_next_child_task":
 					await startNextChildTaskTool(cline, askApproval, handleError, pushToolResult)
