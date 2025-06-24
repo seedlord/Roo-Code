@@ -74,20 +74,15 @@ export const ReasoningBlock = ({
 		() => {
 			// This runs every 100ms, independent of parent re-renders.
 			if (isThinking) {
-				setDisplayTime(Date.now() - startTimeTs)
+				const elapsed = Date.now() - startTimeTs
+				setDisplayTime(elapsed)
+				if (elapsed > 0) {
+					setDisplayRate(content.length / (elapsed / 1000))
+				}
 			}
 		},
 		isThinking ? 100 : null, // Only run the interval when thinking.
 	)
-
-	useEffect(() => {
-		if (isThinking) {
-			const elapsed = Date.now() - startTimeTs
-			if (elapsed > 0) {
-				setDisplayRate(content.length / (elapsed / 1000))
-			}
-		}
-	}, [content, isThinking, startTimeTs])
 
 	useEffect(() => {
 		if (contentRef.current && !isCollapsed) {
