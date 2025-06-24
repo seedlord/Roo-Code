@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "Ricerca di '{{query}}' nella base di codice..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "Impossibile creare una nuova attività a causa di restrizioni di policy."
 		}

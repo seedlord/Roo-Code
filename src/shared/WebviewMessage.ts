@@ -37,7 +37,7 @@ export interface WebviewMessage {
 		| "alwaysAllowWriteProtected"
 		| "alwaysAllowExecute"
 		| "webviewDidLaunch"
-		| "newTask"
+		| "startNewTask"
 		| "askResponse"
 		| "webview_ask_response"
 		| "terminalOperation"

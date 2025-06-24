@@ -25,7 +25,7 @@ suite("Roo Code Extension", function () {
 			"registerHumanRelayCallback",
 			"unregisterHumanRelayCallback",
 			"handleHumanRelayResponse",
-			"newTask",
+			"startNewTask",
 			"setCustomStoragePath",
 			"focusInput",
 			"acceptInput",

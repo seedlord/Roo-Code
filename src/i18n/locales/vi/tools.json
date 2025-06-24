@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "Đang tìm kiếm '{{query}}' trong cơ sở mã..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "Không thể tạo nhiệm vụ mới do hạn chế chính sách."
 		}

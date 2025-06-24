@@ -100,7 +100,7 @@
 				"label": "Terminalcommando uitleggen",
 				"description": "Krijg gedetailleerde uitleg over terminalcommando's en hun uitvoer. Beschikbaar in het terminalcontextmenu (rechtsklik op geselecteerde terminalinhoud)."
 			},
-			"NEW_TASK": {
+			"START_NEW_TASK": {
 				"label": "Nieuwe taak starten",
 				"description": "Start een nieuwe taak met gebruikersinvoer. Beschikbaar via de Command Palette."
 			}

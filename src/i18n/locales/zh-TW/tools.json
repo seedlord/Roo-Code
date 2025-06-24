@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "正在搜尋程式碼庫中的「{{query}}」..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "由於政策限制，無法建立新工作。"
 		}

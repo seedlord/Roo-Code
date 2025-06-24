@@ -42,7 +42,7 @@ type SupportPromptType =
 	| "TERMINAL_ADD_TO_CONTEXT"
 	| "TERMINAL_FIX"
 	| "TERMINAL_EXPLAIN"
-	| "NEW_TASK"
+	| "START_NEW_TASK"
 
 const supportPromptConfigs: Record<SupportPromptType, SupportPromptConfig> = {
 	ENHANCE: {
@@ -131,7 +131,7 @@ Please provide:
 2. Explanation of each part/flag
 3. Expected output and behavior`,
 	},
-	NEW_TASK: {
+	START_NEW_TASK: {
 		template: `\${userInput}`,
 	},
 } as const

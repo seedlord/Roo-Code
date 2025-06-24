@@ -131,7 +131,7 @@ export const webviewMessageHandler = async (
 
 			provider.isViewLaunched = true
 			break
-		case "newTask": {
+		case "startNewTask": {
 			// If the new task has no content, and there's a task running, this is equivalent to clearing the task.
 			const isNewAndEmpty =
 				!message.text &&
@@ -149,7 +149,7 @@ export const webviewMessageHandler = async (
 
 			// Otherwise, proceed with creating/starting the task with the given content.
 			provider.log(
-				`[WebviewDebug] webviewMessageHandler: newTask message received. Provider view exists: ${!!provider["view"]}, webview exists: ${!!provider["view"]?.webview}`,
+				`[WebviewDebug] webviewMessageHandler: startNewTask message received. Provider view exists: ${!!provider["view"]}, webview exists: ${!!provider["view"]?.webview}`,
 			)
 			await provider.initClineWithTask(message.text ?? "", message.images, message.files)
 			break

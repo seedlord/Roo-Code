@@ -526,7 +526,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 			if (text || images.length > 0) {
 				if (messagesRef.current.length === 0) {
-					vscode.postMessage({ type: "newTask", text, images })
+					vscode.postMessage({ type: "startNewTask", text, images })
 				} else if (clineAskRef.current) {
 					// Use clineAskRef.current
 					switch (
@@ -966,7 +966,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					return alwaysAllowModeSwitch
 				}
 
-				if (["newTask", "new_child_task"].includes(tool?.tool)) {
+				if (["new_child_task"].includes(tool?.tool)) {
 					return alwaysAllowSubtasks
 				}
 

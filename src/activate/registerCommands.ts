@@ -166,7 +166,7 @@ const getCommandsMap = ({ context, outputChannel, provider }: RegisterCommandOpt
 	registerHumanRelayCallback: registerHumanRelayCallback,
 	unregisterHumanRelayCallback: unregisterHumanRelayCallback,
 	handleHumanRelayResponse: handleHumanRelayResponse,
-	newTask: handleNewTask,
+	startNewTask: handleNewTask,
 	setCustomStoragePath: async () => {
 		const { promptForCustomStoragePath } = await import("../utils/storage")
 		await promptForCustomStoragePath()

@@ -11,7 +11,7 @@ export const TITLES: Record<CodeActionName, string> = {
 	FIX: "Fix with Roo Code",
 	IMPROVE: "Improve with Roo Code",
 	ADD_TO_CONTEXT: "Add to Roo Code",
-	NEW_TASK: "New Roo Code Task",
+	START_NEW_TASK: "New Roo Code Task",
 } as const
 
 export class CodeActionProvider implements vscode.CodeActionProvider {

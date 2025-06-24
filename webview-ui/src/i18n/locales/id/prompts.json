@@ -100,7 +100,7 @@
 				"label": "Jelaskan Perintah Terminal",
 				"description": "Dapatkan penjelasan detail tentang perintah terminal dan outputnya. Tersedia di menu konteks terminal (klik kanan pada konten terminal yang dipilih)."
 			},
-			"NEW_TASK": {
+			"START_NEW_TASK": {
 				"label": "Mulai Tugas Baru",
 				"description": "Mulai tugas baru dengan input pengguna. Tersedia di Command Palette."
 			}

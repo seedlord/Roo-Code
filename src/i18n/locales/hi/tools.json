@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "कोडबेस में '{{query}}' खोज रहा है..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "नीति प्रतिबंधों के कारण नया कार्य बनाने में विफल।"
 		}

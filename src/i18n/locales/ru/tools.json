@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "Поиск '{{query}}' в кодовой базе..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "Не удалось создать новую задачу из-за ограничений политики."
 		}

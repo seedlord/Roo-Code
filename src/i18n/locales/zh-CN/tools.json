@@ -8,7 +8,7 @@
 	"codebaseSearch": {
 		"approval": "正在搜索代码库中的 '{{query}}'..."
 	},
-	"newTask": {
+	"startNewTask": {
 		"errors": {
 			"policy_restriction": "由于策略限制，无法创建新任务。"
 		}

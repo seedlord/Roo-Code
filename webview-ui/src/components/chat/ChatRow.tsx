@@ -294,13 +294,16 @@ export const ChatRowContent = ({
 
 		switch (tool.tool) {
 			case "new_child_task":
+				const tasks = tool.tasks ?? [{ prompt: tool.content ?? "", mode: tool.mode }]
+				const executeImmediately = tool.execute_immediately ?? false // Default to false for legacy calls
+
 				return (
 					<>
 						<div style={headerStyle}>
 							{toolIcon("split-horizontal")}
 							<span style={{ fontWeight: "bold" }}>
-								{tool.tasks && tool.tasks.length > 1
-									? t("chat:subtasks.wantsToCreateChildren", { count: tool.tasks.length })
+								{tasks.length > 1
+									? t("chat:subtasks.wantsToCreateChildren", { count: tasks.length })
 									: t("chat:subtasks.wantsToCreateChild")}
 							</span>
 						</div>
@@ -329,72 +332,68 @@ export const ChatRowContent = ({
 								{t("chat:subtasks.newTaskContent")}
 							</div>
 							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
-								{Array.isArray(tool.tasks) && tool.tasks.length > 0 ? (
-									<div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-										{tool.tasks.map(
-											(
-												task: { prompt: string; files?: string[]; mode?: string },
-												index: number,
-											) => {
-												const mode = modes.find((m: ModeConfig) => m.slug === task.mode)
-												const modeDisplayName = mode?.name ?? task.mode
-												const isSingleTask = tool.tasks?.length === 1
-
-												return (
-													<div
-														key={index}
-														style={
-															!isSingleTask
-																? {
-																		borderLeft:
-																			"2px solid var(--vscode-focusBorder)",
-																		paddingLeft: "12px",
-																	}
-																: {}
-														}>
-														<div style={{ marginBottom: "4px", fontWeight: "bold" }}>
-															<Trans
-																i18nKey={
-																	isSingleTask
-																		? "chat:subtasks.wantsToCreateChildInMode"
-																		: "chat:subtasks.wantsToCreateSubtaskInMode"
-																}
-																values={{
-																	count: index + 1,
-																	mode: modeDisplayName,
-																}}
-																components={[<code />]}
-															/>
-														</div>
-														<MarkdownBlock markdown={task.prompt} />
-														{task.files && task.files.length > 0 && (
-															<div style={{ marginTop: "8px" }}>
-																<strong>{t("chat:subtasks.files")}:</strong>
-																<ul
-																	style={{
-																		margin: "4px 0 0 20px",
-																		padding: 0,
-																	}}>
-																	{task.files.map(
-																		(file: string, fileIndex: number) => (
-																			<li
-																				key={fileIndex}
-																				style={{ listStyle: "disc" }}>
-																				<code>{file}</code>
-																			</li>
-																		),
-																	)}
-																</ul>
-															</div>
-														)}
-													</div>
-												)
+								<div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+									{tasks.map(
+										(
+											task: {
+												prompt: string
+												files?: string[] | undefined
+												mode?: string | undefined
 											},
-										)}
-									</div>
-								) : (
-									<MarkdownBlock markdown={tool.prompt} />
-								)}
+											index: number,
+										) => {
+											const taskMode = task.mode ?? tool.mode
+											const mode = modes.find((m: ModeConfig) => m.slug === taskMode)
+											const modeDisplayName = mode?.name ?? taskMode
+											const isSingleTask = tasks.length === 1
+
+											return (
+												<div
+													key={index}
+													style={
+														!isSingleTask
+															? {
+																	borderLeft: "2px solid var(--vscode-focusBorder)",
+																	paddingLeft: "12px",
+																}
+															: {}
+													}>
+													<div style={{ marginBottom: "4px", fontWeight: "bold" }}>
+														<Trans
+															i18nKey={
+																isSingleTask
+																	? "chat:subtasks.wantsToCreateChildInMode"
+																	: "chat:subtasks.wantsToCreateSubtaskInMode"
+															}
+															values={{
+																count: index + 1,
+																mode: modeDisplayName,
+															}}
+															components={[<code />]}
+														/>
+													</div>
+													<MarkdownBlock markdown={task.prompt} />
+													{task.files && task.files.length > 0 && (
+														<div style={{ marginTop: "8px" }}>
+															<strong>{t("chat:subtasks.files")}:</strong>
+															<ul
+																style={{
+																	margin: "4px 0 0 20px",
+																	padding: 0,
+																}}>
+																{task.files.map((file: string, fileIndex: number) => (
+																	<li key={fileIndex} style={{ listStyle: "disc" }}>
+																		<code>{file}</code>
+																	</li>
+																))}
+															</ul>
+														</div>
+													)}
+												</div>
+											)
+										},
+									)}
+								</div>
 								<div
 									style={{
 										marginTop: "16px",
@@ -402,7 +401,7 @@ export const ChatRowContent = ({
 										borderTop: "1px solid var(--vscode-editorGroup-border)",
 									}}>
 									<strong>{t("chat:subtasks.executeImmediately")}:</strong>{" "}
-									{tool.execute_immediately ? t("common:answers.yes") : t("common:answers.no")}
+									{executeImmediately ? t("common:answers.yes") : t("common:answers.no")}
 								</div>
 							</div>
 						</div>

@@ -19,5 +19,5 @@ export const handleNewTask = async (params: { prompt?: string } | null | undefin
 		return
 	}
 
-	await ClineProvider.handleCodeAction("newTask", "NEW_TASK", { userInput: prompt })
+	await ClineProvider.handleCodeAction("startNewTask", "START_NEW_TASK", { userInput: prompt })
 }

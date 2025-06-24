@@ -422,11 +422,22 @@ export class Task extends EventEmitter<ClineEvents> {
 			await this.messageStateHandler.addToClineMessages({ ts: askTs, type: "ask", ask: type, text, isProtected })
 		}
 
+		// This robustly waits for the ask to be resolved, even if a new message is posted.
+		// It ensures that the promise is not prematurely resolved by a new message.
 		await pWaitFor(
 			() => {
-				// The ask is resolved if we have a response OR if a newer message has been posted.
-				// A newer message indicates that this ask was superseded.
-				return this.state.askResponse !== undefined || this.state.lastMessageTs !== askTs
+				if (this.state.lastMessageTs !== askTs) {
+					// A new message has been posted, which might supersede this ask.
+					// We need to ensure that the askResponse is not for a different ask.
+					if (this.state.askResponse !== undefined) {
+						// If there's a response, we assume it's for this ask and resolve.
+						return true
+					}
+					// If there's no response, we assume this ask was superseded and reject.
+					throw new Error("Current ask promise was ignored because a new message was posted.")
+				}
+				// If the message timestamp is still the same, we just wait for the response.
+				return this.state.askResponse !== undefined
 			},
 			{
 				interval: 100,
@@ -1060,7 +1071,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		}
 	}
 
-	public async abortTask(save = false) {
+	public async abortTask(save = false, options: { silent?: boolean } = {}) {
 		if (this.state.abort) {
 			return // Task is already aborted, do nothing.
 		}
@@ -1077,7 +1088,9 @@ export class Task extends EventEmitter<ClineEvents> {
 		this.emit("taskAborted")
 
 		// Immediately save the final state to history
-		await this.messageStateHandler.saveClineMessagesAndUpdateHistory()
+		if (!options.silent) {
+			await this.messageStateHandler.saveClineMessagesAndUpdateHistory()
+		}
 
 		try {
 			this.dispose() // Call the centralized dispose method

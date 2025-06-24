@@ -100,7 +100,7 @@
 				"label": "Spiega comando del terminale",
 				"description": "Ottieni spiegazioni dettagliate sui comandi del terminale e sui loro output. Disponibile nel menu contestuale del terminale (clic destro sul contenuto selezionato del terminale)."
 			},
-			"NEW_TASK": {
+			"START_NEW_TASK": {
 				"label": "Avvia nuova attività",
 				"description": "Avvia una nuova attività con il tuo input. Disponibile nella palette dei comandi."
 			}

@@ -44,7 +44,11 @@ export async function newChildTaskTool(
 
 		const toolMessage = JSON.stringify({
 			tool: "new_child_task",
-			tasks: tasks.map((t) => ({ prompt: t.prompt, files: t.files ?? [], mode: t.mode })),
+			tasks: tasks.map((t) => ({
+				prompt: t.prompt,
+				files: t.files ?? [],
+				mode: t.mode ?? cline.mode,
+			})),
 			execute_immediately: executeImmediately,
 		})
 

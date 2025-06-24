@@ -286,11 +286,10 @@ export interface ClineSayTool {
 		| "listCodeDefinitionNames"
 		| "searchFiles"
 		| "switchMode"
-		| "newTask"
+		| "startNewTask"
 		| "searchAndReplace"
 		| "insertContent"
 		| "new_child_task"
-		| "newChildTask"
 		| "startNextChildTask"
 		| "viewPendingChildTasks"
 	path?: string

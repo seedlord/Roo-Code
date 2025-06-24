@@ -5,7 +5,7 @@
 	"views.terminalMenu.label": "Roo Code",
 	"views.activitybar.title": "Roo Code",
 	"views.sidebar.name": "Roo Code",
-	"command.newTask.title": "Новая задача",
+	"command.startNewTask.title": "Новая задача",
 	"command.mcpServers.title": "MCP серверы",
 	"command.prompts.title": "Режимы",
 	"command.history.title": "История",

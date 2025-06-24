@@ -5,7 +5,7 @@
 	"views.terminalMenu.label": "Roo Code",
 	"views.activitybar.title": "Roo Code",
 	"views.sidebar.name": "Roo Code",
-	"command.newTask.title": "Tugas Baru",
+	"command.startNewTask.title": "Tugas Baru",
 	"command.mcpServers.title": "Server MCP",
 	"command.prompts.title": "Mode",
 	"command.history.title": "Riwayat",

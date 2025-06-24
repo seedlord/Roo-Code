@@ -247,7 +247,8 @@ export class ClineProvider
 
 			// Remove all listeners to prevent re-triggering finishSubTask and memory leaks
 			subTask.removeAllListeners()
-			await subTask.abortTask(true)
+			// Abort the subtask silently to prevent premature UI updates
+			await subTask.abortTask(true, { silent: true })
 
 			// Pop the subtask from the stack
 			this.clineStack.pop()
@@ -260,10 +261,12 @@ export class ClineProvider
 					await this.handleModeSwitch(parentTask.state.pausedModeSlug as Mode)
 				}
 				parentTask.activeChildTask = undefined
+				// The resumePausedTask will trigger the necessary UI updates, including the final state post
 				await parentTask.resumePausedTask(lastMessage, subTask?.taskNumber, metadata)
-				await parentTask.messageStateHandler.saveClineMessagesAndUpdateHistory()
+			} else {
+				// If there's no parent, just update the webview
+				await this.postStateToWebview()
 			}
-			await this.postStateToWebview()
 		} finally {
 			this.isFinishingSubTask = false
 		}

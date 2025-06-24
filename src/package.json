@@ -72,7 +72,7 @@
 		"commands": [
 			{
 				"command": "roo-cline.plusButtonClicked",
-				"title": "%command.newTask.title%",
+				"title": "%command.startNewTask.title%",
 				"icon": "$(add)"
 			},
 			{
@@ -137,8 +137,8 @@
 				"category": "%configuration.title%"
 			},
 			{
-				"command": "roo-cline.newTask",
-				"title": "%command.newTask.title%",
+				"command": "roo-cline.startNewTask",
+				"title": "%command.startNewTask.title%",
 				"category": "%configuration.title%"
 			},
 			{

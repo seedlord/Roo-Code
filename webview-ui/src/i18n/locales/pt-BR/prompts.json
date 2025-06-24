@@ -100,7 +100,7 @@
 				"label": "Explicar Comando do Terminal",
 				"description": "Obtenha explicações detalhadas de comandos de terminal e suas saídas. Disponível no menu de contexto do terminal (clique direito no conteúdo selecionado do terminal)."
 			},
-			"NEW_TASK": {
+			"START_NEW_TASK": {
 				"label": "Iniciar Nova Tarefa",
 				"description": "Inicie uma nova tarefa com a entrada fornecida. Disponível na paleta de comandos."
 			}
