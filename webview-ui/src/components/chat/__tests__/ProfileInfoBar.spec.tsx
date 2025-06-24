@@ -115,7 +115,7 @@ const mockApiConfiguration: ProviderSettings = {
 	apiModelId: "gpt-4",
 	modelMaxTokens: 4096,
 	modelMaxThinkingTokens: 8192,
-	reasoningEnabled: true,
+	enableReasoningEffort: true,
 }
 
 const mockRouterModels = {

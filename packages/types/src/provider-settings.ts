@@ -62,7 +62,6 @@ const baseProviderSettingsSchema = z.object({
 	// Model reasoning.
 	enableReasoningEffort: z.boolean().optional(),
 	reasoningEffort: reasoningEffortsSchema.optional(),
-	reasoningEnabled: z.boolean().optional(),
 	modelMaxTokens: z.number().optional(),
 	modelMaxThinkingTokens: z.number().optional(),
 })

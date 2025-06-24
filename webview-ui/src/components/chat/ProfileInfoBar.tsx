@@ -66,28 +66,35 @@ export const ProfileInfoBar: React.FC = () => {
 	const popoverContentRef = useRef<HTMLDivElement>(null) // Ref for the popover content
 
 	// Local states for slider values, initialized from apiConfiguration
-	const [localApiProvider, setLocalApiProvider] = useState<ProviderName | RouterName | undefined>(selectedProvider)
-	const [localApiModelId, setLocalApiModelId] = useState<string | undefined>(selectedModelId)
-	const [localMaxOutputTokens, setLocalMaxOutputTokens] = useState<number | undefined>(
-		apiConfiguration?.modelMaxTokens,
-	)
-	const [localThinkingBudget, setLocalThinkingBudget] = useState<number | undefined>(
-		apiConfiguration?.modelMaxThinkingTokens,
-	)
-	const [localEnableReasoning, setLocalEnableReasoning] = useState<boolean>(
-		apiConfiguration?.reasoningEnabled ?? false,
+	const [localApiConfiguration, setLocalApiConfiguration] = useState<ProviderSettings | undefined>(apiConfiguration)
+
+	const localApiProvider = localApiConfiguration?.apiProvider
+	const localApiModelId = localApiConfiguration?.apiModelId
+	const localMaxOutputTokens = localApiConfiguration?.modelMaxTokens
+	const localThinkingBudget = localApiConfiguration?.modelMaxThinkingTokens
+	const localEnableReasoning = localApiConfiguration?.enableReasoningEffort
+
+	const setLocalApiConfigurationField = useCallback(
+		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
+			setLocalApiConfiguration((prevState) => {
+				if (!prevState) return undefined
+				if (prevState[field] === value) {
+					return prevState
+				}
+
+				setHasChanges(true)
+				return { ...prevState, [field]: value }
+			})
+		},
+		[],
 	)
 
 	// Update local states when apiConfiguration changes, but only when the popup is closed
 	useEffect(() => {
 		if (!isSettingsPopupOpen) {
-			setLocalApiProvider(selectedProvider)
-			setLocalApiModelId(selectedModelId)
-			setLocalMaxOutputTokens(apiConfiguration?.modelMaxTokens)
-			setLocalThinkingBudget(apiConfiguration?.modelMaxThinkingTokens)
-			setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+			setLocalApiConfiguration(apiConfiguration)
 		}
-	}, [apiConfiguration, isSettingsPopupOpen, selectedProvider, selectedModelId])
+	}, [apiConfiguration, isSettingsPopupOpen])
 
 	// Effect to reset model-specific settings when the model or provider changes
 	useEffect(() => {
@@ -116,17 +123,23 @@ export const ProfileInfoBar: React.FC = () => {
 					apiModelId: localApiModelId,
 				} as ProviderSettings,
 			})
-			setLocalMaxOutputTokens(newMaxOutputTokens)
+			setLocalApiConfigurationField("modelMaxTokens", newMaxOutputTokens)
 
-			const newThinkingBudget =
-				(localApiModelId === apiConfiguration?.apiModelId ? apiConfiguration?.modelMaxThinkingTokens : 1024) ??
-				DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
-			setLocalThinkingBudget(newThinkingBudget)
+			const isSameModelAndProvider =
+				localApiModelId === apiConfiguration?.apiModelId && localApiProvider === apiConfiguration?.apiProvider
+			const newThinkingBudget = isSameModelAndProvider
+				? apiConfiguration?.modelMaxThinkingTokens
+				: DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+			setLocalApiConfigurationField("modelMaxThinkingTokens", newThinkingBudget)
 
 			// Reset reasoning enabled based on whether the new model supports it
-			setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+			const newEnableReasoning =
+				(isSameModelAndProvider
+					? apiConfiguration?.enableReasoningEffort
+					: modelInfo.supportsReasoningBudget) ?? false
+			setLocalApiConfigurationField("enableReasoningEffort", newEnableReasoning)
 		}
-	}, [apiConfiguration, localApiModelId, localApiProvider, routerModels])
+	}, [apiConfiguration, localApiModelId, localApiProvider, routerModels, setLocalApiConfigurationField])
 
 	useEffect(() => {
 		if (localApiProvider === "ollama") {
@@ -159,7 +172,7 @@ export const ProfileInfoBar: React.FC = () => {
 			updates.modelMaxThinkingTokens = localThinkingBudget
 		}
 		if (localEnableReasoning !== undefined) {
-			updates.reasoningEnabled = localEnableReasoning
+			updates.enableReasoningEffort = localEnableReasoning
 		}
 		setIsAwaitingConfigurationUpdate(true)
 		vscode.postMessage({
@@ -186,23 +199,10 @@ export const ProfileInfoBar: React.FC = () => {
 
 	const handleCloseSettings = useCallback(() => {
 		// Reset local states to original values if not saved
-		setLocalApiProvider(apiConfiguration?.apiProvider)
-		setLocalApiModelId(apiConfiguration?.apiModelId)
-		setLocalMaxOutputTokens(apiConfiguration?.modelMaxTokens)
-		setLocalThinkingBudget(apiConfiguration?.modelMaxThinkingTokens)
-		setLocalEnableReasoning(apiConfiguration?.reasoningEnabled ?? false)
+		setLocalApiConfiguration(apiConfiguration)
 		setIsSettingsPopupOpen(false)
 		setHasChanges(false) // Reset changes flag when closing without saving
-	}, [
-		apiConfiguration,
-		setLocalApiProvider,
-		setLocalApiModelId,
-		setLocalMaxOutputTokens,
-		setLocalThinkingBudget,
-		setLocalEnableReasoning,
-		setIsSettingsPopupOpen,
-		setHasChanges,
-	])
+	}, [apiConfiguration, setLocalApiConfiguration, setIsSettingsPopupOpen, setHasChanges])
 
 	// Close popover when clicking outside or webview loses focus
 	useEffect(() => {
@@ -608,10 +608,11 @@ export const ProfileInfoBar: React.FC = () => {
 									const newProvider = (e.target as HTMLSelectElement).value as
 										| ProviderName
 										| RouterName
-									setLocalApiProvider(newProvider)
+									setLocalApiConfigurationField("apiProvider", newProvider)
 
-									// Automatically select the default model for the new provider
-									let defaultModelId: string | undefined
+									// Intelligente Modellauswahl: Bevorzugt das in apiConfiguration gespeicherte Modell,
+									// ansonsten das erste Modell des neuen Providers.
+									let newModelId: string | undefined
 									const newProviderModels = isRouterName(newProvider)
 										? routerModels?.[newProvider]
 										: modelSources[newProvider as ProviderName]
@@ -619,13 +620,23 @@ export const ProfileInfoBar: React.FC = () => {
 									if (newProviderModels && typeof newProviderModels === "object") {
 										const modelEntries = Object.entries(newProviderModels)
 										if (modelEntries.length > 0) {
-											// Fall back to the first model in the list as the default
-											defaultModelId = modelEntries[0][0]
+											// Prüfen, ob ein Modell für diesen Provider in apiConfiguration gespeichert ist
+											const savedModelForProvider = apiConfiguration?.apiModelId
+											const isSavedModelAvailable =
+												savedModelForProvider &&
+												modelEntries.some(([id]) => id === savedModelForProvider)
+
+											if (isSavedModelAvailable) {
+												newModelId = savedModelForProvider
+											} else {
+												// Fallback auf das erste Modell in der Liste
+												newModelId = modelEntries[0][0]
+											}
 										}
 									}
 
-									setLocalApiModelId(defaultModelId)
-									setHasChanges(true) // Mark as changed
+									setLocalApiConfigurationField("apiModelId", newModelId)
+									setHasChanges(true) // Als geändert markieren
 								}}>
 								{PROVIDERS.map((provider) => (
 									<VSCodeOption key={provider.value} value={provider.value}>
@@ -698,7 +709,7 @@ export const ProfileInfoBar: React.FC = () => {
 													value={localApiModelId}
 													onChange={(e) => {
 														const newModelId = (e.target as HTMLSelectElement).value
-														setLocalApiModelId(newModelId)
+														setLocalApiConfigurationField("apiModelId", newModelId)
 														setHasChanges(true) // Mark as changed
 													}}>
 													{Object.entries(popupModelSource as Record<string, ModelInfo>).map(
@@ -719,7 +730,10 @@ export const ProfileInfoBar: React.FC = () => {
 												<VSCodeCheckbox
 													checked={localEnableReasoning}
 													onChange={(e) => {
-														setLocalEnableReasoning((e.target as HTMLInputElement).checked)
+														setLocalApiConfigurationField(
+															"enableReasoningEffort",
+															(e.target as HTMLInputElement).checked,
+														)
 														setHasChanges(true)
 													}}>
 													{t("chat:profile.enableReasoning")}
@@ -750,7 +764,10 @@ export const ProfileInfoBar: React.FC = () => {
 																}
 																step={1024}
 																onValueChange={([newValue]) => {
-																	setLocalMaxOutputTokens(newValue)
+																	setLocalApiConfigurationField(
+																		"modelMaxTokens",
+																		newValue,
+																	)
 																	setHasChanges(true) // Mark as changed
 																}}
 															/>
@@ -779,7 +796,10 @@ export const ProfileInfoBar: React.FC = () => {
 																}
 																step={1024}
 																onValueChange={([newValue]) => {
-																	setLocalThinkingBudget(newValue)
+																	setLocalApiConfigurationField(
+																		"modelMaxThinkingTokens",
+																		newValue,
+																	)
 																	setHasChanges(true) // Mark as changed
 																}}
 															/>
