@@ -157,6 +157,23 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 		}
 	}, [taskTimelinePropsMessages])
 
+	useEffect(() => {
+		const scrollableElement = scrollableRef.current
+		if (!scrollableElement) return
+
+		const handleWheel = (event: WheelEvent) => {
+			if (event.deltaY === 0) return
+			event.preventDefault()
+			scrollableElement.scrollLeft += event.deltaY
+		}
+
+		scrollableElement.addEventListener("wheel", handleWheel)
+
+		return () => {
+			scrollableElement.removeEventListener("wheel", handleWheel)
+		}
+	}, [taskTimelinePropsMessages.length])
+
 	if (taskTimelinePropsMessages.length === 0) {
 		return null
 	}
