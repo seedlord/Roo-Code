@@ -20,9 +20,12 @@ import { TaskActions } from "./TaskActions"
 import { ShareButton } from "./ShareButton"
 import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
+import TaskTimeline from "./task-header/TaskTimeline"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
+	history: ClineMessage[]
+	onScrollToMessage: (messageId: number) => void
 	tokensIn: number
 	tokensOut: number
 	cacheWrites?: number
@@ -36,6 +39,8 @@ export interface TaskHeaderProps {
 
 const TaskHeader = ({
 	task,
+	history,
+	onScrollToMessage,
 	tokensIn,
 	tokensOut,
 	cacheWrites,
@@ -122,6 +127,7 @@ const TaskHeader = ({
 				{/* Expanded state: Show task text and images */}
 				{isTaskExpanded && (
 					<>
+						<TaskTimeline messages={history} onBlockClick={onScrollToMessage} />
 						<div
 							ref={textContainerRef}
 							className="-mt-0.5 text-vscode-font-size overflow-y-auto break-words break-anywhere relative">
