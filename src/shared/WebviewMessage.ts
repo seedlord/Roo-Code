@@ -185,7 +185,9 @@ export interface WebviewMessage {
 		| "checkRulesDirectoryResult"
 		| "saveCodeIndexSettingsAtomic"
 		| "requestCodeIndexSecretStatus"
+		| "getTaskDetails"
 	text?: string
+	taskId?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 	disabled?: boolean
 	dataUri?: string

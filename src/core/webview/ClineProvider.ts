@@ -28,6 +28,7 @@ import {
 	openRouterDefaultModelId,
 	glamaDefaultModelId,
 	ORGANIZATION_ALLOW_ALL,
+	TelemetryEventName,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, getRooCodeApiUrl } from "@roo-code/cloud"
@@ -1160,6 +1161,7 @@ export class ClineProvider
 			// Non-current task.
 			const { historyItem } = await this.getTaskWithId(id)
 			await this.initClineWithHistoryItem(historyItem) // Clears existing task.
+			TelemetryService.instance.captureEvent(TelemetryEventName.TASK_RESTARTED, { taskId: id })
 		}
 
 		await this.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
@@ -1168,6 +1170,23 @@ export class ClineProvider
 	async exportTaskWithId(id: string) {
 		const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
 		await downloadTask(historyItem.ts, apiConversationHistory)
+	}
+
+	async getTaskDetails(taskId: string): Promise<HistoryItem[] | undefined> {
+		const history = this.getGlobalState("taskHistory") ?? []
+		const historyItem = history.find((item) => item.id === taskId)
+
+		if (historyItem) {
+			const { uiMessagesFilePath } = await this.getTaskWithId(taskId)
+			const uiMessages = JSON.parse(await fs.readFile(uiMessagesFilePath, "utf8"))
+			const detailedHistoryItem = {
+				...historyItem,
+				history: uiMessages,
+			}
+			return [detailedHistoryItem]
+		}
+
+		return undefined
 	}
 
 	/* Condenses a task's message history to use fewer tokens. */

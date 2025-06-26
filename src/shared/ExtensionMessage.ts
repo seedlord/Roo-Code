@@ -105,6 +105,7 @@ export interface ExtensionMessage {
 		| "shareTaskSuccess"
 		| "codeIndexSettingsSaved"
 		| "codeIndexSecretStatus"
+		| "taskDetails"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -157,6 +158,8 @@ export interface ExtensionMessage {
 	visibility?: ShareVisibility
 	rulesFolderPath?: string
 	settings?: any
+	history?: HistoryItem[]
+	taskId?: string
 }
 
 export type ExtensionState = Pick<
