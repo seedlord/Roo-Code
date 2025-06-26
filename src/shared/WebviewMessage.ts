@@ -175,7 +175,9 @@ export interface WebviewMessage {
 		| "switchTab"
 		| "profileThresholds"
 		| "shareTaskSuccess"
+		| "getTaskDetails"
 	text?: string
+	taskId?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 	disabled?: boolean
 	dataUri?: string
