@@ -2076,5 +2076,10 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "openTaskAndScroll":
+			if (message.taskId && message.messageTs) {
+				provider.showTaskWithId(message.taskId, message.messageTs)
+			}
+			break
 	}
 }

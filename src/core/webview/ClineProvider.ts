@@ -573,7 +573,9 @@ export class ClineProvider
 		return cline
 	}
 
-	public async initClineWithHistoryItem(historyItem: HistoryItem & { rootTask?: Task; parentTask?: Task }) {
+	public async initClineWithHistoryItem(
+		historyItem: HistoryItem & { rootTask?: Task; parentTask?: Task; scrollToMessageTs?: number },
+	) {
 		await this.removeClineFromStack()
 
 		const {
@@ -596,6 +598,7 @@ export class ClineProvider
 			parentTask: historyItem.parentTask,
 			taskNumber: historyItem.number,
 			onCreated: (cline) => this.emit("clineCreated", cline),
+			scrollToMessageTs: historyItem.scrollToMessageTs,
 		})
 
 		await this.addClineToStack(cline)
@@ -1156,12 +1159,19 @@ export class ClineProvider
 		throw new Error("Task not found")
 	}
 
-	async showTaskWithId(id: string) {
+	async showTaskWithId(id: string, scrollToMessageTs?: number) {
 		if (id !== this.getCurrentCline()?.taskId) {
 			// Non-current task.
 			const { historyItem } = await this.getTaskWithId(id)
-			await this.initClineWithHistoryItem(historyItem) // Clears existing task.
+			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageTs }) // Clears existing task.
 			TelemetryService.instance.captureEvent(TelemetryEventName.TASK_RESTARTED, { taskId: id })
+		} else if (scrollToMessageTs) {
+			// Current task, just scroll.
+			await this.postMessageToWebview({
+				type: "action",
+				action: "scrollToMessage",
+				value: scrollToMessageTs,
+			})
 		}
 
 		await this.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
@@ -1456,9 +1466,18 @@ export class ClineProvider
 			autoCondenseContext: autoCondenseContext ?? true,
 			autoCondenseContextPercent: autoCondenseContextPercent ?? 100,
 			uriScheme: vscode.env.uriScheme,
-			currentTaskItem: this.getCurrentCline()?.taskId
-				? (taskHistory || []).find((item: HistoryItem) => item.id === this.getCurrentCline()?.taskId)
-				: undefined,
+			currentTaskItem: (() => {
+				const currentTask = this.getCurrentCline()
+				if (!currentTask?.taskId) {
+					return undefined
+				}
+				const item = (taskHistory || []).find((item: HistoryItem) => item.id === currentTask.taskId)
+				if (item && currentTask.scrollToMessageTs) {
+					item.scrollToMessageTs = currentTask.scrollToMessageTs
+					currentTask.scrollToMessageTs = undefined // One-time operation
+				}
+				return item
+			})(),
 			clineMessages: this.getCurrentCline()?.clineMessages || [],
 			taskHistory: (taskHistory || [])
 				.filter((item: HistoryItem) => item.ts && item.task)
