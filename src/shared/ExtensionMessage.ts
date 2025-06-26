@@ -113,6 +113,7 @@ export interface ExtensionMessage {
 		| "didBecomeVisible"
 		| "focusInput"
 		| "switchTab"
+		| "scrollToMessage"
 	invoke?: "newChat" | "sendMessage" | "primaryButtonClick" | "secondaryButtonClick" | "setChatBoxMessage"
 	state?: ExtensionState
 	images?: string[]

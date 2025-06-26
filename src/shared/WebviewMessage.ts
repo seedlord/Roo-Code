@@ -176,8 +176,10 @@ export interface WebviewMessage {
 		| "profileThresholds"
 		| "shareTaskSuccess"
 		| "getTaskDetails"
+		| "openTaskAndScroll"
 	text?: string
 	taskId?: string
+	messageTs?: number
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 	disabled?: boolean
 	dataUri?: string
