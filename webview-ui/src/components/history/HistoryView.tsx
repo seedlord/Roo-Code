@@ -44,7 +44,14 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [isSelectionMode, setIsSelectionMode] = useState(false)
 	const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
 	const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState<boolean>(false)
+	const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({})
 
+	const toggleTaskExpansion = (taskId: string) => {
+		setExpandedTaskIds((prev) => ({
+			...prev,
+			[taskId]: !prev[taskId],
+		}))
+	}
 	// Toggle selection mode
 	const toggleSelectionMode = () => {
 		setIsSelectionMode(!isSelectionMode)
@@ -244,6 +251,8 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 							onToggleSelection={toggleTaskSelection}
 							onDelete={setDeleteTaskId}
 							className="m-2 mr-0"
+							isExpanded={expandedTaskIds[item.id] ?? false}
+							onToggleExpansion={() => toggleTaskExpansion(item.id)}
 						/>
 					)}
 				/>
