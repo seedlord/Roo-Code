@@ -904,7 +904,7 @@ export const ChatRowContent = ({
 						<ReasoningBlock
 							content={message.text || ""}
 							durationMs={message.thinkingDurationMs}
-							startTimeTs={isLast && isStreaming ? message.ts : undefined}
+							startTimeTs={isLast && isStreaming && message.partial ? message.ts : undefined}
 							thinkingTokensPerSecond={message.thinkingTokensPerSecond}
 							isCollapsed={reasoningCollapsed}
 							onToggleCollapse={() => setReasoningCollapsed(!reasoningCollapsed)}
