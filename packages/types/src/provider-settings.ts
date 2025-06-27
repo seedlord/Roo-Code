@@ -67,6 +67,14 @@ const baseProviderSettingsSchema = z.object({
 	modelMaxThinkingTokens: z.number().optional(),
 })
 
+export const modelSpecificSettingsSchema = z.object({
+	modelMaxTokens: z.number().optional(),
+	modelMaxThinkingTokens: z.number().optional(),
+	enableReasoningEffort: z.boolean().optional(),
+})
+
+export type ModelSpecificSettings = z.infer<typeof modelSpecificSettingsSchema>
+
 // Several of the providers share common model config properties.
 const apiModelIdProviderModelSchema = baseProviderSettingsSchema.extend({
 	apiModelId: z.string().optional(),
@@ -245,6 +253,7 @@ export const providerSettingsSchemaDiscriminated = z.discriminatedUnion("apiProv
 ])
 
 export const providerSettingsSchema = z.object({
+	modelSettings: z.record(modelSpecificSettingsSchema).optional(),
 	apiProvider: providerNamesSchema.optional(),
 	...anthropicSchema.shape,
 	...claudeCodeSchema.shape,

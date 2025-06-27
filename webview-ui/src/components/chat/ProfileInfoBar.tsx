@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react"
 import { useEvent } from "react-use"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { PROVIDERS } from "../settings/constants"
-import { ModelInfo, ProviderName, ProviderSettings } from "@roo-code/types"
+import { ModelInfo, ProviderName, ProviderSettings, ModelSpecificSettings } from "@roo-code/types"
 import {
 	anthropicModels,
 	bedrockModels,
@@ -114,29 +114,27 @@ export const ProfileInfoBar: React.FC = () => {
 		}
 
 		if (modelInfo) {
-			const newMaxOutputTokens = getModelMaxOutputTokens({
-				modelId: localApiModelId,
-				model: modelInfo,
-				settings: {
-					...apiConfiguration,
-					apiProvider: localApiProvider,
-					apiModelId: localApiModelId,
-				} as ProviderSettings,
-			})
+			const savedModelSettings = apiConfiguration?.modelSettings?.[localApiModelId]
+
+			const newMaxOutputTokens =
+				savedModelSettings?.modelMaxTokens ??
+				getModelMaxOutputTokens({
+					modelId: localApiModelId,
+					model: modelInfo,
+					settings: {
+						...apiConfiguration,
+						apiProvider: localApiProvider,
+						apiModelId: localApiModelId,
+					} as ProviderSettings,
+				})
 			setLocalApiConfigurationField("modelMaxTokens", newMaxOutputTokens)
 
-			const isSameModelAndProvider =
-				localApiModelId === apiConfiguration?.apiModelId && localApiProvider === apiConfiguration?.apiProvider
-			const newThinkingBudget = isSameModelAndProvider
-				? apiConfiguration?.modelMaxThinkingTokens
-				: DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+			const newThinkingBudget =
+				savedModelSettings?.modelMaxThinkingTokens ?? DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
 			setLocalApiConfigurationField("modelMaxThinkingTokens", newThinkingBudget)
 
 			// Reset reasoning enabled based on whether the new model supports it
-			const newEnableReasoning =
-				(isSameModelAndProvider
-					? apiConfiguration?.enableReasoningEffort
-					: modelInfo.supportsReasoningBudget) ?? false
+			const newEnableReasoning = savedModelSettings?.enableReasoningEffort ?? !!modelInfo.supportsReasoningBudget
 			setLocalApiConfigurationField("enableReasoningEffort", newEnableReasoning)
 		}
 	}, [apiConfiguration, localApiModelId, localApiProvider, routerModels, setLocalApiConfigurationField])
@@ -158,6 +156,8 @@ export const ProfileInfoBar: React.FC = () => {
 	)
 
 	const handleSaveSettings = useCallback(() => {
+		if (!localApiModelId) return
+
 		const updates: Partial<ProviderSettings> = {}
 		if (localApiProvider !== undefined) {
 			updates.apiProvider = localApiProvider
@@ -165,15 +165,18 @@ export const ProfileInfoBar: React.FC = () => {
 		if (localApiModelId !== undefined) {
 			updates.apiModelId = localApiModelId
 		}
-		if (localMaxOutputTokens !== undefined) {
-			updates.modelMaxTokens = localMaxOutputTokens
+
+		const newModelSettings: ModelSpecificSettings = {
+			modelMaxTokens: localMaxOutputTokens,
+			modelMaxThinkingTokens: localThinkingBudget,
+			enableReasoningEffort: localEnableReasoning,
 		}
-		if (localThinkingBudget !== undefined) {
-			updates.modelMaxThinkingTokens = localThinkingBudget
+
+		const updatedModelSettings = {
+			...apiConfiguration?.modelSettings,
+			[localApiModelId]: newModelSettings,
 		}
-		if (localEnableReasoning !== undefined) {
-			updates.enableReasoningEffort = localEnableReasoning
-		}
+
 		setIsAwaitingConfigurationUpdate(true)
 		vscode.postMessage({
 			type: "upsertApiConfiguration",
@@ -181,6 +184,7 @@ export const ProfileInfoBar: React.FC = () => {
 			apiConfiguration: {
 				...apiConfiguration,
 				...updates,
+				modelSettings: updatedModelSettings,
 			},
 		})
 		// setIsSettingsPopupOpen(false) // Keep popover open after saving
@@ -249,16 +253,20 @@ export const ProfileInfoBar: React.FC = () => {
 
 	// Use the centrally fetched modelInfo
 	const modelInfo = selectedModelInfo
+	const modelSettings = modelId ? apiConfiguration.modelSettings?.[modelId] : undefined
 
 	// Moved from ExpandedContent
 	const maxOutputTokens =
-		modelInfo && modelId
+		modelSettings?.modelMaxTokens ??
+		(modelInfo && modelId
 			? getModelMaxOutputTokens({ modelId: modelId, model: modelInfo, settings: apiConfiguration })
-			: undefined
+			: undefined)
 	const contextWindow = modelInfo?.contextWindow
 	const isEditable = !!(modelInfo?.supportsReasoningBudget || modelInfo?.requiredReasoningBudget)
 
-	const thinkingBudget = isEditable ? apiConfiguration.modelMaxThinkingTokens : undefined
+	const thinkingBudget = isEditable
+		? (modelSettings?.modelMaxThinkingTokens ?? apiConfiguration.modelMaxThinkingTokens)
+		: undefined
 	const inputPrice = modelInfo?.inputPrice
 	const outputPrice = modelInfo?.outputPrice
 	const cacheWritesPrice = modelInfo?.cacheWritesPrice

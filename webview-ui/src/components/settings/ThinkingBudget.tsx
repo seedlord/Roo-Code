@@ -21,10 +21,16 @@ export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, mod
 	const isReasoningBudgetRequired = !!modelInfo && modelInfo.requiredReasoningBudget
 	const isReasoningEffortSupported = !!modelInfo && modelInfo.supportsReasoningEffort
 
-	const enableReasoningEffort = apiConfiguration.enableReasoningEffort
-	const customMaxOutputTokens = apiConfiguration.modelMaxTokens || DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
+	const modelId = apiConfiguration.apiModelId
+	const modelSettings = modelId ? apiConfiguration.modelSettings?.[modelId] : undefined
+
+	const enableReasoningEffort = modelSettings?.enableReasoningEffort ?? apiConfiguration.enableReasoningEffort
+	const customMaxOutputTokens =
+		modelSettings?.modelMaxTokens ?? apiConfiguration.modelMaxTokens ?? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
 	const customMaxThinkingTokens =
-		apiConfiguration.modelMaxThinkingTokens || DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+		modelSettings?.modelMaxThinkingTokens ??
+		apiConfiguration.modelMaxThinkingTokens ??
+		DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
 
 	// Dynamically expand or shrink the max thinking budget based on the custom
 	// max output tokens so that there's always a 20% buffer.
