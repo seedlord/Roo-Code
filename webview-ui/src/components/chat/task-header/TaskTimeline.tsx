@@ -242,7 +242,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					{`
 	           /* Hide scrollbar for Chrome, Safari and Opera */
 	           div::-webkit-scrollbar {
-	             display: none;
+	             //display: none;
 	           }
 	         `}
 				</style>
