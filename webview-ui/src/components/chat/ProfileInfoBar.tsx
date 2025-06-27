@@ -726,19 +726,20 @@ export const ProfileInfoBar: React.FC = () => {
 									{popupModelId && popupModelInfo && (
 										<>
 											{/* Enable Reasoning Checkbox */}
-											{popupModelInfo.supportsReasoningBudget && (
-												<VSCodeCheckbox
-													checked={localEnableReasoning}
-													onChange={(e) => {
-														setLocalApiConfigurationField(
-															"enableReasoningEffort",
-															(e.target as HTMLInputElement).checked,
-														)
-														setHasChanges(true)
-													}}>
-													{t("chat:profile.enableReasoning")}
-												</VSCodeCheckbox>
-											)}
+											{popupModelInfo.supportsReasoningBudget &&
+												!popupModelInfo.requiredReasoningBudget && (
+													<VSCodeCheckbox
+														checked={localEnableReasoning}
+														onChange={(e) => {
+															setLocalApiConfigurationField(
+																"enableReasoningEffort",
+																(e.target as HTMLInputElement).checked,
+															)
+															setHasChanges(true)
+														}}>
+														{t("chat:profile.enableReasoning")}
+													</VSCodeCheckbox>
+												)}
 
 											{/* Sliders, visible only if reasoning is enabled */}
 											{localEnableReasoning && (
