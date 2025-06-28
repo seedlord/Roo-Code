@@ -48,7 +48,7 @@ const TaskHeader = ({
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
 	const { apiConfiguration, currentTaskItem } = useExtensionState()
-	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
+	const { id: modelId, info: model, provider } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 
 	const textContainerRef = useRef<HTMLDivElement>(null)
@@ -110,7 +110,11 @@ const TaskHeader = ({
 							contextTokens={contextTokens || 0}
 							maxTokens={
 								model
-									? getModelMaxOutputTokens({ modelId, model, settings: apiConfiguration })
+									? getModelMaxOutputTokens({
+											modelId,
+											model,
+											settings: apiConfiguration?.modelSettings?.[`${provider}:${modelId}`],
+										})
 									: undefined
 							}
 						/>
@@ -155,7 +159,8 @@ const TaskHeader = ({
 												? getModelMaxOutputTokens({
 														modelId,
 														model,
-														settings: apiConfiguration,
+														settings:
+															apiConfiguration?.modelSettings?.[`${provider}:${modelId}`],
 													})
 												: undefined
 										}

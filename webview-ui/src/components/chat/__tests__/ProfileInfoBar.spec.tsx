@@ -171,7 +171,7 @@ describe("ProfileInfoBar", () => {
 		// Initially should be disabled
 		expect(saveButton).toBeDisabled()
 
-		const reasoningCheckbox = screen.getByLabelText("chat:profile.enableReasoning")
+		const reasoningCheckbox = screen.getByLabelText("settings:providers.useReasoning")
 		fireEvent.click(reasoningCheckbox)
 
 		// Should be enabled after a change

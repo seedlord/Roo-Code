@@ -224,6 +224,7 @@ const renderApiOptions = (props: Partial<ApiOptionsProps> = {}) => {
 					uriScheme={undefined}
 					apiConfiguration={{}}
 					setApiConfigurationField={() => {}}
+					setApiConfiguration={() => {}}
 					{...props}
 				/>
 			</QueryClientProvider>
