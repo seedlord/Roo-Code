@@ -1,4 +1,10 @@
-import { type ModelInfo, type ProviderSettings, ANTHROPIC_DEFAULT_MAX_TOKENS } from "@roo-code/types"
+import {
+	type ModelInfo,
+	type ProviderSettings,
+	ANTHROPIC_DEFAULT_MAX_TOKENS,
+	ModelSpecificSettings,
+	ProviderName,
+} from "@roo-code/types"
 
 // ApiHandlerOptions
 
@@ -33,7 +39,7 @@ export const shouldUseReasoningBudget = ({
 	settings,
 }: {
 	model: ModelInfo
-	settings?: ProviderSettings
+	settings?: ModelSpecificSettings
 }): boolean => !!model.requiredReasoningBudget || (!!model.supportsReasoningBudget && !!settings?.enableReasoningEffort)
 
 export const shouldUseReasoningEffort = ({
@@ -41,7 +47,7 @@ export const shouldUseReasoningEffort = ({
 	settings,
 }: {
 	model: ModelInfo
-	settings?: ProviderSettings
+	settings?: ModelSpecificSettings
 }): boolean => (!!model.supportsReasoningEffort && !!settings?.reasoningEffort) || !!model.reasoningEffort
 
 export const DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS = 16_384
@@ -56,10 +62,10 @@ export const getModelMaxOutputTokens = ({
 }: {
 	modelId: string
 	model: ModelInfo
-	settings?: ProviderSettings
+	settings?: ModelSpecificSettings
 }): number | undefined => {
 	if (shouldUseReasoningBudget({ model, settings })) {
-		return settings?.modelMaxTokens || DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
+		return settings?.modelMaxTokens ?? model.maxTokens ?? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
 	}
 
 	const isAnthropicModel = modelId.includes("claude")
@@ -84,3 +90,13 @@ export type GetModelsOptions =
 	| { provider: "litellm"; apiKey: string; baseUrl: string }
 	| { provider: "ollama"; baseUrl?: string }
 	| { provider: "lmstudio"; baseUrl?: string }
+
+export const getModelSettingsKey = (
+	provider: ProviderName | RouterName | undefined,
+	modelId: string | undefined,
+): string | undefined => {
+	if (!provider || !modelId) {
+		return undefined
+	}
+	return `${provider}:${modelId}`
+}

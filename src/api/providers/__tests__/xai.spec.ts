@@ -72,7 +72,7 @@ describe("XAIHandler", () => {
 	it("should include reasoning_effort parameter for mini models", async () => {
 		const miniModelHandler = new XAIHandler({
 			apiModelId: "grok-3-mini",
-			reasoningEffort: "high",
+			modelSettings: { "xai:grok-3-mini": { reasoningEffort: "high" } },
 		})
 
 		// Setup mock for streaming response
@@ -101,7 +101,7 @@ describe("XAIHandler", () => {
 	it("should not include reasoning_effort parameter for non-mini models", async () => {
 		const regularModelHandler = new XAIHandler({
 			apiModelId: "grok-3",
-			reasoningEffort: "high",
+			modelSettings: { "xai:grok-3": { reasoningEffort: "high" } },
 		})
 
 		// Setup mock for streaming response

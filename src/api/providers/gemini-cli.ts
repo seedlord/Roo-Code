@@ -254,7 +254,7 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 				],
 				generationConfig: {
 					temperature: this.options.modelTemperature ?? 0.7,
-					maxOutputTokens: this.options.modelMaxTokens ?? maxTokens ?? 8192,
+					maxOutputTokens: maxTokens ?? 8192,
 				},
 			},
 		}

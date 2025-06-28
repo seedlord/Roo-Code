@@ -30,7 +30,7 @@ import { MultiPointStrategy } from "../transform/cache-strategy/multi-point-stra
 import { ModelInfo as CacheModelInfo } from "../transform/cache-strategy/types"
 import { convertToBedrockConverseMessages as sharedConverter } from "../transform/bedrock-converse-format"
 import { getModelParams } from "../transform/model-params"
-import { shouldUseReasoningBudget } from "../../shared/api"
+import { getModelSettingsKey, shouldUseReasoningBudget } from "../../shared/api"
 import type { SingleCompletionHandler, ApiHandlerCreateMessageMetadata } from "../index"
 
 /************************************************************************************
@@ -337,8 +337,10 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 		// metadata?.thinking?.enabled: Explicitly enabled through API metadata (direct request)
 		// shouldUseReasoningBudget(): Enabled through user settings (enableReasoningEffort = true)
 		const isThinkingExplicitlyEnabled = metadata?.thinking?.enabled
+		const modelSettingsKey = getModelSettingsKey(this.options.apiProvider, modelConfig.id)
+		const modelSettings = modelSettingsKey ? this.options.modelSettings?.[modelSettingsKey] : undefined
 		const isThinkingEnabledBySettings =
-			shouldUseReasoningBudget({ model: modelConfig.info, settings: this.options }) &&
+			shouldUseReasoningBudget({ model: modelConfig.info, settings: modelSettings }) &&
 			modelConfig.reasoning &&
 			modelConfig.reasoningBudget
 
@@ -614,8 +616,10 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 
 			// For completePrompt, thinking is typically not used, but we should still check
 			// if thinking was somehow enabled in the model config
+			const modelSettingsKey = getModelSettingsKey(this.options.apiProvider, modelConfig.id)
+			const modelSettings = modelSettingsKey ? this.options.modelSettings?.[modelSettingsKey] : undefined
 			const thinkingEnabled =
-				shouldUseReasoningBudget({ model: modelConfig.info, settings: this.options }) &&
+				shouldUseReasoningBudget({ model: modelConfig.info, settings: modelSettings }) &&
 				modelConfig.reasoning &&
 				modelConfig.reasoningBudget
 
@@ -906,9 +910,6 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 		}
 
 		// Always allow user to override detected/guessed maxTokens and contextWindow
-		if (this.options.modelMaxTokens && this.options.modelMaxTokens > 0) {
-			model.info.maxTokens = this.options.modelMaxTokens
-		}
 		if (this.options.awsModelContextWindow && this.options.awsModelContextWindow > 0) {
 			model.info.contextWindow = this.options.awsModelContextWindow
 		}

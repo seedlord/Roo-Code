@@ -6,6 +6,7 @@ import { VSCodeLink } from "@vscode/webview-ui-toolkit/react"
 import {
 	type ProviderName,
 	type ProviderSettings,
+	type ModelSpecificSettings,
 	openRouterDefaultModelId,
 	requestyDefaultModelId,
 	glamaDefaultModelId,
@@ -24,6 +25,7 @@ import {
 	bedrockDefaultModelId,
 	vertexDefaultModelId,
 } from "@roo-code/types"
+import { DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS, DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS } from "@roo/api"
 
 import { vscode } from "@src/utils/vscode"
 import { validateApiConfigurationExcludingModelErrors, getModelValidationError } from "@src/utils/validate"
@@ -68,11 +70,14 @@ import { TemperatureControl } from "./TemperatureControl"
 import { RateLimitSecondsControl } from "./RateLimitSecondsControl"
 import { BedrockCustomArn } from "./providers/BedrockCustomArn"
 import { buildDocLink } from "@src/utils/docLinks"
+import { getModelSettingsKey } from "@src/utils/settings"
 
 export interface ApiOptionsProps {
 	uriScheme: string | undefined
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: <K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => void
+	setApiConfiguration: (config: ProviderSettings) => void
+	initializeApiConfigurationField?: <K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => void
 	fromWelcomeView?: boolean
 	errorMessage: string | undefined
 	setErrorMessage: React.Dispatch<React.SetStateAction<string | undefined>>
@@ -82,9 +87,11 @@ const ApiOptions = ({
 	uriScheme,
 	apiConfiguration,
 	setApiConfigurationField,
+	setApiConfiguration,
 	fromWelcomeView,
 	errorMessage,
 	setErrorMessage,
+	initializeApiConfigurationField,
 }: ApiOptionsProps) => {
 	const { t } = useAppTranslation()
 	const { organizationAllowList } = useExtensionState()
@@ -215,34 +222,8 @@ const ApiOptions = ({
 	}, [selectedProvider, organizationAllowList])
 
 	const onProviderChange = useCallback(
-		(value: ProviderName) => {
-			setApiConfigurationField("apiProvider", value)
-
-			// It would be much easier to have a single attribute that stores
-			// the modelId, but we have a separate attribute for each of
-			// OpenRouter, Glama, Unbound, and Requesty.
-			// If you switch to one of these providers and the corresponding
-			// modelId is not set then you immediately end up in an error state.
-			// To address that we set the modelId to the default value for th
-			// provider if it's not already set.
-			const validateAndResetModel = (
-				modelId: string | undefined,
-				field: keyof ProviderSettings,
-				defaultValue?: string,
-			) => {
-				// in case we haven't set a default value for a provider
-				if (!defaultValue) return
-
-				// only set default if no model is set, but don't reset invalid models
-				// let users see and decide what to do with invalid model selections
-				const shouldSetDefault = !modelId
-
-				if (shouldSetDefault) {
-					setApiConfigurationField(field, defaultValue)
-				}
-			}
-
-			// Define a mapping object that associates each provider with its model configuration
+		(newProvider: ProviderName) => {
+			const newConfig = { ...apiConfiguration, apiProvider: newProvider }
 			const PROVIDER_MODEL_CONFIG: Partial<
 				Record<
 					ProviderName,
@@ -273,22 +254,78 @@ const ApiOptions = ({
 				ollama: { field: "ollamaModelId" },
 				lmstudio: { field: "lmStudioModelId" },
 			}
+			const modelIdField = PROVIDER_MODEL_CONFIG[newProvider]?.field
+			const defaultModelId = PROVIDER_MODEL_CONFIG[newProvider]?.default
 
-			const config = PROVIDER_MODEL_CONFIG[value]
-			if (config) {
-				validateAndResetModel(
-					apiConfiguration[config.field] as string | undefined,
-					config.field,
-					config.default,
-				)
+			if (modelIdField && defaultModelId && !newConfig[modelIdField]) {
+				;(newConfig as any)[modelIdField] = defaultModelId
 			}
+
+			setApiConfiguration(newConfig)
 		},
-		[setApiConfigurationField, apiConfiguration],
+		[apiConfiguration, setApiConfiguration],
 	)
 
 	const modelValidationError = useMemo(() => {
 		return getModelValidationError(apiConfiguration, routerModels, organizationAllowList)
 	}, [apiConfiguration, routerModels, organizationAllowList])
+
+	const modelSettingsKey = useMemo(
+		() => getModelSettingsKey(selectedProvider, selectedModelId),
+		[selectedProvider, selectedModelId],
+	)
+
+	useEffect(() => {
+		// Initialize model-specific settings if they don't exist for the selected model.
+		if (!selectedModelId || !modelSettingsKey || !selectedModelInfo) return
+
+		const modelSettings = apiConfiguration.modelSettings?.[modelSettingsKey]
+
+		if (selectedModelInfo.supportsReasoningBudget) {
+			const needsInit =
+				modelSettings?.modelMaxTokens === undefined ||
+				modelSettings?.modelMaxThinkingTokens === undefined ||
+				modelSettings?.enableReasoningEffort === undefined
+
+			if (needsInit) {
+				const newModelSettings = {
+					...(apiConfiguration.modelSettings ?? {}),
+					[modelSettingsKey]: {
+						...(modelSettings ?? {}),
+						modelMaxTokens: modelSettings?.modelMaxTokens ?? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS,
+						modelMaxThinkingTokens:
+							modelSettings?.modelMaxThinkingTokens ?? DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS,
+						enableReasoningEffort: modelSettings?.enableReasoningEffort ?? true,
+					},
+				}
+				const initFn = initializeApiConfigurationField ?? setApiConfigurationField
+				initFn("modelSettings", newModelSettings)
+			}
+		}
+	}, [
+		selectedModelId,
+		selectedModelInfo,
+		apiConfiguration,
+		modelSettingsKey,
+		setApiConfigurationField,
+		initializeApiConfigurationField,
+	])
+
+	const setModelSettingsFields = useCallback(
+		(updates: Partial<ModelSpecificSettings>) => {
+			if (!modelSettingsKey) return
+
+			const newModelSettings = {
+				...(apiConfiguration.modelSettings ?? {}),
+				[modelSettingsKey]: {
+					...(apiConfiguration.modelSettings?.[modelSettingsKey] ?? {}),
+					...updates,
+				},
+			}
+			setApiConfigurationField("modelSettings", newModelSettings)
+		},
+		[modelSettingsKey, apiConfiguration.modelSettings, setApiConfigurationField],
+	)
 
 	const docs = useMemo(() => {
 		const provider = PROVIDERS.find(({ value }) => value === selectedProvider)
@@ -485,12 +522,45 @@ const ApiOptions = ({
 						<Select
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
-								setApiConfigurationField("apiModelId", value)
+								const newConfig = { ...apiConfiguration, apiModelId: value }
 
 								// Clear custom ARN if not using custom ARN option.
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
-									setApiConfigurationField("awsCustomArn", "")
+									newConfig.awsCustomArn = ""
 								}
+
+								const modelSettingsKey = getModelSettingsKey(selectedProvider, value)
+								if (
+									modelSettingsKey &&
+									!newConfig.modelSettings?.[modelSettingsKey] &&
+									selectedModelInfo
+								) {
+									const modelIsHybrid =
+										!!selectedModelInfo.supportsReasoningBudget ||
+										!!selectedModelInfo.requiredReasoningBudget
+
+									const defaultMaxOutputTokens =
+										selectedModelInfo.maxTokens ??
+										(modelIsHybrid ? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS : undefined)
+
+									const defaultThinkingBudget = selectedModelInfo.supportsReasoningBudget
+										? (selectedModelInfo.maxThinkingTokens ??
+											DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS)
+										: undefined
+
+									const defaultEnableReasoning = !!selectedModelInfo.requiredReasoningBudget
+
+									newConfig.modelSettings = {
+										...(newConfig.modelSettings ?? {}),
+										[modelSettingsKey]: {
+											modelMaxTokens: defaultMaxOutputTokens,
+											modelMaxThinkingTokens: defaultThinkingBudget,
+											enableReasoningEffort: defaultEnableReasoning,
+										},
+									}
+								}
+
+								setApiConfiguration(newConfig)
 							}}>
 							<SelectTrigger className="w-full">
 								<SelectValue placeholder={t("settings:common.select")} />
@@ -526,9 +596,11 @@ const ApiOptions = ({
 			)}
 
 			<ThinkingBudget
-				key={`${selectedProvider}-${selectedModelId}`}
-				apiConfiguration={apiConfiguration}
-				setApiConfigurationField={setApiConfigurationField}
+				key={modelSettingsKey}
+				apiProvider={selectedProvider}
+				apiModelId={selectedModelId}
+				modelSettings={modelSettingsKey ? apiConfiguration.modelSettings?.[modelSettingsKey] : undefined}
+				setModelSettingsFields={setModelSettingsFields}
 				modelInfo={selectedModelInfo}
 			/>
 

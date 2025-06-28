@@ -1,6 +1,11 @@
 // npx vitest run src/shared/__tests__/api.spec.ts
 
-import { type ModelInfo, type ProviderSettings, ANTHROPIC_DEFAULT_MAX_TOKENS } from "@roo-code/types"
+import {
+	type ModelInfo,
+	type ProviderSettings,
+	ANTHROPIC_DEFAULT_MAX_TOKENS,
+	ModelSpecificSettings,
+} from "@roo-code/types"
 
 import { getModelMaxOutputTokens, shouldUseReasoningBudget, shouldUseReasoningEffort } from "../api"
 
@@ -21,7 +26,7 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 8000,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4000,
 		}
 
@@ -59,7 +64,7 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 8000,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4000,
 		}
 
@@ -72,7 +77,7 @@ describe("getMaxTokensForModel", () => {
 			supportsPromptCache: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4000,
 		}
 
@@ -86,7 +91,7 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 2048,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4096,
 		}
 
@@ -102,7 +107,7 @@ describe("getMaxTokensForModel", () => {
 			requiredReasoningBudget: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4096,
 		}
 
@@ -117,8 +122,6 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 2048,
 			requiredReasoningBudget: true,
 		}
-
-		const settings: ProviderSettings = {}
 
 		const result = getModelMaxOutputTokens({ modelId, model, settings: undefined })
 		expect(result).toBe(16_384)
@@ -141,7 +144,7 @@ describe("getMaxTokensForModel", () => {
 			requiredReasoningBudget: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			modelMaxTokens: 4096,
 		}
 
@@ -166,7 +169,7 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 64_000, // This should be ignored
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			enableReasoningEffort: false, // Not using reasoning
 		}
 
@@ -184,7 +187,7 @@ describe("getMaxTokensForModel", () => {
 			maxTokens: 65_535,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			enableReasoningEffort: false, // Not using reasoning
 		}
 
@@ -214,7 +217,7 @@ describe("shouldUseReasoningBudget", () => {
 			supportsReasoningBudget: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			enableReasoningEffort: true,
 		}
 
@@ -228,7 +231,7 @@ describe("shouldUseReasoningBudget", () => {
 			supportsReasoningBudget: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			enableReasoningEffort: false,
 		}
 
@@ -243,7 +246,7 @@ describe("shouldUseReasoningBudget", () => {
 			supportsPromptCache: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			enableReasoningEffort: true,
 		}
 
@@ -290,7 +293,7 @@ describe("shouldUseReasoningEffort", () => {
 			supportsReasoningEffort: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			reasoningEffort: "high",
 		}
 
@@ -304,7 +307,7 @@ describe("shouldUseReasoningEffort", () => {
 			supportsReasoningEffort: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			reasoningEffort: undefined,
 		}
 
@@ -319,7 +322,7 @@ describe("shouldUseReasoningEffort", () => {
 			supportsPromptCache: true,
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			reasoningEffort: "high",
 		}
 
@@ -334,9 +337,9 @@ describe("shouldUseReasoningEffort", () => {
 			supportsReasoningEffort: true,
 		}
 
-		const settingsLow: ProviderSettings = { reasoningEffort: "low" }
-		const settingsMedium: ProviderSettings = { reasoningEffort: "medium" }
-		const settingsHigh: ProviderSettings = { reasoningEffort: "high" }
+		const settingsLow: ModelSpecificSettings = { reasoningEffort: "low" }
+		const settingsMedium: ModelSpecificSettings = { reasoningEffort: "medium" }
+		const settingsHigh: ModelSpecificSettings = { reasoningEffort: "high" }
 
 		expect(shouldUseReasoningEffort({ model, settings: settingsLow })).toBe(true)
 		expect(shouldUseReasoningEffort({ model, settings: settingsMedium })).toBe(true)
@@ -368,7 +371,7 @@ describe("shouldUseReasoningEffort", () => {
 			reasoningEffort: "low",
 		}
 
-		const settings: ProviderSettings = {
+		const settings: ModelSpecificSettings = {
 			reasoningEffort: "high",
 		}
 

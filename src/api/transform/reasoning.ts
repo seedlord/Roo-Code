@@ -2,7 +2,7 @@ import { BetaThinkingConfigParam } from "@anthropic-ai/sdk/resources/beta"
 import OpenAI from "openai"
 import type { GenerateContentConfig } from "@google/genai"
 
-import type { ModelInfo, ProviderSettings } from "@roo-code/types"
+import type { ModelInfo, ModelSpecificSettings } from "@roo-code/types"
 
 import { shouldUseReasoningBudget, shouldUseReasoningEffort } from "../../shared/api"
 
@@ -24,7 +24,7 @@ export type GetModelReasoningOptions = {
 	model: ModelInfo
 	reasoningBudget: number | undefined
 	reasoningEffort: ReasoningEffort | undefined
-	settings: ProviderSettings
+	settings: ModelSpecificSettings
 }
 
 export const getOpenRouterReasoning = ({

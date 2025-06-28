@@ -26,6 +26,7 @@ export const providerProfilesSchema = z.object({
 			rateLimitSecondsMigrated: z.boolean().optional(),
 			diffSettingsMigrated: z.boolean().optional(),
 			openAiHeadersMigrated: z.boolean().optional(),
+			modelSettingsCompositeKeyMigrated: z.boolean().optional(),
 		})
 		.optional(),
 })
@@ -48,6 +49,7 @@ export class ProviderSettingsManager {
 			rateLimitSecondsMigrated: true, // Mark as migrated on fresh installs
 			diffSettingsMigrated: true, // Mark as migrated on fresh installs
 			openAiHeadersMigrated: true, // Mark as migrated on fresh installs
+			modelSettingsCompositeKeyMigrated: true, // Mark as migrated on fresh installs
 		},
 	}
 
@@ -113,6 +115,7 @@ export class ProviderSettingsManager {
 						rateLimitSecondsMigrated: false,
 						diffSettingsMigrated: false,
 						openAiHeadersMigrated: false,
+						modelSettingsCompositeKeyMigrated: false,
 					} // Initialize with default values
 					isDirty = true
 				}
@@ -132,6 +135,12 @@ export class ProviderSettingsManager {
 				if (!providerProfiles.migrations.openAiHeadersMigrated) {
 					await this.migrateOpenAiHeaders(providerProfiles)
 					providerProfiles.migrations.openAiHeadersMigrated = true
+					isDirty = true
+				}
+
+				if (!providerProfiles.migrations.modelSettingsCompositeKeyMigrated) {
+					await this.migrateModelSettingsKeys(providerProfiles)
+					providerProfiles.migrations.modelSettingsCompositeKeyMigrated = true
 					isDirty = true
 				}
 
@@ -225,6 +234,29 @@ export class ProviderSettingsManager {
 			}
 		} catch (error) {
 			console.error(`[MigrateOpenAiHeaders] Failed to migrate OpenAI headers:`, error)
+		}
+	}
+
+	private async migrateModelSettingsKeys(providerProfiles: ProviderProfiles) {
+		try {
+			for (const [, apiConfig] of Object.entries(providerProfiles.apiConfigs)) {
+				if (apiConfig.modelSettings && apiConfig.apiProvider) {
+					const newModelSettings: typeof apiConfig.modelSettings = {}
+					for (const [modelId, settings] of Object.entries(apiConfig.modelSettings)) {
+						// If the key is already in the new format, keep it.
+						if (modelId.includes(":")) {
+							newModelSettings[modelId] = settings
+						} else {
+							// Otherwise, convert it to the new format.
+							const newKey = `${apiConfig.apiProvider}:${modelId}`
+							newModelSettings[newKey] = settings
+						}
+					}
+					apiConfig.modelSettings = newModelSettings
+				}
+			}
+		} catch (error) {
+			console.error(`[MigrateModelSettingsKeys] Failed to migrate model settings keys:`, error)
 		}
 	}
 
