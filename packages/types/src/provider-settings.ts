@@ -53,18 +53,22 @@ export type ProviderSettingsEntry = z.infer<typeof providerSettingsEntrySchema>
  * ProviderSettings
  */
 
+export const modelSpecificSettingsSchema = z.object({
+	modelMaxTokens: z.number().optional(),
+	modelMaxThinkingTokens: z.number().optional(),
+	enableReasoningEffort: z.boolean().optional(),
+	reasoningEffort: reasoningEffortsSchema.optional(),
+})
+
+export type ModelSpecificSettings = z.infer<typeof modelSpecificSettingsSchema>
+
 const baseProviderSettingsSchema = z.object({
 	includeMaxTokens: z.boolean().optional(),
 	diffEnabled: z.boolean().optional(),
 	fuzzyMatchThreshold: z.number().optional(),
 	modelTemperature: z.number().nullish(),
 	rateLimitSeconds: z.number().optional(),
-
-	// Model reasoning.
-	enableReasoningEffort: z.boolean().optional(),
-	reasoningEffort: reasoningEffortsSchema.optional(),
-	modelMaxTokens: z.number().optional(),
-	modelMaxThinkingTokens: z.number().optional(),
+	modelSettings: z.record(z.string(), modelSpecificSettingsSchema).optional(),
 })
 
 // Several of the providers share common model config properties.

@@ -195,7 +195,13 @@ describe("getModelParams", () => {
 				requiredReasoningBudget: true,
 			}
 
-			expect(getModelParams({ ...anthropicParams, settings: { modelMaxTokens: 2000 }, model })).toEqual({
+			expect(
+				getModelParams({
+					...anthropicParams,
+					settings: { modelSettings: { "anthropic:test": { modelMaxTokens: 2000 } } },
+					model,
+				}),
+			).toEqual({
 				format: anthropicParams.format,
 				maxTokens: 2000,
 				temperature: 1.0, // Thinking models require temperature 1.0.
@@ -216,7 +222,9 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { enableReasoningEffort: true, modelMaxTokens: 2000 },
+				settings: {
+					modelSettings: { "anthropic:test": { enableReasoningEffort: true, modelMaxTokens: 2000 } },
+				},
 				model,
 			})
 
@@ -237,7 +245,7 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { enableReasoningEffort: false },
+				settings: { modelSettings: { "anthropic:test": { enableReasoningEffort: false } } },
 				model,
 			})
 
@@ -252,7 +260,13 @@ describe("getModelParams", () => {
 				requiredReasoningBudget: true,
 			}
 
-			expect(getModelParams({ ...anthropicParams, settings: { modelMaxTokens: 3000 }, model })).toEqual({
+			expect(
+				getModelParams({
+					...anthropicParams,
+					settings: { modelSettings: { "anthropic:test": { modelMaxTokens: 3000 } } },
+					model,
+				}),
+			).toEqual({
 				format: anthropicParams.format,
 				maxTokens: 3000,
 				temperature: 1.0,
@@ -274,7 +288,9 @@ describe("getModelParams", () => {
 			expect(
 				getModelParams({
 					...anthropicParams,
-					settings: { modelMaxTokens: 4000, modelMaxThinkingTokens: 1500 },
+					settings: {
+						modelSettings: { "anthropic:test": { modelMaxTokens: 4000, modelMaxThinkingTokens: 1500 } },
+					},
 					model,
 				}),
 			).toEqual({
@@ -296,7 +312,13 @@ describe("getModelParams", () => {
 				maxTokens: 4000,
 			}
 
-			expect(getModelParams({ ...anthropicParams, settings: { modelMaxThinkingTokens: 1500 }, model })).toEqual({
+			expect(
+				getModelParams({
+					...anthropicParams,
+					settings: { modelSettings: { "anthropic:test": { modelMaxThinkingTokens: 1500 } } },
+					model,
+				}),
+			).toEqual({
 				format: anthropicParams.format,
 				maxTokens: 4000,
 				temperature: 0, // Using default temperature.
@@ -315,7 +337,9 @@ describe("getModelParams", () => {
 			expect(
 				getModelParams({
 					...anthropicParams,
-					settings: { modelMaxTokens: 2000, modelMaxThinkingTokens: 500 },
+					settings: {
+						modelSettings: { "anthropic:test": { modelMaxTokens: 2000, modelMaxThinkingTokens: 500 } },
+					},
 					model,
 				}),
 			).toEqual({
@@ -340,7 +364,9 @@ describe("getModelParams", () => {
 			expect(
 				getModelParams({
 					...anthropicParams,
-					settings: { modelMaxTokens: 4000, modelMaxThinkingTokens: 5000 },
+					settings: {
+						modelSettings: { "anthropic:test": { modelMaxTokens: 4000, modelMaxThinkingTokens: 5000 } },
+					},
 					model,
 				}),
 			).toEqual({
@@ -383,7 +409,9 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { modelMaxTokens: 5000, modelMaxThinkingTokens: 2000 },
+				settings: {
+					modelSettings: { "anthropic:test": { modelMaxTokens: 5000, modelMaxThinkingTokens: 2000 } },
+				},
 				model,
 			})
 
@@ -399,7 +427,9 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { modelMaxTokens: 2000, modelMaxThinkingTokens: 5000 },
+				settings: {
+					modelSettings: { "anthropic:test": { modelMaxTokens: 2000, modelMaxThinkingTokens: 5000 } },
+				},
 				model,
 			})
 
@@ -436,7 +466,7 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...openaiParams,
-				settings: { reasoningEffort: "high" },
+				settings: { modelSettings: { "openai:test": { reasoningEffort: "high" } } },
 				model,
 			})
 
@@ -453,7 +483,7 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...openaiParams,
-				settings: { reasoningEffort: "high" },
+				settings: { modelSettings: { "openai:test": { reasoningEffort: "high" } } },
 				model,
 			})
 
@@ -552,7 +582,7 @@ describe("getModelParams", () => {
 		it("should keep model maxTokens for hybrid models when using reasoning budget", () => {
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { enableReasoningEffort: true },
+				settings: { modelSettings: { "anthropic:test": { enableReasoningEffort: true } } },
 				model,
 			})
 
@@ -573,7 +603,9 @@ describe("getModelParams", () => {
 			// Only reasoning budget should be used (takes precedence)
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { enableReasoningEffort: true, modelMaxTokens: 4000 },
+				settings: {
+					modelSettings: { "anthropic:test": { enableReasoningEffort: true, modelMaxTokens: 4000 } },
+				},
 				model,
 			})
 
@@ -605,7 +637,7 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { modelMaxTokens: 1000 }, // Less than minimum reasoning budget.
+				settings: { modelSettings: { "anthropic:test": { modelMaxTokens: 1000 } } }, // Less than minimum reasoning budget.
 				model,
 			})
 
@@ -635,7 +667,7 @@ describe("getModelParams", () => {
 			efforts.forEach((effort) => {
 				const result = getModelParams({
 					...openaiParams,
-					settings: { reasoningEffort: effort },
+					settings: { modelSettings: { "openai:test": { reasoningEffort: effort } } },
 					model,
 				})
 
@@ -657,9 +689,13 @@ describe("getModelParams", () => {
 			const result = getModelParams({
 				...anthropicParams,
 				settings: {
-					enableReasoningEffort: true,
-					modelMaxTokens: 20000,
-					modelMaxThinkingTokens: 10000,
+					modelSettings: {
+						"anthropic:test": {
+							enableReasoningEffort: true,
+							modelMaxTokens: 20000,
+							modelMaxThinkingTokens: 10000,
+						},
+					},
 					modelTemperature: 0.8,
 				},
 				model,
@@ -713,7 +749,7 @@ describe("getModelParams", () => {
 
 			const result = getModelParams({
 				...openrouterParams,
-				settings: { modelMaxTokens: 4000 },
+				settings: { modelSettings: { "openrouter:test": { modelMaxTokens: 4000 } } },
 				model,
 			})
 

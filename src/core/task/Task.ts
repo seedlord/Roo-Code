@@ -30,6 +30,7 @@ import { ApiStream } from "../../api/transform/stream"
 
 // shared
 import { findLastIndex } from "../../shared/array"
+import { getModelSettingsKey } from "../../shared/api"
 import { combineApiRequests } from "../../shared/combineApiRequests"
 import { combineCommandSequences } from "../../shared/combineCommandSequences"
 import { t } from "../../i18n"
@@ -1701,9 +1702,12 @@ export class Task extends EventEmitter<ClineEvents> {
 			const DEFAULT_THINKING_MODEL_MAX_TOKENS = 16_384
 
 			const modelInfo = this.api.getModel().info
+			const modelId = this.api.getModel().id
+			const modelSettingsKey = getModelSettingsKey(this.apiConfiguration.apiProvider, modelId)
+			const modelSettings = modelSettingsKey ? this.apiConfiguration.modelSettings?.[modelSettingsKey] : undefined
 
 			const maxTokens = modelInfo.supportsReasoningBudget
-				? this.apiConfiguration.modelMaxTokens || DEFAULT_THINKING_MODEL_MAX_TOKENS
+				? modelSettings?.modelMaxTokens || DEFAULT_THINKING_MODEL_MAX_TOKENS
 				: modelInfo.maxTokens
 
 			const contextWindow = modelInfo.contextWindow

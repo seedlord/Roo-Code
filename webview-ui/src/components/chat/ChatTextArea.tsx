@@ -28,6 +28,7 @@ import ContextMenu from "./ContextMenu"
 import { VolumeX, Pin, Check } from "lucide-react"
 import { IconButton } from "./IconButton"
 import { IndexingStatusDot } from "./IndexingStatusBadge"
+import { ProfileInfoBar } from "./ProfileInfoBar"
 import { cn } from "@/lib/utils"
 import { usePromptHistory } from "./hooks/usePromptHistory"
 
@@ -1129,6 +1130,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									)
 								}}
 							/>
+						</div>
+						<div className={cn("shrink-0", "overflow-hidden")}>
+							<ProfileInfoBar />
 						</div>
 					</div>
 
