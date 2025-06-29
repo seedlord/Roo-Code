@@ -213,13 +213,27 @@ describe("mergeExtensionState", () => {
 
 		const prevState: ExtensionState = {
 			...baseState,
-			apiConfiguration: { modelMaxTokens: 1234, modelMaxThinkingTokens: 123 },
+			apiConfiguration: {
+				modelSettings: {
+					"openai:gpt-4": {
+						modelMaxTokens: 1234,
+						modelMaxThinkingTokens: 123,
+					},
+				},
+			},
 			experiments: {} as Record<ExperimentId, boolean>,
 		}
 
 		const newState: ExtensionState = {
 			...baseState,
-			apiConfiguration: { modelMaxThinkingTokens: 456, modelTemperature: 0.3 },
+			apiConfiguration: {
+				modelSettings: {
+					"openai:gpt-4": {
+						modelMaxThinkingTokens: 456,
+					},
+				},
+				modelTemperature: 0.3,
+			},
 			experiments: {
 				powerSteering: true,
 				marketplace: false,
@@ -232,7 +246,11 @@ describe("mergeExtensionState", () => {
 		const result = mergeExtensionState(prevState, newState)
 
 		expect(result.apiConfiguration).toEqual({
-			modelMaxThinkingTokens: 456,
+			modelSettings: {
+				"openai:gpt-4": {
+					modelMaxThinkingTokens: 456,
+				},
+			},
 			modelTemperature: 0.3,
 		})
 

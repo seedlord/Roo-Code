@@ -1,6 +1,6 @@
 // npx vitest run src/api/transform/__tests__/reasoning.spec.ts
 
-import type { ModelInfo, ProviderSettings } from "@roo-code/types"
+import type { ModelInfo, ModelSpecificSettings, ProviderSettings } from "@roo-code/types"
 
 import {
 	getOpenRouterReasoning,
@@ -18,7 +18,7 @@ describe("reasoning.ts", () => {
 		supportsPromptCache: true,
 	}
 
-	const baseSettings: ProviderSettings = {}
+	const baseSettings: ModelSpecificSettings = {}
 
 	const baseOptions: GetModelReasoningOptions = {
 		model: baseModel,
@@ -46,7 +46,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningBudget: true,
 			}
 
-			const settingsWithEnabled: ProviderSettings = {
+			const settingsWithEnabled: ModelSpecificSettings = {
 				enableReasoningEffort: true,
 			}
 
@@ -67,7 +67,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningEffort: true,
 			}
 
-			const settingsWithEffort: ProviderSettings = {
+			const settingsWithEffort: ModelSpecificSettings = {
 				reasoningEffort: "high",
 			}
 
@@ -107,7 +107,7 @@ describe("reasoning.ts", () => {
 				reasoningEffort: "high",
 			}
 
-			const settingsWithBoth: ProviderSettings = {
+			const settingsWithBoth: ModelSpecificSettings = {
 				enableReasoningEffort: true,
 				reasoningEffort: "low",
 			}
@@ -195,7 +195,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningBudget: true,
 			}
 
-			const settingsWithDisabled: ProviderSettings = {
+			const settingsWithDisabled: ModelSpecificSettings = {
 				enableReasoningEffort: false,
 			}
 
@@ -251,7 +251,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningBudget: true,
 			}
 
-			const settingsWithEnabled: ProviderSettings = {
+			const settingsWithEnabled: ModelSpecificSettings = {
 				enableReasoningEffort: true,
 			}
 
@@ -280,7 +280,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningBudget: true,
 			}
 
-			const settingsWithDisabled: ProviderSettings = {
+			const settingsWithDisabled: ModelSpecificSettings = {
 				enableReasoningEffort: false,
 			}
 
@@ -382,7 +382,7 @@ describe("reasoning.ts", () => {
 				reasoningEffort: "high",
 			}
 
-			const settingsWithEffort: ProviderSettings = {
+			const settingsWithEffort: ModelSpecificSettings = {
 				reasoningEffort: "medium",
 			}
 
@@ -405,7 +405,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningEffort: true,
 			}
 
-			const settingsWithEffort: ProviderSettings = {
+			const settingsWithEffort: ModelSpecificSettings = {
 				reasoningEffort: "high",
 			}
 
@@ -512,7 +512,7 @@ describe("reasoning.ts", () => {
 				requiredReasoningBudget: true,
 			}
 
-			const settingsWithEnabled: ProviderSettings = {
+			const settingsWithEnabled: ModelSpecificSettings = {
 				enableReasoningEffort: true,
 			}
 
@@ -555,7 +555,7 @@ describe("reasoning.ts", () => {
 				supportsReasoningEffort: true,
 			}
 
-			const settingsWithEffort: ProviderSettings = {
+			const settingsWithEffort: ModelSpecificSettings = {
 				reasoningEffort: "high",
 			}
 
@@ -582,7 +582,7 @@ describe("reasoning.ts", () => {
 				reasoningEffort: "medium",
 			}
 
-			const settingsWithBoth: ProviderSettings = {
+			const settingsWithBoth: ModelSpecificSettings = {
 				enableReasoningEffort: true,
 				reasoningEffort: "high",
 			}

@@ -241,8 +241,12 @@ describe("AnthropicHandler", () => {
 			const handler = new AnthropicHandler({
 				apiKey: "test-api-key",
 				apiModelId: "claude-3-7-sonnet-20250219:thinking",
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"anthropic:claude-3-7-sonnet-20250219:thinking": {
+						modelMaxTokens: 32_768,
+						modelMaxThinkingTokens: 16_384,
+					},
+				},
 			})
 
 			const result = handler.getModel()
@@ -255,8 +259,12 @@ describe("AnthropicHandler", () => {
 			const handler = new AnthropicHandler({
 				apiKey: "test-api-key",
 				apiModelId: "claude-3-7-sonnet-20250219",
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"anthropic:claude-3-7-sonnet-20250219": {
+						modelMaxTokens: 32_768,
+						modelMaxThinkingTokens: 16_384,
+					},
+				},
 			})
 
 			const result = handler.getModel()

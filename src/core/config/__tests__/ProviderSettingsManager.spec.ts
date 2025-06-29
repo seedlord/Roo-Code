@@ -55,7 +55,6 @@ describe("ProviderSettingsManager", () => {
 					currentApiConfigName: "default",
 					apiConfigs: {
 						default: {
-							config: {},
 							id: "default",
 							diffEnabled: true,
 							fuzzyMatchThreshold: 1.0,
@@ -66,6 +65,7 @@ describe("ProviderSettingsManager", () => {
 						rateLimitSecondsMigrated: true,
 						diffSettingsMigrated: true,
 						openAiHeadersMigrated: true,
+						modelSettingsCompositeKeyMigrated: true,
 					},
 				}),
 			)
@@ -150,6 +150,88 @@ describe("ProviderSettingsManager", () => {
 			await expect(providerSettingsManager.initialize()).rejects.toThrow(
 				"Failed to initialize config: Error: Failed to read provider profiles from secrets: Error: Storage failed",
 			)
+		})
+	})
+
+	describe("migrateModelSettingsKeys", () => {
+		it("should migrate top-level model settings to nested structure", async () => {
+			const oldConfig = {
+				currentApiConfigName: "default",
+				apiConfigs: {
+					default: {
+						id: "default-id",
+						apiProvider: "openai",
+						apiModelId: "gpt-4",
+						modelMaxTokens: 8000,
+						modelMaxThinkingTokens: 4000,
+						enableReasoningEffort: true,
+						reasoningEffort: "high",
+					},
+				},
+				migrations: {
+					rateLimitSecondsMigrated: true,
+					diffSettingsMigrated: true,
+					openAiHeadersMigrated: true,
+					modelSettingsCompositeKeyMigrated: false, // Trigger migration
+				},
+			}
+
+			mockSecrets.get.mockResolvedValue(JSON.stringify(oldConfig))
+
+			await providerSettingsManager.initialize()
+
+			const calls = mockSecrets.store.mock.calls
+			const storedConfig = JSON.parse(calls[calls.length - 1][1])
+			const migratedConfig = storedConfig.apiConfigs.default
+
+			expect(migratedConfig.modelSettings).toBeDefined()
+			const modelSettings = migratedConfig.modelSettings["openai:gpt-4"]
+			expect(modelSettings).toBeDefined()
+			expect(modelSettings.modelMaxTokens).toBe(8000)
+			expect(modelSettings.modelMaxThinkingTokens).toBe(4000)
+			expect(modelSettings.enableReasoningEffort).toBe(true)
+			expect(modelSettings.reasoningEffort).toBe("high")
+
+			// Once we re-enable deletion, we can test for this
+			// expect(migratedConfig.modelMaxTokens).toBeUndefined()
+			// expect(migratedConfig.modelMaxThinkingTokens).toBeUndefined()
+			// expect(migratedConfig.enableReasoningEffort).toBeUndefined()
+			// expect(migratedConfig.reasoningEffort).toBeUndefined()
+
+			expect(storedConfig.migrations.modelSettingsCompositeKeyMigrated).toBe(true)
+		})
+
+		it("should convert old modelId keys to composite keys", async () => {
+			const oldConfig = {
+				currentApiConfigName: "default",
+				apiConfigs: {
+					default: {
+						id: "default-id",
+						apiProvider: "anthropic",
+						apiModelId: "claude-3",
+						modelSettings: {
+							"claude-2": {
+								modelMaxTokens: 2048,
+							},
+						},
+					},
+				},
+				migrations: {
+					modelSettingsCompositeKeyMigrated: false,
+				},
+			}
+
+			mockSecrets.get.mockResolvedValue(JSON.stringify(oldConfig))
+
+			await providerSettingsManager.initialize()
+
+			const calls = mockSecrets.store.mock.calls
+			const storedConfig = JSON.parse(calls[calls.length - 1][1])
+			const migratedSettings = storedConfig.apiConfigs.default.modelSettings
+
+			expect(migratedSettings["anthropic:claude-2"]).toBeDefined()
+			expect(migratedSettings["anthropic:claude-2"].modelMaxTokens).toBe(2048)
+			expect(migratedSettings["claude-2"]).toBeUndefined()
 		})
 	})
 
@@ -525,6 +607,9 @@ describe("ProviderSettingsManager", () => {
 				},
 				migrations: {
 					rateLimitSecondsMigrated: true,
+					diffSettingsMigrated: true,
+					openAiHeadersMigrated: true,
+					modelSettingsCompositeKeyMigrated: true,
 				},
 			}
 

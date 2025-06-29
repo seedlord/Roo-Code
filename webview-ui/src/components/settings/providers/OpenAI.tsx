@@ -2,7 +2,7 @@ import { useCallback, useState } from "react"
 import { Checkbox } from "vscrui"
 import { VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
 
-import type { ProviderSettings } from "@roo-code/types"
+import type { ModelInfo, ProviderSettings } from "@roo-code/types"
 
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
@@ -12,6 +12,7 @@ import { inputEventTransform } from "../transforms"
 type OpenAIProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
+	selectedModelInfo?: ModelInfo
 }
 
 export const OpenAI = ({ apiConfiguration, setApiConfigurationField }: OpenAIProps) => {

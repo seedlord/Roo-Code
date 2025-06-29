@@ -3,7 +3,7 @@
 import { render, screen, fireEvent } from "@/utils/test-utils"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
-import { type ModelInfo, type ProviderSettings, openAiModelInfoSaneDefaults } from "@roo-code/types"
+import { type ModelInfo, type ProviderSettings } from "@roo-code/types"
 
 import { ExtensionStateContextProvider } from "@src/context/ExtensionStateContext"
 
@@ -149,16 +149,33 @@ vi.mock("../DiffSettingsControl", () => ({
 
 // Mock ThinkingBudget component
 vi.mock("../ThinkingBudget", () => ({
-	ThinkingBudget: ({ modelInfo }: any) => {
-		// Only render if model supports reasoning budget (thinking models)
-		if (modelInfo?.supportsReasoningBudget || modelInfo?.requiredReasoningBudget) {
+	ThinkingBudget: ({ modelInfo, modelSettings, setModelSettingsFields }: any) => {
+		const isReasoningBudgetSupported = !!modelInfo?.supportsReasoningBudget
+		const isReasoningBudgetRequired = !!modelInfo?.requiredReasoningBudget
+		const isReasoningEffortSupported = !!modelInfo?.supportsReasoningEffort
+
+		if (isReasoningBudgetSupported || isReasoningBudgetRequired) {
+			return <div data-testid="reasoning-budget" />
+		}
+
+		if (isReasoningEffortSupported) {
 			return (
-				<div data-testid="reasoning-budget">
-					<div>Max Thinking Tokens</div>
-					<input type="range" min={1024} max={100000} step={1024} />
+				<div data-testid="reasoning-effort">
+					<select
+						value={modelSettings?.reasoningEffort}
+						onChange={(e) => {
+							setModelSettingsFields({
+								reasoningEffort: e.target.value,
+							})
+						}}>
+						<option value="low">low</option>
+						<option value="medium">medium</option>
+						<option value="high">high</option>
+					</select>
 				</div>
 			)
 		}
+
 		return null
 	},
 }))
@@ -188,7 +205,16 @@ vi.mock("../providers/LiteLLM", () => ({
 
 vi.mock("@src/components/ui/hooks/useSelectedModel", () => ({
 	useSelectedModel: vi.fn((apiConfiguration: ProviderSettings) => {
-		if (apiConfiguration.apiModelId?.includes("thinking")) {
+		if (apiConfiguration.apiProvider === "openai-native" && apiConfiguration.apiModelId === "o3") {
+			return {
+				provider: "openai-native",
+				id: "o3",
+				info: {
+					contextWindow: 200000,
+					supportsReasoningEffort: true,
+				},
+			}
+		} else if (apiConfiguration.apiModelId?.includes("thinking")) {
 			const info: ModelInfo = {
 				contextWindow: 4000,
 				maxTokens: 128000,
@@ -199,6 +225,7 @@ vi.mock("@src/components/ui/hooks/useSelectedModel", () => ({
 
 			return {
 				provider: apiConfiguration.apiProvider,
+				id: apiConfiguration.apiModelId,
 				info,
 			}
 		} else {
@@ -206,6 +233,7 @@ vi.mock("@src/components/ui/hooks/useSelectedModel", () => ({
 
 			return {
 				provider: apiConfiguration.apiProvider,
+				id: apiConfiguration.apiModelId,
 				info,
 			}
 		}
@@ -224,6 +252,7 @@ const renderApiOptions = (props: Partial<ApiOptionsProps> = {}) => {
 					uriScheme={undefined}
 					apiConfiguration={{}}
 					setApiConfigurationField={() => {}}
+					setApiConfiguration={() => {}}
 					{...props}
 				/>
 			</QueryClientProvider>
@@ -293,56 +322,15 @@ describe("ApiOptions", () => {
 	})
 
 	describe("OpenAI provider tests", () => {
-		it("removes reasoningEffort from openAiCustomModelInfo when unchecked", () => {
+		it("updates reasoningEffort in modelSettings when select value changes", () => {
 			const mockSetApiConfigurationField = vi.fn()
-			const initialConfig = {
-				apiProvider: "openai" as const,
-				enableReasoningEffort: true,
-				openAiCustomModelInfo: {
-					...openAiModelInfoSaneDefaults, // Start with defaults
-					reasoningEffort: "low" as const, // Set an initial value
-				},
-				// Add other necessary default fields for openai provider if needed
-			}
-
-			renderApiOptions({
-				apiConfiguration: initialConfig,
-				setApiConfigurationField: mockSetApiConfigurationField,
-			})
-
-			// Find the checkbox by its test ID instead of label text
-			// This is more reliable than using the label text which might be affected by translations
-			const checkbox =
-				screen.getByTestId("checkbox-input-settings:providers.setreasoninglevel") ||
-				screen.getByTestId("checkbox-input-set-reasoning-level")
-
-			// Simulate unchecking the checkbox
-			fireEvent.click(checkbox)
-
-			// 1. Check if enableReasoningEffort was set to false
-			expect(mockSetApiConfigurationField).toHaveBeenCalledWith("enableReasoningEffort", false)
-
-			// 2. Check if openAiCustomModelInfo was updated
-			const updateCall = mockSetApiConfigurationField.mock.calls.find(
-				(call) => call[0] === "openAiCustomModelInfo",
-			)
-			expect(updateCall).toBeDefined()
-
-			// 3. Check if reasoningEffort property is absent in the updated info
-			const updatedInfo = updateCall![1]
-			expect(updatedInfo).not.toHaveProperty("reasoningEffort")
-
-			// Optional: Check if other properties were preserved (example)
-			expect(updatedInfo).toHaveProperty("contextWindow", openAiModelInfoSaneDefaults.contextWindow)
-		})
-
-		it("does not render ReasoningEffort component when initially disabled", () => {
-			const mockSetApiConfigurationField = vi.fn()
-			const initialConfig = {
-				apiProvider: "openai" as const,
-				enableReasoningEffort: false, // Initially disabled
-				openAiCustomModelInfo: {
-					...openAiModelInfoSaneDefaults,
+			const initialConfig: ProviderSettings = {
+				apiProvider: "openai-native",
+				apiModelId: "o3",
+				modelSettings: {
+					"openai-native:o3": {
+						reasoningEffort: "low",
+					},
 				},
 			}
 
@@ -351,81 +339,28 @@ describe("ApiOptions", () => {
 				setApiConfigurationField: mockSetApiConfigurationField,
 			})
 
-			// Check that the ReasoningEffort select component is not rendered.
-			expect(screen.queryByTestId("reasoning-effort")).not.toBeInTheDocument()
-		})
-
-		it("renders ReasoningEffort component and sets flag when checkbox is checked", () => {
-			const mockSetApiConfigurationField = vi.fn()
-			const initialConfig = {
-				apiProvider: "openai" as const,
-				enableReasoningEffort: false, // Initially disabled
-				openAiCustomModelInfo: {
-					...openAiModelInfoSaneDefaults,
-				},
-			}
-
-			renderApiOptions({
-				apiConfiguration: initialConfig,
-				setApiConfigurationField: mockSetApiConfigurationField,
-			})
-
-			const checkbox = screen.getByTestId("checkbox-input-settings:providers.setreasoninglevel")
-
-			// Simulate checking the checkbox
-			fireEvent.click(checkbox)
-
-			// 1. Check if enableReasoningEffort was set to true
-			expect(mockSetApiConfigurationField).toHaveBeenCalledWith("enableReasoningEffort", true)
-
-			// We can't directly test the rendering of the ReasoningEffort component after the state change
-			// without a more complex setup involving state management mocks or re-rendering.
-			// However, we've tested the state update call.
-		})
-
-		it.skip("updates reasoningEffort in openAiCustomModelInfo when select value changes", () => {
-			const mockSetApiConfigurationField = vi.fn()
-			const initialConfig = {
-				apiProvider: "openai" as const,
-				enableReasoningEffort: true, // Initially enabled
-				openAiCustomModelInfo: {
-					...openAiModelInfoSaneDefaults,
-					reasoningEffort: "low" as const,
-				},
-			}
-
-			renderApiOptions({
-				apiConfiguration: initialConfig,
-				setApiConfigurationField: mockSetApiConfigurationField,
-			})
-
-			// Find the reasoning effort select among all comboboxes by its current value
-			// const allSelects = screen.getAllByRole("combobox") as HTMLSelectElement[]
-			// const reasoningSelect = allSelects.find(
-			// 	(el) => el.value === initialConfig.openAiCustomModelInfo.reasoningEffort,
-			// )
-			// expect(reasoningSelect).toBeDefined()
 			const selectContainer = screen.getByTestId("reasoning-effort")
 			expect(selectContainer).toBeInTheDocument()
 
-			console.log(selectContainer.querySelector("select")?.value)
+			const select = selectContainer.querySelector("select")
+			expect(select).toBeInTheDocument()
 
 			// Simulate changing the reasoning effort to 'high'
-			fireEvent.change(selectContainer.querySelector("select")!, { target: { value: "high" } })
+			fireEvent.change(select!, { target: { value: "high" } })
 
-			// Check if setApiConfigurationField was called correctly for openAiCustomModelInfo
-			expect(mockSetApiConfigurationField).toHaveBeenCalledWith(
-				"openAiCustomModelInfo",
-				expect.objectContaining({ reasoningEffort: "high" }),
-			)
-
-			// Check that other properties were preserved
-			expect(mockSetApiConfigurationField).toHaveBeenCalledWith(
-				"openAiCustomModelInfo",
-				expect.objectContaining({
-					contextWindow: openAiModelInfoSaneDefaults.contextWindow,
-				}),
-			)
+			// Check if setApiConfigurationField was called correctly for modelSettings
+			const lastCall = mockSetApiConfigurationField.mock.calls.pop()
+			expect(lastCall).toBeDefined()
+			if (lastCall) {
+				expect(lastCall[0]).toBe("modelSettings")
+				expect(lastCall[1]).toEqual(
+					expect.objectContaining({
+						"openai-native:o3": expect.objectContaining({
+							reasoningEffort: "high",
+						}),
+					}),
+				)
+			}
 		})
 	})
 

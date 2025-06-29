@@ -695,8 +695,12 @@ describe("VertexHandler", () => {
 			const handler = new AnthropicVertexHandler({
 				apiKey: "test-api-key",
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"vertex:claude-3-7-sonnet@20250219:thinking": {
+						modelMaxTokens: 32_768,
+						modelMaxThinkingTokens: 16_384,
+					},
+				},
 			})
 
 			const result = handler.getModel()
@@ -709,8 +713,9 @@ describe("VertexHandler", () => {
 			const handler = new AnthropicVertexHandler({
 				apiKey: "test-api-key",
 				apiModelId: "claude-3-7-sonnet@20250219",
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"vertex:claude-3-7-sonnet@20250219": { modelMaxTokens: 32_768, modelMaxThinkingTokens: 16_384 },
+				},
 			})
 
 			const result = handler.getModel()
@@ -726,8 +731,12 @@ describe("VertexHandler", () => {
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
 				vertexProjectId: "test-project",
 				vertexRegion: "us-central1",
-				modelMaxTokens: 16384,
-				modelMaxThinkingTokens: 4096,
+				modelSettings: {
+					"vertex:claude-3-7-sonnet@20250219:thinking": {
+						modelMaxTokens: 16384,
+						modelMaxThinkingTokens: 4096,
+					},
+				},
 			})
 
 			const modelInfo = thinkingHandler.getModel()
@@ -743,8 +752,12 @@ describe("VertexHandler", () => {
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
 				vertexProjectId: "test-project",
 				vertexRegion: "us-central1",
-				modelMaxTokens: 16384,
-				modelMaxThinkingTokens: 5000,
+				modelSettings: {
+					"vertex:claude-3-7-sonnet@20250219:thinking": {
+						modelMaxTokens: 16384,
+						modelMaxThinkingTokens: 5000,
+					},
+				},
 			})
 
 			expect(handlerWithBudget.getModel().reasoningBudget).toBe(5000)
@@ -754,7 +767,7 @@ describe("VertexHandler", () => {
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
 				vertexProjectId: "test-project",
 				vertexRegion: "us-central1",
-				modelMaxTokens: 10000,
+				modelSettings: { "vertex:claude-3-7-sonnet@20250219:thinking": { modelMaxTokens: 10000 } },
 			})
 
 			expect(handlerWithDefaultBudget.getModel().reasoningBudget).toBe(8000) // 80% of 10000
@@ -764,7 +777,7 @@ describe("VertexHandler", () => {
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
 				vertexProjectId: "test-project",
 				vertexRegion: "us-central1",
-				modelMaxTokens: 1000, // This would result in 800 tokens for thinking, but minimum is 1024
+				modelSettings: { "vertex:claude-3-7-sonnet@20250219:thinking": { modelMaxTokens: 1000 } }, // This would result in 800 tokens for thinking, but minimum is 1024
 			})
 
 			expect(handlerWithSmallMaxTokens.getModel().reasoningBudget).toBe(1024)
@@ -775,8 +788,12 @@ describe("VertexHandler", () => {
 				apiModelId: "claude-3-7-sonnet@20250219:thinking",
 				vertexProjectId: "test-project",
 				vertexRegion: "us-central1",
-				modelMaxTokens: 16384,
-				modelMaxThinkingTokens: 4096,
+				modelSettings: {
+					"vertex:claude-3-7-sonnet@20250219:thinking": {
+						modelMaxTokens: 16384,
+						modelMaxThinkingTokens: 4096,
+					},
+				},
 			})
 
 			const mockCreate = vitest.fn().mockImplementation(async (options) => {

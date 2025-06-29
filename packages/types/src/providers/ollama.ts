@@ -2,6 +2,7 @@ import type { ModelInfo } from "../model.js"
 
 // Ollama
 // https://ollama.com/models
+export const ollamaModels: Record<string, ModelInfo> = {}
 export const ollamaDefaultModelId = "devstral:24b"
 export const ollamaDefaultModelInfo: ModelInfo = {
 	maxTokens: 4096,

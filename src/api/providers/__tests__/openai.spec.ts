@@ -162,7 +162,7 @@ describe("OpenAiHandler", () => {
 		it("should include reasoning_effort when reasoning effort is enabled", async () => {
 			const reasoningOptions: ApiHandlerOptions = {
 				...mockOptions,
-				enableReasoningEffort: true,
+				modelSettings: { "openai:gpt-4": { enableReasoningEffort: true } },
 				openAiCustomModelInfo: {
 					contextWindow: 128_000,
 					supportsPromptCache: false,
@@ -184,7 +184,7 @@ describe("OpenAiHandler", () => {
 		it("should not include reasoning_effort when reasoning effort is disabled", async () => {
 			const noReasoningOptions: ApiHandlerOptions = {
 				...mockOptions,
-				enableReasoningEffort: false,
+				modelSettings: { "openai:gpt-4": { enableReasoningEffort: false } },
 				openAiCustomModelInfo: { contextWindow: 128_000, supportsPromptCache: false },
 			}
 			const noReasoningHandler = new OpenAiHandler(noReasoningOptions)
@@ -265,7 +265,7 @@ describe("OpenAiHandler", () => {
 			const optionsWithUserMaxTokens: ApiHandlerOptions = {
 				...mockOptions,
 				includeMaxTokens: true,
-				modelMaxTokens: 32000, // User-configured value
+				modelSettings: { "openai:gpt-4": { modelMaxTokens: 32000 } }, // User-configured value
 				openAiCustomModelInfo: {
 					contextWindow: 128_000,
 					maxTokens: 4096, // Model's default value (should not be used)
@@ -569,7 +569,7 @@ describe("OpenAiHandler", () => {
 			const o3Handler = new OpenAiHandler({
 				...o3Options,
 				includeMaxTokens: true,
-				modelMaxTokens: 32000,
+				modelSettings: { "openai:o3-mini": { modelMaxTokens: 32000 } },
 				modelTemperature: 0.5,
 			})
 			const systemPrompt = "You are a helpful assistant."

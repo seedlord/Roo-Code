@@ -26,6 +26,7 @@ export const providerProfilesSchema = z.object({
 			rateLimitSecondsMigrated: z.boolean().optional(),
 			diffSettingsMigrated: z.boolean().optional(),
 			openAiHeadersMigrated: z.boolean().optional(),
+			modelSettingsCompositeKeyMigrated: z.boolean().optional(),
 		})
 		.optional(),
 })
@@ -48,6 +49,7 @@ export class ProviderSettingsManager {
 			rateLimitSecondsMigrated: true, // Mark as migrated on fresh installs
 			diffSettingsMigrated: true, // Mark as migrated on fresh installs
 			openAiHeadersMigrated: true, // Mark as migrated on fresh installs
+			modelSettingsCompositeKeyMigrated: true, // Mark as migrated on fresh installs
 		},
 	}
 
@@ -101,7 +103,7 @@ export class ProviderSettingsManager {
 
 				// Ensure all configs have IDs.
 				for (const [_name, apiConfig] of Object.entries(providerProfiles.apiConfigs)) {
-					if (!apiConfig.id) {
+					if (typeof apiConfig === "object" && apiConfig !== null && !apiConfig.id) {
 						apiConfig.id = this.generateId()
 						isDirty = true
 					}
@@ -113,6 +115,7 @@ export class ProviderSettingsManager {
 						rateLimitSecondsMigrated: false,
 						diffSettingsMigrated: false,
 						openAiHeadersMigrated: false,
+						modelSettingsCompositeKeyMigrated: false,
 					} // Initialize with default values
 					isDirty = true
 				}
@@ -132,6 +135,12 @@ export class ProviderSettingsManager {
 				if (!providerProfiles.migrations.openAiHeadersMigrated) {
 					await this.migrateOpenAiHeaders(providerProfiles)
 					providerProfiles.migrations.openAiHeadersMigrated = true
+					isDirty = true
+				}
+
+				if (providerProfiles.migrations.modelSettingsCompositeKeyMigrated !== true) {
+					await this.migrateModelSettingsKeys(providerProfiles)
+					providerProfiles.migrations.modelSettingsCompositeKeyMigrated = true
 					isDirty = true
 				}
 
@@ -225,6 +234,68 @@ export class ProviderSettingsManager {
 			}
 		} catch (error) {
 			console.error(`[MigrateOpenAiHeaders] Failed to migrate OpenAI headers:`, error)
+		}
+	}
+
+	private async migrateModelSettingsKeys(providerProfiles: ProviderProfiles) {
+		try {
+			for (const [, apiConfig] of Object.entries(providerProfiles.apiConfigs)) {
+				// Step 1: Migrate top-level settings into the nested modelSettings structure.
+				const configAny = apiConfig as any
+				const modelId = configAny.apiModelId
+				const provider = configAny.apiProvider
+
+				if (provider && modelId) {
+					const modelSettingsKey = `${provider}:${modelId}`
+					const topLevelSettings: Record<string, unknown> = {}
+
+					if (configAny.modelMaxTokens !== undefined) {
+						topLevelSettings.modelMaxTokens = configAny.modelMaxTokens
+						// Remove the old key to prevent re-migration
+						// delete configAny.modelMaxTokens
+					}
+					if (configAny.modelMaxThinkingTokens !== undefined) {
+						topLevelSettings.modelMaxThinkingTokens = configAny.modelMaxThinkingTokens
+						// delete configAny.modelMaxThinkingTokens
+					}
+					if (configAny.enableReasoningEffort !== undefined) {
+						topLevelSettings.enableReasoningEffort = configAny.enableReasoningEffort
+						// delete configAny.enableReasoningEffort
+					}
+					if (configAny.reasoningEffort !== undefined) {
+						topLevelSettings.reasoningEffort = configAny.reasoningEffort
+						// delete configAny.reasoningEffort
+					}
+
+					if (Object.keys(topLevelSettings).length > 0) {
+						if (!apiConfig.modelSettings) {
+							apiConfig.modelSettings = {}
+						}
+						// Merge with existing settings, giving precedence to the new structure if keys conflict.
+						apiConfig.modelSettings[modelSettingsKey] = {
+							...topLevelSettings,
+							...(apiConfig.modelSettings[modelSettingsKey] ?? {}),
+						}
+					}
+				}
+
+				// Step 2: Ensure all keys in modelSettings are in the new composite format.
+				if (apiConfig.modelSettings && apiConfig.apiProvider) {
+					const newModelSettings: typeof apiConfig.modelSettings = {}
+					for (const [key, settings] of Object.entries(apiConfig.modelSettings)) {
+						if (key.includes(":")) {
+							newModelSettings[key] = settings
+						} else {
+							// Convert old modelId-only key to the new format.
+							const newKey = `${apiConfig.apiProvider}:${key}`
+							newModelSettings[newKey] = settings
+						}
+					}
+					apiConfig.modelSettings = newModelSettings
+				}
+			}
+		} catch (error) {
+			console.error(`[MigrateModelSettingsKeys] Failed to migrate model settings keys:`, error)
 		}
 	}
 
@@ -453,9 +524,15 @@ export class ProviderSettingsManager {
 				})
 				.parse(JSON.parse(content))
 
+			// If a migration is pending, don't clean the config yet.
+			// The migration logic needs the old fields to be present.
+			if (providerProfiles.migrations?.modelSettingsCompositeKeyMigrated !== true) {
+				return providerProfiles as ProviderProfiles
+			}
+
 			const apiConfigs = Object.entries(providerProfiles.apiConfigs).reduce(
 				(acc, [key, apiConfig]) => {
-					const result = providerSettingsWithIdSchema.safeParse(apiConfig)
+					const result = discriminatedProviderSettingsWithIdSchema.safeParse(apiConfig)
 					return result.success ? { ...acc, [key]: result.data } : acc
 				},
 				{} as Record<string, ProviderSettingsWithId>,

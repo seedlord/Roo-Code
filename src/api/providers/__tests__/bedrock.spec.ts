@@ -532,18 +532,23 @@ describe("AwsBedrockHandler", () => {
 
 		it("should handle model configuration overrides correctly", () => {
 			const handler = new AwsBedrockHandler({
+				apiProvider: "bedrock",
 				apiModelId: "anthropic.claude-3-5-sonnet-20241022-v2:0",
 				awsAccessKey: "test",
 				awsSecretKey: "test",
 				awsRegion: "us-east-1",
-				modelMaxTokens: 4096,
+				modelSettings: {
+					"bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0": {
+						modelMaxTokens: 4096,
+					},
+				},
 				awsModelContextWindow: 100_000,
 			})
 
 			const model = handler.getModel()
 
 			// Should use override values
-			expect(model.info.maxTokens).toBe(4096)
+			expect(model.maxTokens).toBe(4096)
 			expect(model.info.contextWindow).toBe(100_000)
 		})
 

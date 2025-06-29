@@ -44,9 +44,13 @@ describe("AwsBedrockHandler - Extended Thinking", () => {
 				apiProvider: "bedrock",
 				apiModelId: "anthropic.claude-sonnet-4-20250514-v1:0",
 				awsRegion: "us-east-1",
-				enableReasoningEffort: true,
-				modelMaxTokens: 8192,
-				modelMaxThinkingTokens: 4096,
+				modelSettings: {
+					"bedrock:anthropic.claude-sonnet-4-20250514-v1:0": {
+						enableReasoningEffort: true,
+						modelMaxTokens: 8192,
+						modelMaxThinkingTokens: 4096,
+					},
+				},
 			})
 
 			// Mock the stream response
@@ -155,8 +159,12 @@ describe("AwsBedrockHandler - Extended Thinking", () => {
 				apiProvider: "bedrock",
 				apiModelId: "anthropic.claude-opus-4-20250514-v1:0",
 				awsRegion: "us-east-1",
-				enableReasoningEffort: true,
-				modelMaxThinkingTokens: 5000,
+				modelSettings: {
+					"bedrock:anthropic.claude-opus-4-20250514-v1:0": {
+						enableReasoningEffort: true,
+						modelMaxThinkingTokens: 5000,
+					},
+				},
 			})
 
 			mockSend.mockResolvedValue({
@@ -230,8 +238,12 @@ describe("AwsBedrockHandler - Extended Thinking", () => {
 				apiProvider: "bedrock",
 				apiModelId: "anthropic.claude-sonnet-4-20250514-v1:0",
 				awsRegion: "us-east-1",
-				enableReasoningEffort: true, // This should trigger reasoning
-				modelMaxThinkingTokens: 4096,
+				modelSettings: {
+					"bedrock:anthropic.claude-sonnet-4-20250514-v1:0": {
+						enableReasoningEffort: true,
+						modelMaxThinkingTokens: 4096,
+					},
+				}, // This should trigger reasoning
 			})
 
 			mockSend.mockResolvedValue({

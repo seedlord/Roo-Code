@@ -240,7 +240,7 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 			format: "anthropic",
 			modelId: id,
 			model: info,
-			settings: this.options,
+			settings: { ...this.options, apiProvider: "anthropic" },
 		})
 
 		// The `:thinking` suffix indicates that the model is a "Hybrid"

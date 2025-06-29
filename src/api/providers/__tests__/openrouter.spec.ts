@@ -91,8 +91,12 @@ describe("OpenRouterHandler", () => {
 			const handler = new OpenRouterHandler({
 				openRouterApiKey: "test-key",
 				openRouterModelId: "anthropic/claude-3.7-sonnet:thinking",
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"openrouter:anthropic/claude-3.7-sonnet:thinking": {
+						modelMaxTokens: 32_768,
+						modelMaxThinkingTokens: 16_384,
+					},
+				},
 			})
 
 			const result = await handler.fetchModel()
@@ -104,8 +108,12 @@ describe("OpenRouterHandler", () => {
 		it("does not honor custom maxTokens for non-thinking models", async () => {
 			const handler = new OpenRouterHandler({
 				...mockOptions,
-				modelMaxTokens: 32_768,
-				modelMaxThinkingTokens: 16_384,
+				modelSettings: {
+					"openrouter:anthropic/claude-sonnet-4": {
+						modelMaxTokens: 32_768,
+						modelMaxThinkingTokens: 16_384,
+					},
+				},
 			})
 
 			const result = await handler.fetchModel()

@@ -103,7 +103,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const { t } = useAppTranslation()
 
 	const extensionState = useExtensionState()
-	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt } = extensionState
+	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt, setIsAwaitingConfigurationUpdate } =
+		extensionState
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
@@ -217,6 +218,28 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				}
 
 				setChangeDetected(true)
+				return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
+			})
+		},
+		[],
+	)
+
+	const setApiConfiguration = useCallback((config: ProviderSettings) => {
+		setCachedState((prevState) => {
+			if (prevState.apiConfiguration === config) {
+				return prevState
+			}
+			setChangeDetected(true)
+			return { ...prevState, apiConfiguration: config }
+		})
+	}, [])
+
+	const initializeApiConfigurationField = useCallback(
+		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
+			setCachedState((prevState) => {
+				if (prevState.apiConfiguration?.[field] === value) {
+					return prevState
+				}
 				return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
 			})
 		},
@@ -549,9 +572,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 									currentApiConfigName={currentApiConfigName}
 									listApiConfigMeta={listApiConfigMeta}
 									onSelectConfig={(configName: string) =>
-										checkUnsaveChanges(() =>
-											vscode.postMessage({ type: "loadApiConfiguration", text: configName }),
-										)
+										checkUnsaveChanges(() => {
+											setIsAwaitingConfigurationUpdate(true)
+											vscode.postMessage({ type: "loadApiConfiguration", text: configName })
+										})
 									}
 									onDeleteConfig={(configName: string) =>
 										vscode.postMessage({ type: "deleteApiConfiguration", text: configName })
@@ -576,8 +600,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 									uriScheme={uriScheme}
 									apiConfiguration={apiConfiguration}
 									setApiConfigurationField={setApiConfigurationField}
+									setApiConfiguration={setApiConfiguration}
 									errorMessage={errorMessage}
 									setErrorMessage={setErrorMessage}
+									initializeApiConfigurationField={initializeApiConfigurationField}
 								/>
 							</Section>
 						</div>
