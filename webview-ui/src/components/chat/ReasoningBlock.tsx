@@ -54,35 +54,92 @@ export const ReasoningBlock = ({
 	const queueRef = useRef<string[]>([])
 
 	// Timer logic
-	const [displayTime, setDisplayTime] = useState(durationMs || 0)
-	const [displayRate, setDisplayRate] = useState(thinkingTokensPerSecond || 0)
-	const isThinking = typeof startTimeTs === "number" && startTimeTs > 0
+	const startTimeRef = useRef<number | null>(null)
+	const [liveTime, setLiveTime] = useState(0)
+	const [liveRate, setLiveRate] = useState(0)
+	const liveRateRef = useRef(0)
+	const [liveContentLength, setLiveContentLength] = useState(0)
+	const [animatedContentLength, setAnimatedContentLength] = useState(0)
+	const [isFinal, setIsFinal] = useState(false)
+	const lastMetrics = useRef({ time: 0, rate: 0, contentLength: 0 })
 
+	// Effect to manage the timer and final state
 	useEffect(() => {
-		// If a final duration is provided, it's the source of truth.
-		if (durationMs) {
-			setDisplayTime(durationMs)
+		if (startTimeTs) {
+			if (startTimeRef.current === null) {
+				startTimeRef.current = Date.now()
+			}
+			setIsFinal(false) // Reset final state if we start thinking again
+		} else {
+			// If we were thinking and now we are not, finalize the state.
+			if (startTimeRef.current !== null) {
+				setIsFinal(true)
+			}
 		}
-		if (thinkingTokensPerSecond) {
-			setDisplayRate(thinkingTokensPerSecond)
-		}
-		// If we are not thinking and have no final duration, do nothing.
-		// This will keep the last `displayTime` from the live timer on screen.
-	}, [durationMs, thinkingTokensPerSecond])
+	}, [startTimeTs])
 
+	// Fast interval for updating the live timer and rate.
 	useInterval(
 		() => {
-			// This runs every 100ms, independent of parent re-renders.
-			if (isThinking) {
-				const elapsed = Date.now() - startTimeTs
-				setDisplayTime(elapsed)
-				if (elapsed > 0) {
-					setDisplayRate(content.length / (elapsed / 1000))
+			if (startTimeTs && !isFinal && startTimeRef.current) {
+				const elapsedTime = Date.now() - startTimeRef.current
+				setLiveTime(elapsedTime)
+
+				// Update rate calculation within the same interval tick
+				if (elapsedTime > 0) {
+					const newRate = content.length / (elapsedTime / 1000)
+					setLiveRate(newRate)
+					liveRateRef.current = newRate
+					setLiveContentLength(content.length)
+				}
+
+				// Animate the content length based on the live rate
+				if (liveRateRef.current > 0) {
+					const newAnimatedLength = Math.floor((elapsedTime / 1000) * liveRateRef.current)
+					setAnimatedContentLength(newAnimatedLength)
+				} else if (content.length > 0) {
+					// If rate is not yet calculated but we have content, start animating towards it
+					setAnimatedContentLength((prev) => {
+						if (prev < content.length) {
+							const diff = content.length - prev
+							const step = Math.max(1, Math.ceil(diff / 5))
+							return prev + step
+						}
+						return content.length
+					})
 				}
 			}
 		},
-		isThinking ? 100 : null, // Only run the interval when thinking.
+		startTimeTs && !isFinal ? 100 : null,
 	)
+
+	// Store the last known metrics before the thinking process ends to prevent flickering.
+	if (startTimeTs && !isFinal) {
+		lastMetrics.current = {
+			time: liveTime,
+			rate: liveRate,
+			contentLength: liveContentLength,
+		}
+	}
+
+	// Determine the final values to display.
+	const hasStreamed = startTimeRef.current !== null
+	const displayTime =
+		startTimeTs && !isFinal
+			? liveTime
+			: hasStreamed
+				? lastMetrics.current.time
+				: (durationMs ?? lastMetrics.current.time)
+	const displayRate =
+		startTimeTs && !isFinal
+			? liveRate
+			: hasStreamed
+				? lastMetrics.current.rate
+				: (thinkingTokensPerSecond ?? lastMetrics.current.rate)
+	const displayContentLength =
+		startTimeTs && !isFinal
+			? Math.min(animatedContentLength, modelMaxThinkingTokens ?? Infinity)
+			: content.length || lastMetrics.current.contentLength
 
 	useEffect(() => {
 		if (contentRef.current && !isCollapsed) {
@@ -140,9 +197,9 @@ export const ReasoningBlock = ({
 						<div className="flex flex-row items-center">
 							<div className="flex flex-col items-end text-xs">
 								{modelMaxThinkingTokens && (
-									<div className="text-muted-foreground">{`${content.length}/${modelMaxThinkingTokens}`}</div>
+									<div className="text-muted-foreground">{`${displayContentLength}/${modelMaxThinkingTokens}`}</div>
 								)}
-								{displayRate > 0 && (
+								{displayTime > 0 && (
 									<div>
 										{t("reasoning.tokens_per_second", {
 											rate: displayRate.toFixed(1),

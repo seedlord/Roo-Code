@@ -28,6 +28,7 @@ import { buildDocLink } from "@src/utils/docLinks"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
+import { getModelSettingsKey } from "@src/utils/settings"
 import RooHero from "@src/components/welcome/RooHero"
 import RooTips from "@src/components/welcome/RooTips"
 import { StandardTooltip } from "@src/components/ui"
@@ -641,7 +642,10 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	const handleTaskCloseButtonClick = useCallback(() => startNewTask(), [startNewTask])
 
-	const { info: model } = useSelectedModel(apiConfiguration)
+	const { info: model, id: modelId, provider } = useSelectedModel(apiConfiguration)
+	const modelSettingsKey = getModelSettingsKey(provider, modelId)
+	const modelSettings = modelSettingsKey ? apiConfiguration?.modelSettings?.[modelSettingsKey] : undefined
+	const modelMaxThinkingTokens = modelSettings?.modelMaxThinkingTokens
 
 	const selectImages = useCallback(() => vscode.postMessage({ type: "selectImages" }), [])
 
@@ -1241,6 +1245,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					isStreaming={isStreaming}
 					onSuggestionClick={handleSuggestionClickInRow} // This was already stabilized
 					onBatchFileResponse={handleBatchFileResponse}
+					modelMaxThinkingTokens={modelMaxThinkingTokens}
 				/>
 			)
 		},
@@ -1253,6 +1258,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			isStreaming,
 			handleSuggestionClickInRow,
 			handleBatchFileResponse,
+			modelMaxThinkingTokens,
 		],
 	)
 
