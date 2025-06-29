@@ -49,6 +49,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	profileThresholds: Record<string, number>
 	setProfileThresholds: (value: Record<string, number>) => void
 	setApiConfiguration: (config: ProviderSettings) => void
+	isAwaitingConfigurationUpdate: boolean
+	setIsAwaitingConfigurationUpdate: (value: boolean) => void
 	setCustomInstructions: (value?: string) => void
 	setAlwaysAllowReadOnly: (value: boolean) => void
 	setAlwaysAllowReadOnlyOutsideWorkspace: (value: boolean) => void
@@ -230,6 +232,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		project: {},
 		global: {},
 	})
+	const [isAwaitingConfigurationUpdate, setIsAwaitingConfigurationUpdate] = useState(false)
 
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
@@ -255,6 +258,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					setState((prevState) => mergeExtensionState(prevState, newState))
 					setShowWelcome(!checkExistKey(newState.apiConfiguration))
 					setDidHydrateState(true)
+					setIsAwaitingConfigurationUpdate(false)
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
 						setMarketplaceItems(newState.marketplaceItems)
@@ -352,6 +356,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		marketplaceItems,
 		marketplaceInstalledMetadata,
 		profileThresholds: state.profileThresholds ?? {},
+		isAwaitingConfigurationUpdate,
+		setIsAwaitingConfigurationUpdate,
 		setExperimentEnabled: (id, enabled) =>
 			setState((prevState) => ({ ...prevState, experiments: { ...prevState.experiments, [id]: enabled } })),
 		setApiConfiguration,

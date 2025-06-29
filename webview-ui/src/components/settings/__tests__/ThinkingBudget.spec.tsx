@@ -30,8 +30,10 @@ describe("ThinkingBudget", () => {
 	}
 
 	const defaultProps = {
-		apiConfiguration: {},
-		setApiConfigurationField: vi.fn(),
+		apiProvider: "openai" as const,
+		apiModelId: "gpt-4",
+		modelSettings: {},
+		setModelSettingsFields: vi.fn(),
 		modelInfo: mockModelInfo,
 	}
 
@@ -45,85 +47,69 @@ describe("ThinkingBudget", () => {
 				{...defaultProps}
 				modelInfo={{
 					...mockModelInfo,
-					maxTokens: 16384,
-					contextWindow: 200000,
-					supportsPromptCache: true,
-					supportsImages: true,
 					supportsReasoningBudget: false,
 				}}
 			/>,
 		)
-
 		expect(container.firstChild).toBeNull()
 	})
 
 	it("should render sliders when model supports thinking", () => {
 		render(<ThinkingBudget {...defaultProps} />)
-
 		expect(screen.getAllByTestId("slider")).toHaveLength(2)
 	})
 
 	it("should update modelMaxThinkingTokens", () => {
-		const setApiConfigurationField = vi.fn()
-
+		const setModelSettingsFields = vi.fn()
 		render(
 			<ThinkingBudget
 				{...defaultProps}
-				apiConfiguration={{ modelMaxThinkingTokens: 4096 }}
-				setApiConfigurationField={setApiConfigurationField}
+				modelSettings={{ modelMaxThinkingTokens: 4096 }}
+				setModelSettingsFields={setModelSettingsFields}
 			/>,
 		)
-
 		const sliders = screen.getAllByTestId("slider")
 		fireEvent.change(sliders[1], { target: { value: "5000" } })
-
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxThinkingTokens", 5000)
+		expect(setModelSettingsFields).toHaveBeenCalledWith({ modelMaxThinkingTokens: 5000 })
 	})
 
 	it("should cap thinking tokens at 80% of max tokens", () => {
-		const setApiConfigurationField = vi.fn()
-
+		const setModelSettingsFields = vi.fn()
 		render(
 			<ThinkingBudget
 				{...defaultProps}
-				apiConfiguration={{ modelMaxTokens: 10000, modelMaxThinkingTokens: 9000 }}
-				setApiConfigurationField={setApiConfigurationField}
+				modelSettings={{ modelMaxTokens: 10000, modelMaxThinkingTokens: 9000 }}
+				setModelSettingsFields={setModelSettingsFields}
 			/>,
 		)
-
 		// Effect should trigger and cap the value
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxThinkingTokens", 8000) // 80% of 10000
+		expect(setModelSettingsFields).toHaveBeenCalledWith({ modelMaxThinkingTokens: 8000 }) // 80% of 10000
 	})
 
 	it("should use default thinking tokens if not provided", () => {
-		render(<ThinkingBudget {...defaultProps} apiConfiguration={{ modelMaxTokens: 10000 }} />)
-
-		// Default is 80% of max tokens, capped at 8192
+		render(<ThinkingBudget {...defaultProps} modelSettings={{ modelMaxTokens: 10000 }} />)
 		const sliders = screen.getAllByTestId("slider")
-		expect(sliders[1]).toHaveValue("8000") // 80% of 10000
+		// Default thinking tokens is 8192, but it's capped by 80% of max tokens
+		expect(sliders[1]).toHaveValue("8000")
 	})
 
 	it("should use min thinking tokens of 1024", () => {
-		render(<ThinkingBudget {...defaultProps} apiConfiguration={{ modelMaxTokens: 1000 }} />)
-
+		render(<ThinkingBudget {...defaultProps} modelSettings={{ modelMaxTokens: 1000 }} />)
 		const sliders = screen.getAllByTestId("slider")
 		expect(sliders[1].getAttribute("min")).toBe("1024")
 	})
 
 	it("should update max tokens when slider changes", () => {
-		const setApiConfigurationField = vi.fn()
-
+		const setModelSettingsFields = vi.fn()
 		render(
 			<ThinkingBudget
 				{...defaultProps}
-				apiConfiguration={{ modelMaxTokens: 10000 }}
-				setApiConfigurationField={setApiConfigurationField}
+				modelSettings={{ modelMaxTokens: 10000 }}
+				setModelSettingsFields={setModelSettingsFields}
 			/>,
 		)
-
 		const sliders = screen.getAllByTestId("slider")
 		fireEvent.change(sliders[0], { target: { value: "12000" } })
-
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxTokens", 12000)
+		expect(setModelSettingsFields).toHaveBeenCalledWith({ modelMaxTokens: 12000 })
 	})
 })
