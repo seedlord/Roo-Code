@@ -1745,27 +1745,14 @@ describe("ClineProvider", () => {
 			expect(mockPostMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "state" }))
 		})
 
-		test("handles buildApiHandler error in updateApiConfiguration", async () => {
+		test("handles saveConfig error in upsertProviderProfile", async () => {
 			await provider.resolveWebviewView(mockWebviewView)
 			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as any).mock.calls[0][0]
 
-			// Mock buildApiHandler to throw an error
-			const { buildApiHandler } = await import("../../../api")
-
-			;(buildApiHandler as any).mockImplementationOnce(() => {
-				throw new Error("API handler error")
-			})
+			// Mock providerSettingsManager.saveConfig to throw an error
 			;(provider as any).providerSettingsManager = {
-				setModeConfig: vi.fn(),
-				saveConfig: vi.fn().mockResolvedValue(undefined),
-				listConfig: vi
-					.fn()
-					.mockResolvedValue([{ name: "test-config", id: "test-id", apiProvider: "anthropic" }]),
+				saveConfig: vi.fn().mockRejectedValue(new Error("Failed to save config")),
 			} as any
-
-			// Setup Task instance with auto-mock from the top of the file
-			const mockCline = new Task(defaultTaskOptions) // Create a new mocked instance
-			await provider.addClineToStack(mockCline)
 
 			const testApiConfig = {
 				apiProvider: "anthropic" as const,
@@ -1784,12 +1771,6 @@ describe("ClineProvider", () => {
 				expect.stringContaining("Error create new api configuration"),
 			)
 			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith("errors.create_api_config")
-
-			// Verify state was still updated
-			expect(mockContext.globalState.update).toHaveBeenCalledWith("listApiConfigMeta", [
-				{ name: "test-config", id: "test-id", apiProvider: "anthropic" },
-			])
-			expect(mockContext.globalState.update).toHaveBeenCalledWith("currentApiConfigName", "test-config")
 		})
 
 		test("handles successful saveApiConfiguration", async () => {

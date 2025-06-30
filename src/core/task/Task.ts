@@ -86,6 +86,7 @@ import { processUserContentMentions } from "../mentions/processUserContentMentio
 import { ApiMessage } from "../task-persistence/apiMessages"
 import { getMessagesSinceLastSummary, summarizeConversation } from "../condense"
 import { maybeRemoveImageBlocks } from "../../api/transform/image-cleaning"
+import { ApiManager } from "../../api/ApiManager"
 
 // Constants
 const MAX_EXPONENTIAL_BACKOFF_SECONDS = 600 // 10 minutes
@@ -1720,7 +1721,9 @@ export class Task extends EventEmitter<ClineEvents> {
 
 			const contextWindow = modelInfo.contextWindow
 
-			const currentProfileId = state?.listApiConfigMeta.find((profile) => profile.name === state?.currentApiConfigName)?.id ?? "default";
+			const currentProfileId =
+				state?.listApiConfigMeta.find((profile) => profile.name === state?.currentApiConfigName)?.id ??
+				"default"
 
 			const truncateResult = await truncateConversationIfNeeded({
 				messages: this.apiConversationHistory,
@@ -1929,5 +1932,22 @@ export class Task extends EventEmitter<ClineEvents> {
 
 	public get cwd() {
 		return this.workspacePath
+	}
+
+	private async getApiHandler(): Promise<ApiHandler> {
+		const provider = this.providerRef.deref()
+		if (!provider) {
+			throw new Error("Provider reference has been lost")
+		}
+		// Get the active profile for the current mode to ensure we use the correct handler.
+		const state = provider.getValues()
+		const activeProfile = state.listApiConfigMeta?.find((p) => p.name === state.currentApiConfigName)
+
+		if (!activeProfile?.id) {
+			// Fallback or error handling if no active profile is found
+			throw new Error("Could not determine active API profile.")
+		}
+
+		return ApiManager.getInstance().getHandler(activeProfile.id)
 	}
 }

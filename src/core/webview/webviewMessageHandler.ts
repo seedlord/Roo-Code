@@ -43,6 +43,7 @@ import { getCommand } from "../../utils/commands"
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
 
 import { MarketplaceManager, MarketplaceItemType } from "../../services/marketplace"
+import { ApiManager } from "../../api/ApiManager"
 
 export const webviewMessageHandler = async (
 	provider: ClineProvider,
@@ -1294,7 +1295,11 @@ export const webviewMessageHandler = async (
 		case "saveApiConfiguration":
 			if (message.text && message.apiConfiguration) {
 				try {
-					await provider.providerSettingsManager.saveConfig(message.text, message.apiConfiguration)
+					const profileId = await provider.providerSettingsManager.saveConfig(
+						message.text,
+						message.apiConfiguration,
+					)
+					ApiManager.getInstance().updateConfiguration(profileId, message.apiConfiguration)
 					const listApiConfig = await provider.providerSettingsManager.listConfig()
 					await updateGlobalState("listApiConfigMeta", listApiConfig)
 				} catch (error) {
@@ -1307,7 +1312,10 @@ export const webviewMessageHandler = async (
 			break
 		case "upsertApiConfiguration":
 			if (message.text && message.apiConfiguration) {
-				await provider.upsertProviderProfile(message.text, message.apiConfiguration)
+				const profileId = await provider.upsertProviderProfile(message.text, message.apiConfiguration)
+				if (profileId) {
+					ApiManager.getInstance().updateConfiguration(profileId, message.apiConfiguration)
+				}
 			}
 			break
 		case "renameApiConfiguration":

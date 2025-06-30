@@ -69,6 +69,7 @@ import { WebviewMessage } from "../../shared/WebviewMessage"
 import { EMBEDDING_MODEL_PROFILES } from "../../shared/embeddingModels"
 import { ProfileValidator } from "../../shared/ProfileValidator"
 import { getWorkspaceGitInfo } from "../../utils/git"
+import { ApiManager } from "../../api/ApiManager"
 
 /**
  * https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -889,12 +890,9 @@ export class ClineProvider
 					await this.codeIndexManager.handleExternalSettingsChange()
 				}
 
-				// Change the provider for the current task.
-				// TODO: We should rename `buildApiHandler` for clarity (e.g. `getProviderClient`).
-				const task = this.getCurrentCline()
-
-				if (task) {
-					task.api = buildApiHandler(providerSettings)
+				// Invalidate the handler in the ApiManager to force a refresh on next use.
+				if (id) {
+					ApiManager.getInstance().updateConfiguration(id, providerSettings)
 				}
 			} else {
 				await this.updateGlobalState("listApiConfigMeta", await this.providerSettingsManager.listConfig())
@@ -951,11 +949,9 @@ export class ClineProvider
 			await this.providerSettingsManager.setModeConfig(mode, id)
 		}
 
-		// Change the provider for the current task.
-		const task = this.getCurrentCline()
-
-		if (task) {
-			task.api = buildApiHandler(providerSettings)
+		// Invalidate the handler in the ApiManager to force a refresh on next use.
+		if (id) {
+			ApiManager.getInstance().updateConfiguration(id, providerSettings)
 		}
 
 		await this.postStateToWebview()
