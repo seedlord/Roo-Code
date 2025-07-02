@@ -12,6 +12,7 @@ import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
 import TaskItemHeader from "./TaskItemHeader"
 import TaskItemFooter from "./TaskItemFooter"
+import { Mention } from "../chat/Mention"
 
 interface DisplayHistoryItem extends HistoryItem {
 	highlight?: string
@@ -105,24 +106,29 @@ const TaskItem = ({
 					/>
 
 					{/* Task content and expanded details */}
-					<div className="mt-1 flex flex-col pr-1.75">
+					<div className="mt-1 flex flex-col">
 						<div className="cursor-pointer" onClick={(e) => toggleTimelineVisibility(e)}>
 							<div
 								className={cn(
 									"text-vscode-font-size",
 									!currentExpandedState && "text-vscode-foreground/80",
 								)}>
-								<div className="flex items-start min-w-0 whitespace-pre-wrap break-word text-ellipsis">
+								<div className="flex items-start text-vscode-font-size overflow-y-auto break-words break-anywhere relative">
 									<div className="line-clamp-3">
 										<span
 											className={`codicon codicon-chevron-${
 												currentExpandedState ? "down" : "right"
-											} relative top-0.75 ml-[-2px]`}></span>
+											} relative top-0.75 ml-[-4px]`}></span>
 										<span className="font-bold ml-1.5">
 											{t("history:task.title", { defaultValue: "Task" })}
 											{!currentExpandedState && ":"}
 										</span>
-										{!currentExpandedState && <span className="font-normal"> {item.task}</span>}
+										{!currentExpandedState && (
+											<span className="font-normal">
+												{" "}
+												<Mention text={item.task} />
+											</span>
+										)}
 									</div>
 								</div>
 							</div>
@@ -132,7 +138,7 @@ const TaskItem = ({
 								<div className="min-w-0">
 									{taskHistory ? (
 										<>
-											<div className="mb-3">
+											<div className="mb-2">
 												<TaskTimeline
 													messages={taskHistory}
 													onBlockClick={(messageTs) => {
@@ -145,21 +151,20 @@ const TaskItem = ({
 												/>
 											</div>
 											<div
-												className="whitespace-pre-wrap text-vscode-foreground text-ellipsis break-word max-h-80 overflow-y-auto text-vscode-font-size"
-												data-testid="task-content-expanded"
-												{...(item.highlight
-													? { dangerouslySetInnerHTML: { __html: item.highlight } }
-													: {})}>
-												{item.highlight ? undefined : item.task}
+												className="min-w-0 text-vscode-font-size max-h-80 overflow-y-auto break-words break-anywhere relative"
+												data-testid="task-content-expanded">
+												{item.highlight ? (
+													<div dangerouslySetInnerHTML={{ __html: item.highlight }} />
+												) : (
+													<Mention text={item.task} />
+												)}
 											</div>
-											<div className="flex justify-between items-end mt-2 text-xs text-vscode-descriptionForeground">
+											<div className="flex justify-between items-end mt-2 text-vscode-foreground">
 												{/* Details Section */}
 												<div className="flex flex-col gap-1">
 													{/* Tokens */}
-													<div className="flex items-center gap-1 flex-wrap">
-														<span className="font-bold">
-															{t("history:task.tokens", { defaultValue: "Tokens" })}
-														</span>
+													<div className="flex items-center gap-1 flex-wrap h-[20px]">
+														<span className="font-bold">{t("chat:task.tokens")}</span>
 														{typeof item.tokensIn === "number" && item.tokensIn > 0 && (
 															<span className="flex items-center gap-0.5">
 																<i className="codicon codicon-arrow-up text-xs font-bold" />
@@ -177,21 +182,19 @@ const TaskItem = ({
 													{((typeof item.cacheReads === "number" && item.cacheReads > 0) ||
 														(typeof item.cacheWrites === "number" &&
 															item.cacheWrites > 0)) && (
-														<div className="flex items-center gap-1 flex-wrap">
-															<span className="font-bold">
-																{t("history:task.cache", { defaultValue: "Cache" })}
-															</span>
+														<div className="flex items-center gap-1 flex-wrap h-[20px]">
+															<span className="font-bold">{t("chat:task.cache")}</span>
 															{typeof item.cacheWrites === "number" &&
 																item.cacheWrites > 0 && (
 																	<span className="flex items-center gap-0.5">
-																		<CloudUpload size={12} />
+																		<CloudUpload size={16} />
 																		{formatLargeNumber(item.cacheWrites)}
 																	</span>
 																)}
 															{typeof item.cacheReads === "number" &&
 																item.cacheReads > 0 && (
 																	<span className="flex items-center gap-0.5">
-																		<CloudDownload size={12} />
+																		<CloudDownload size={16} />
 																		{formatLargeNumber(item.cacheReads)}
 																	</span>
 																)}
@@ -199,19 +202,15 @@ const TaskItem = ({
 													)}
 													{/* Cost */}
 													{!!item.totalCost && (
-														<div className="flex items-center gap-1">
-															<span className="font-bold">
-																{t("history:task.apiCost", {
-																	defaultValue: "API Cost",
-																})}
-															</span>
+														<div className="flex items-center gap-1 h-[20px]">
+															<span className="font-bold">{t("chat:task.apiCost")}</span>
 															<span>${item.totalCost?.toFixed(2)}</span>
 														</div>
 													)}
 												</div>
 
 												{/* Action Buttons Section */}
-												<div className="flex flex-row gap-0 items-center opacity-50 hover:opacity-100">
+												<div className="flex flex-row gap-0 items-center opacity-20 group-hover:opacity-50 hover:!opacity-100">
 													<CopyButton itemTask={item.task} />
 													{variant === "full" && <ExportButton itemId={item.id} />}
 												</div>

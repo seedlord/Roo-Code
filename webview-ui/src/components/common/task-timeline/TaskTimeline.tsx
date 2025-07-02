@@ -151,8 +151,17 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 		const scrollableElement = scrollableRef.current
 		if (!scrollableElement) return
 
+		let isHovering = false
+
+		const handleMouseEnter = () => {
+			isHovering = true
+		}
+		const handleMouseLeave = () => {
+			isHovering = false
+		}
+
 		const handleWheel = (event: WheelEvent) => {
-			if (!scrollableElement) return
+			if (!scrollableElement || !isHovering) return
 
 			const { deltaY } = event
 			const { scrollLeft, scrollWidth, clientWidth } = scrollableElement
@@ -178,9 +187,13 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 			scrollableElement.scrollLeft += deltaY
 		}
 
+		scrollableElement.addEventListener("mouseenter", handleMouseEnter)
+		scrollableElement.addEventListener("mouseleave", handleMouseLeave)
 		scrollableElement.addEventListener("wheel", handleWheel)
 
 		return () => {
+			scrollableElement.removeEventListener("mouseenter", handleMouseEnter)
+			scrollableElement.removeEventListener("mouseleave", handleMouseLeave)
 			scrollableElement.removeEventListener("wheel", handleWheel)
 		}
 	}, [taskTimelinePropsMessages.length])
@@ -212,7 +225,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 			style={{
 				position: "relative",
 				width: "100%",
-				marginTop: "4px",
+				marginTop: "0px",
 				marginBottom: "4px",
 				overflow: "hidden",
 			}}>
