@@ -117,6 +117,19 @@ const TaskItem = ({
 						onToggleTimeline={toggleTimelineVisibility}
 					/>
 
+					{currentExpandedState && taskHistory && (
+						<TaskTimeline
+							messages={taskHistory}
+							onBlockClick={(messageTs) => {
+								vscode.postMessage({
+									type: "openTaskAndScroll",
+									taskId: item.id,
+									messageTs,
+								})
+							}}
+						/>
+					)}
+
 					{/* Task content */}
 					<div
 						className={cn("overflow-hidden whitespace-pre-wrap text-vscode-foreground text-ellipsis", {
@@ -140,20 +153,6 @@ const TaskItem = ({
 					)}
 				</div>
 			</div>
-			{currentExpandedState && taskHistory && (
-				<div className="px-3 pb-2">
-					<TaskTimeline
-						messages={taskHistory}
-						onBlockClick={(messageTs) => {
-							vscode.postMessage({
-								type: "openTaskAndScroll",
-								taskId: item.id,
-								messageTs,
-							})
-						}}
-					/>
-				</div>
-			)}
 		</div>
 	)
 }

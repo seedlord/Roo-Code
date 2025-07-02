@@ -42,8 +42,8 @@ const TaskItemHeader: React.FC<TaskItemHeaderProps> = ({
 					<button onClick={handleToggleClick} className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground">
 						<span
 							className={cn("codicon", {
-								"codicon-chevron-down": !isTimelineVisible,
-								"codicon-chevron-up": isTimelineVisible,
+								"codicon-chevron-left": !isTimelineVisible,
+								"codicon-chevron-down": isTimelineVisible,
 							})}
 						/>
 					</button>
