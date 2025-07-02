@@ -232,9 +232,9 @@ export class Task extends EventEmitter<ClineEvents> {
 
 		this.taskId = historyItem ? historyItem.id : crypto.randomUUID()
 		// normal use-case is usually retry similar history task with new workspace
-		this.workspacePath = parentTask
-			? parentTask.workspacePath
-			: getWorkspacePath(path.join(os.homedir(), "Desktop"))
+		this.workspacePath =
+			historyItem?.workspace ||
+			(parentTask ? parentTask.workspacePath : getWorkspacePath(path.join(os.homedir(), "Desktop")))
 		this.instanceId = crypto.randomUUID().slice(0, 8)
 		this.taskNumber = -1
 
@@ -1720,7 +1720,9 @@ export class Task extends EventEmitter<ClineEvents> {
 
 			const contextWindow = modelInfo.contextWindow
 
-			const currentProfileId = state?.listApiConfigMeta.find((profile) => profile.name === state?.currentApiConfigName)?.id ?? "default";
+			const currentProfileId =
+				state?.listApiConfigMeta.find((profile) => profile.name === state?.currentApiConfigName)?.id ??
+				"default"
 
 			const truncateResult = await truncateConversationIfNeeded({
 				messages: this.apiConversationHistory,
