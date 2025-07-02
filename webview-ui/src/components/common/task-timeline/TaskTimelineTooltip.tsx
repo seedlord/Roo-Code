@@ -1,6 +1,6 @@
 import React from "react"
 import { ClineMessage } from "@roo-code/types"
-import * as COLOR from "../colors"
+import * as COLOR from "./colors"
 import { Trans } from "react-i18next"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import { ClineSayTool } from "@roo/ExtensionMessage"

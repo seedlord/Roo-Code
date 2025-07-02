@@ -3,7 +3,7 @@ import { ClineMessage } from "@roo-code/types"
 import { combineApiRequests } from "@roo/combineApiRequests"
 import { combineCommandSequences } from "@roo/combineCommandSequences"
 import TaskTimelineTooltip from "./TaskTimelineTooltip"
-import * as COLOR from "../colors"
+import * as COLOR from "./colors"
 import { getToolColor } from "./toolManager"
 
 // Timeline dimensions and spacing

@@ -20,7 +20,7 @@ import { TaskActions } from "./TaskActions"
 import { ShareButton } from "./ShareButton"
 import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
-import TaskTimeline from "./task-header/TaskTimeline"
+import TaskTimeline from "../common/task-timeline/TaskTimeline"
 
 export interface TaskHeaderProps {
 	task: ClineMessage

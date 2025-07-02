@@ -2,7 +2,7 @@ import React from "react"
 import { t } from "i18next"
 import { Trans } from "react-i18next"
 import { ClineSayTool } from "@roo/ExtensionMessage"
-import * as COLOR from "../colors"
+import * as COLOR from "./colors"
 
 type ToolGroup = "read" | "edit" | "command" | "flow" | "ask"
 
