@@ -30,23 +30,21 @@ const TaskItemHeader: React.FC<TaskItemHeaderProps> = ({
 				// because the delete button sorta pushes the date up due to its size
 				"mb-1": !onDelete,
 			})}>
-			<div className="flex items-center flex-wrap gap-x-2 text-xs">
+			<div className="flex items-center flex-wrap gap-x-2 text-xs cursor-pointer" onClick={handleToggleClick}>
 				<span className="text-vscode-descriptionForeground font-medium text-sm uppercase">
 					{formatDate(item.ts)}
 				</span>
+				<span
+					className={cn("codicon", {
+						"codicon-chevron-right": !isTimelineVisible,
+						"codicon-chevron-down": isTimelineVisible,
+					})}
+				/>
 			</div>
 
 			{/* Action Buttons */}
 			{!isSelectionMode && (
 				<div className="flex flex-row gap-0 items-center opacity-20 group-hover:opacity-50 hover:opacity-100">
-					<button onClick={handleToggleClick} className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground">
-						<span
-							className={cn("codicon", {
-								"codicon-chevron-left": !isTimelineVisible,
-								"codicon-chevron-down": isTimelineVisible,
-							})}
-						/>
-					</button>
 					{onDelete && <DeleteButton itemId={item.id} onDelete={onDelete} />}
 				</div>
 			)}

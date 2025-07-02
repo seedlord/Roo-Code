@@ -132,9 +132,12 @@ const TaskItem = ({
 
 					{/* Task content */}
 					<div
-						className={cn("overflow-hidden whitespace-pre-wrap text-vscode-foreground text-ellipsis", {
-							"text-base line-clamp-3": !isCompact,
-							"line-clamp-2": isCompact,
+						className={cn("whitespace-pre-wrap text-vscode-foreground text-ellipsis break-words", {
+							"text-base": !isCompact,
+							"max-h-80 overflow-y-auto": currentExpandedState,
+							"overflow-hidden": !currentExpandedState,
+							"line-clamp-3": !isCompact && !currentExpandedState,
+							"line-clamp-2": isCompact && !currentExpandedState,
 						})}
 						data-testid="task-content"
 						{...(item.highlight ? { dangerouslySetInnerHTML: { __html: item.highlight } } : {})}>
