@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback, useEffect } from "react"
+import React, { memo, useState, useCallback, useEffect, useRef } from "react"
 import { DeleteTaskDialog } from "./DeleteTaskDialog"
 import { BatchDeleteTaskDialog } from "./BatchDeleteTaskDialog"
 import { Virtuoso } from "react-virtuoso"
@@ -49,6 +49,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState<boolean>(false)
 	const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({})
 	const [timelineData, setTimelineData] = useState<Record<string, ClineMessage[]>>({})
+	const requestedDetailsRef = useRef(new Set<string>())
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -73,6 +74,11 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				const task = tasks[i]
 				if (task && !timelineData[task.id]) {
 					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
+				}
+				// Backfill missing context window info for old tasks
+				if (task && task.contextWindow === undefined && !requestedDetailsRef.current.has(task.id)) {
+					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
+					requestedDetailsRef.current.add(task.id)
 				}
 			}
 		},

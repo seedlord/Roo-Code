@@ -406,6 +406,9 @@ export class Task extends EventEmitter<ClineEvents> {
 				taskNumber: this.taskNumber,
 				globalStoragePath: this.globalStoragePath,
 				workspace: this.cwd,
+				modelId: this.api.getModel().id,
+				apiProvider: this.apiConfiguration.apiProvider,
+				contextWindow: this.api.getModel().info.contextWindow,
 			})
 
 			this.emit("taskTokenUsageUpdated", this.taskId, tokenUsage)

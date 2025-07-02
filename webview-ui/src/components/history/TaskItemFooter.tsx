@@ -1,6 +1,6 @@
 import React from "react"
 import type { HistoryItem } from "@roo-code/types"
-import { Coins } from "lucide-react"
+import { Coins, TextSelect } from "lucide-react"
 import { formatLargeNumber } from "@/utils/format"
 import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
@@ -48,6 +48,12 @@ const TaskItemFooter: React.FC<TaskItemFooterProps> = ({
 							<span className="flex items-center">
 								<Coins className="inline-block size-[1em] mr-1" />
 								<span data-testid="cost-footer-compact">{"$" + item.totalCost.toFixed(2)}</span>
+							</span>
+						)}
+						{item.contextTokens !== undefined && item.contextWindow !== undefined && (
+							<span className="flex items-center gap-1">
+								<TextSelect className="inline-block size-[1em]" />
+								{formatLargeNumber(item.contextTokens)}
 							</span>
 						)}
 					</>

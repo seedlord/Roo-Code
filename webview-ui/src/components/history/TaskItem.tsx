@@ -7,6 +7,7 @@ import { formatLargeNumber } from "@/utils/format"
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { CloudDownload, CloudUpload } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ContextWindowProgress } from "../chat/ContextWindowProgress"
 import TaskTimeline from "@/components/common/task-timeline/TaskTimeline"
 import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
@@ -159,6 +160,14 @@ const TaskItem = ({
 													<Mention text={item.task} />
 												)}
 											</div>
+											{item.contextTokens !== undefined && item.contextWindow !== undefined && (
+												<div className="mt-2">
+													<ContextWindowProgress
+														contextTokens={item.contextTokens}
+														contextWindow={item.contextWindow}
+													/>
+												</div>
+											)}
 											<div className="flex justify-between items-end mt-2 text-vscode-foreground">
 												{/* Details Section */}
 												<div className="flex flex-col gap-1">

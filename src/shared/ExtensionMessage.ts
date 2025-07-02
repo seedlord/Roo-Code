@@ -106,6 +106,7 @@ export interface ExtensionMessage {
 		| "codeIndexSettingsSaved"
 		| "codeIndexSecretStatus"
 		| "taskDetails"
+		| "taskHistoryItemUpdated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -160,6 +161,7 @@ export interface ExtensionMessage {
 	rulesFolderPath?: string
 	settings?: any
 	history?: HistoryItem[]
+	historyItem?: HistoryItem
 	taskId?: string
 }
 
