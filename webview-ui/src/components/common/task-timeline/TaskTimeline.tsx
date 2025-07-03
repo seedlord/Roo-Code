@@ -3,90 +3,18 @@ import { ClineMessage } from "@roo-code/types"
 import { combineApiRequests } from "@roo/combineApiRequests"
 import { combineCommandSequences } from "@roo/combineCommandSequences"
 import TaskTimelineTooltip from "./TaskTimelineTooltip"
-import * as COLOR from "./colors"
-import { getToolColor } from "./toolManager"
+import { getMessageColor } from "./messageUtils"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
 const BLOCK_WIDTH = "9px"
 const BLOCK_GAP = "3px"
 const TOOLTIP_MARGIN = 32 // 32px margin on each side
+const TOOLTIP_VERTICAL_OFFSET = 20 // 20px vertical offset from the cursor
 
 interface TaskTimelineProps {
 	messages: ClineMessage[]
 	onBlockClick?: (messageIndex: number) => void
-}
-
-const getBlockColor = (message: ClineMessage): string => {
-	// First, try to determine color based on the tool being used
-	if (message.text) {
-		try {
-			const toolData = JSON.parse(message.text)
-			if (toolData.tool) {
-				return getToolColor(toolData.tool)
-			}
-		} catch (_e) {
-			// Not a tool call, continue to the logic below
-		}
-	}
-
-	// Fallback logic for non-tool messages
-	if (message.type === "say") {
-		switch (message.say) {
-			case "user_feedback":
-				return COLOR.WHITE
-			case "text":
-				return COLOR.GRAY // Regular assistant text
-			case "api_req_started":
-				if (message.text) {
-					try {
-						const info = JSON.parse(message.text)
-						if (info.streamingFailedMessage) {
-							return COLOR.RED
-						}
-					} catch (_e) {
-						// ignore
-					}
-				}
-				return COLOR.DARK_GRAY // Should be filtered out
-			case "command_output":
-				return COLOR.RED
-			case "browser_action":
-			case "browser_action_result":
-				return COLOR.PURPLE // Purple for command/browser results
-			case "subtask_result":
-				return COLOR.LIGHTGREEN
-			case "completion_result":
-				return COLOR.GREEN
-			case "error":
-			case "rooignore_error":
-			case "diff_error":
-			case "condense_context_error":
-			case "api_req_deleted":
-				return COLOR.RED // Red for all error types
-			default:
-				return COLOR.DARK_GRAY
-		}
-	} else if (message.type === "ask") {
-		switch (message.ask) {
-			case "followup":
-				return COLOR.GRAY // User message asking for input
-			case "command":
-			case "browser_action_launch":
-				return COLOR.PURPLE // Approval for command/browser
-			case "tool":
-				// This case is hit when a tool approval is asked, but the tool name can't be parsed.
-				// Default to a neutral color.
-				return COLOR.YELLOW
-			case "mistake_limit_reached":
-			case "api_req_failed":
-				return COLOR.RED // Red for error-related asks
-			default:
-				return COLOR.DARK_GRAY
-		}
-	}
-
-	return COLOR.WHITE // Default color for any other case
 }
 
 const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) => {
@@ -118,11 +46,11 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					} else {
 						return false // No text, filter it.
 					}
-				} else if (
+				}
+				// Filter out other standard "say" events
+				else if (
 					msg.say === "api_req_finished" ||
 					msg.say === "api_req_retried" ||
-					(msg.say as string) === "deleted_api_reqs" ||
-					(msg.say as string) === "checkpoint_created" ||
 					(msg.say === "text" && (!msg.text || msg.text.trim() === ""))
 				) {
 					return false
@@ -210,37 +138,11 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	}
 
 	return (
-		<div
-			ref={containerRef}
-			style={{
-				position: "relative",
-				width: "100%",
-				marginTop: "0px",
-				marginBottom: "4px",
-				overflow: "hidden",
-			}}>
+		<div ref={containerRef} className="relative w-full mt-0 mb-1 overflow-hidden">
 			<div
 				ref={scrollableRef}
-				style={{
-					display: "flex",
-					height: TIMELINE_HEIGHT,
-					overflowX: "auto",
-					overflowY: "hidden",
-					overscrollBehaviorY: "contain",
-					scrollbarWidth: "none",
-					msOverflowStyle: "none",
-					width: "100%",
-					WebkitOverflowScrolling: "touch",
-					gap: BLOCK_GAP, // Using flexbox gap instead of marginRight
-				}}>
-				<style>
-					{`
-	           /* Hide scrollbar for Chrome, Safari and Opera */
-	           div::-webkit-scrollbar {
-	             //display: none;
-	           }
-	         `}
-				</style>
+				className="flex w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"
+				style={{ height: TIMELINE_HEIGHT, gap: BLOCK_GAP }}>
 				{taskTimelinePropsMessages.map((message, index) => {
 					const handleClick = (e: React.MouseEvent) => {
 						e.stopPropagation() // Prevent the click from bubbling up to the parent TaskItem
@@ -255,12 +157,10 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					return (
 						<div
 							key={index}
+							className="h-full flex-shrink-0 cursor-pointer"
 							style={{
 								width: BLOCK_WIDTH,
-								height: "100%",
-								backgroundColor: getBlockColor(message),
-								flexShrink: 0,
-								cursor: "pointer",
+								backgroundColor: getMessageColor(message),
 							}}
 							onMouseEnter={(e) => handleMouseEnter(message, e)}
 							onMouseLeave={handleMouseLeave}
@@ -275,7 +175,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					style={{
 						position: "fixed",
 						left: `${tooltipPosition.x}px`,
-						top: `${tooltipPosition.y + 20}px`,
+						top: `${tooltipPosition.y + TOOLTIP_VERTICAL_OFFSET}px`,
 						zIndex: 1000,
 						pointerEvents: "none",
 						width: `calc(100% - ${TOOLTIP_MARGIN * 2}px)`,

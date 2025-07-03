@@ -1,13 +1,13 @@
 import React from "react"
 import { ClineMessage } from "@roo-code/types"
-import * as COLOR from "./colors"
 import { Trans } from "react-i18next"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import { ClineSayTool } from "@roo/ExtensionMessage"
 import { t } from "i18next"
-import { getToolColor, getToolMetadata } from "./toolManager"
+import { getToolMetadata } from "./toolManager"
+import { getMessageColor } from "./messageUtils"
 
-// Color mapping for different message types
+const MAX_CONTENT_LENGTH = 200
 
 interface TaskTimelineTooltipProps {
 	message: ClineMessage
@@ -167,8 +167,8 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 		}
 
 		// Default text handling
-		if (message.text && message.text.length > 200) {
-			return message.text.substring(0, 200) + "..."
+		if (message.text && message.text.length > MAX_CONTENT_LENGTH) {
+			return message.text.substring(0, MAX_CONTENT_LENGTH) + "..."
 		}
 		return message.text || ""
 	}
@@ -197,78 +197,8 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 		return ""
 	}
 
-	// Get color for the indicator based on message type
-	const getMessageColor = (message: ClineMessage): string => {
-		// First, try to determine color based on the tool being used
-		if (message.text) {
-			try {
-				const toolData = JSON.parse(message.text)
-				if (toolData.tool) {
-					return getToolColor(toolData.tool)
-				}
-			} catch (_e) {
-				// Not a tool call, continue to the logic below
-			}
-		}
-
-		// Fallback logic for non-tool messages
-		if (message.type === "say") {
-			switch (message.say) {
-				case "user_feedback":
-					return COLOR.WHITE
-				case "text":
-					return COLOR.GRAY // Regular assistant text
-				case "api_req_started":
-					if (message.text) {
-						try {
-							const info = JSON.parse(message.text)
-							if (info.streamingFailedMessage) {
-								return COLOR.RED
-							}
-						} catch (_e) {
-							// ignore
-						}
-					}
-					return COLOR.DARK_GRAY // Should be filtered out
-				case "command_output":
-					return COLOR.RED
-				case "browser_action":
-				case "browser_action_result":
-					return COLOR.PURPLE // Purple for command/browser results
-				case "subtask_result":
-					return COLOR.LIGHTGREEN // Subtask results
-				case "completion_result":
-					return COLOR.GREEN
-				case "error":
-				case "rooignore_error":
-				case "diff_error":
-				case "condense_context_error":
-				case "api_req_deleted":
-					return COLOR.RED // Red for all error types
-				default:
-					return COLOR.DARK_GRAY
-			}
-		} else if (message.type === "ask") {
-			switch (message.ask) {
-				case "followup":
-					return COLOR.GRAY // User message asking for input
-				case "command":
-				case "browser_action_launch":
-					return COLOR.PURPLE // Approval for command/browser
-				case "tool":
-					// This case is hit when a tool approval is asked, but the tool name can't be parsed.
-					// Default to a neutral color.
-					return COLOR.YELLOW
-				case "mistake_limit_reached":
-				case "api_req_failed":
-					return COLOR.RED // Red for error-related asks
-				default:
-					return COLOR.DARK_GRAY
-			}
-		}
-
-		return COLOR.WHITE // Default color for any other case
-	}
+	const messageContent = getMessageContent(message)
+	const timestamp = getTimestamp(message)
 
 	return (
 		<div
@@ -297,13 +227,11 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 					}}
 				/>
 				{getMessageDescription(message)}
-				{getTimestamp(message) && (
-					<span style={{ fontWeight: "normal", fontSize: "10px", marginLeft: "8px" }}>
-						{getTimestamp(message)}
-					</span>
+				{timestamp && (
+					<span style={{ fontWeight: "normal", fontSize: "10px", marginLeft: "8px" }}>{timestamp}</span>
 				)}
 			</div>
-			{getMessageContent(message) && (
+			{messageContent && (
 				<div
 					style={{
 						whiteSpace: "pre-wrap",
@@ -316,7 +244,7 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 						padding: "4px",
 						borderRadius: "2px",
 					}}>
-					{getMessageContent(message)}
+					{messageContent}
 				</div>
 			)}
 		</div>
