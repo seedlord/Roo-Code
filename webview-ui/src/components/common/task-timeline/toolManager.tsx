@@ -11,6 +11,24 @@ interface ToolMetadata {
 	getDescription: (tool: ClineSayTool) => React.ReactNode
 }
 
+const getFileOpTitle = (
+	tool: ClineSayTool,
+	keys: {
+		normal: string
+		outside?: string
+		protected?: string
+	},
+	values?: { [key: string]: any },
+): string => {
+	let key = keys.normal
+	if (tool.isProtected && keys.protected) {
+		key = keys.protected
+	} else if (tool.isOutsideWorkspace && keys.outside) {
+		key = keys.outside
+	}
+	return t(key, values)
+}
+
 const toolMetadata: Record<string, ToolMetadata> = {
 	codebaseSearch: {
 		group: "read",
@@ -46,18 +64,30 @@ const toolMetadata: Record<string, ToolMetadata> = {
 	listFilesTopLevel: {
 		group: "read",
 		getDescription: (tool) => {
-			const title = tool.isOutsideWorkspace
-				? t("chat:directoryOperations.wantsToViewTopLevelOutsideWorkspace")
-				: t("chat:directoryOperations.wantsToViewTopLevel")
+			const title = getFileOpTitle(tool, {
+				normal: "chat:directoryOperations.wantsToViewTopLevel",
+				outside: "chat:directoryOperations.wantsToViewTopLevelOutsideWorkspace",
+			})
+			return tool.path ? `${title} ${tool.path}` : title
+		},
+	},
+	listFilesRecursive: {
+		group: "read",
+		getDescription: (tool) => {
+			const title = getFileOpTitle(tool, {
+				normal: "chat:directoryOperations.wantsToViewRecursive",
+				outside: "chat:directoryOperations.wantsToViewRecursiveOutsideWorkspace",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
 	listCodeDefinitionNames: {
 		group: "read",
 		getDescription: (tool) => {
-			const title = tool.isOutsideWorkspace
-				? t("chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace")
-				: t("chat:directoryOperations.wantsToViewDefinitions")
+			const title = getFileOpTitle(tool, {
+				normal: "chat:directoryOperations.wantsToViewDefinitions",
+				outside: "chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
@@ -79,56 +109,65 @@ const toolMetadata: Record<string, ToolMetadata> = {
 	appliedDiff: {
 		group: "edit",
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: t("chat:fileOperations.wantsToEdit")
+			if (tool.batchDiffs && Array.isArray(tool.batchDiffs)) {
+				return t("chat:fileOperations.wantsToApplyBatchChanges")
+			}
+			const title = getFileOpTitle(tool, {
+				normal: "chat:fileOperations.wantsToEdit",
+				outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
 	editedExistingFile: {
 		group: "edit",
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: t("chat:fileOperations.wantsToEdit")
+			const title = getFileOpTitle(tool, {
+				normal: "chat:fileOperations.wantsToEdit",
+				outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
 	insertContent: {
 		group: "edit",
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: tool.lineNumber === 0
-						? t("chat:fileOperations.wantsToInsertAtEnd")
-						: t("chat:fileOperations.wantsToInsertWithLineNumber", {
-								lineNumber: tool.lineNumber,
-							})
+			const normalKey =
+				tool.lineNumber === 0
+					? "chat:fileOperations.wantsToInsertAtEnd"
+					: "chat:fileOperations.wantsToInsertWithLineNumber"
+
+			const title = getFileOpTitle(
+				tool,
+				{
+					normal: normalKey,
+					outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+					protected: "chat:fileOperations.wantsToEditProtected",
+				},
+				{ lineNumber: tool.lineNumber },
+			)
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
 	searchAndReplace: {
 		group: "edit",
 		getDescription: (tool) => {
-			// This is the fix for the bug. We explicitly ignore progressStatus.text for this tool.
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: t("chat:fileOperations.wantsToSearchReplace")
+			const title = getFileOpTitle(tool, {
+				normal: "chat:fileOperations.wantsToSearchReplace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},
 	newFileCreated: {
 		group: "edit",
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: t("chat:fileOperations.wantsToCreate")
+			const title = getFileOpTitle(tool, {
+				normal: "chat:fileOperations.wantsToCreate",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
 			return tool.path ? `${title} ${tool.path}` : title
 		},
 	},

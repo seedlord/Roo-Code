@@ -262,6 +262,10 @@
 		"autoSelectCountdown": "Auto-selecting in {{count}}s",
 		"countdownDisplay": "{{count}}s"
 	},
+	"userFeedback": {
+		"title": "User Feedback",
+		"diffTitle": "User Feedback - Diff"
+	},
 	"browser": {
 		"rooWantsToUse": "Roo wants to use the browser:",
 		"consoleLogs": "Console Logs",

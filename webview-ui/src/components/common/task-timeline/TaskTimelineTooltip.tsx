@@ -51,23 +51,29 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 		if (message.type === "say") {
 			switch (message.say) {
 				case "user_feedback":
-					return "User Message"
+					return t("chat:userFeedback.title")
 				case "user_feedback_diff":
-					return "User Edits"
+					return t("chat:userFeedback.diffTitle")
 				case "text":
-					return "Assistant Response"
+					return t("chat:response")
+				case "reasoning":
+					return t("chat:reasoning.thinking")
 				case "subtask_result":
 					return t("chat:subtasks.resultContent")
 				case "command_output":
-					return "Terminal Output"
+					return t("chat:runCommand.outputTitle")
 				case "browser_action":
-					return "Browser Action"
+					return t("chat:browser.action")
 				case "browser_action_result":
-					return "Browser Result"
+					return t("chat:browser.result")
 				case "completion_result":
-					return "Task Completed"
+					return t("chat:taskCompleted")
 				case "api_req_started":
-					return "API Streaming Failed"
+					return t("chat:apiRequest.streamingFailed")
+				case "checkpoint_saved":
+					return t("chat:checkpoint.saved")
+				case "condense_context":
+					return t("chat:context.condensing")
 				case "codebase_search_result": {
 					const parsed = safeJsonParse<{ content: { query: string; results: unknown[] } }>(message.text)
 					const query = parsed?.content?.query || ""
@@ -84,9 +90,10 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 				case "rooignore_error":
 				case "diff_error":
 				case "condense_context_error":
-					return "Error"
+				case "shell_integration_warning":
+					return t("chat:error")
 				case "api_req_deleted":
-					return "API Request Aborted"
+					return t("chat:apiRequest.cancelled")
 				default:
 					return message.say || "Unknown"
 			}
@@ -95,15 +102,22 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 				case "followup":
 					return t("chat:questions.hasQuestion")
 				case "tool":
+					// This case is hit for tool approvals. The description is handled by getToolMetadata.
 					return `Tool Approval: ${tool?.tool || ""}`
 				case "command":
-					return "Terminal Command"
+					return t("chat:runCommand.title")
 				case "browser_action_launch":
-					return "Browser Action Approval"
+					return t("chat:browser.approval")
+				case "use_mcp_server": {
+					const mcpInfo = safeJsonParse<{ serverName: string; toolName?: string }>(message.text)
+					return t("chat:mcp.wantsToUseTool", { serverName: mcpInfo?.serverName })
+				}
 				case "mistake_limit_reached":
-					return "Error Limit Reached"
+					return t("chat:troubleMessage")
 				case "api_req_failed":
-					return "API Request Failed"
+					return t("chat:apiRequest.failed")
+				case "auto_approval_max_req_reached":
+					return t("chat:autoApproval.limitReached")
 				default:
 					return message.ask || "Unknown"
 			}
@@ -133,12 +147,17 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 						case "insertContent":
 							return toolData.content || ""
 						case "appliedDiff":
+							if (toolData.batchDiffs && Array.isArray(toolData.batchDiffs)) {
+								return toolData.batchDiffs.map((d: any) => d.path).join("\n")
+							}
+							return toolData.diff || ""
 						case "editedExistingFile":
 						case "searchAndReplace":
 							return toolData.diff || ""
 						// For read-only tools, we don't need to show a content body
 						case "readFile":
 						case "listFilesTopLevel":
+						case "listFilesRecursive":
 						case "listCodeDefinitionNames":
 						case "searchFiles":
 						case "codebaseSearch":
@@ -151,6 +170,10 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 			} catch (_e) {
 				// Not a JSON string, fall through to default text handling
 			}
+		}
+
+		if (message.say === "checkpoint_saved") {
+			return `Commit: ${message.text}`
 		}
 
 		if (message.type === "ask" && message.ask === "followup") {

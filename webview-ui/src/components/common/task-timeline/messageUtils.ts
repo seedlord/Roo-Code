@@ -1,7 +1,6 @@
 import { ClineMessage } from "@roo-code/types"
 import * as COLOR from "./colors"
 import { getToolColor } from "./toolManager"
-
 export const getMessageColor = (message: ClineMessage): string => {
 	// First, try to determine color based on the tool being used
 	if (message.text) {
@@ -20,8 +19,9 @@ export const getMessageColor = (message: ClineMessage): string => {
 		switch (message.say) {
 			case "user_feedback":
 				return COLOR.WHITE
+			case "reasoning":
 			case "text":
-				return COLOR.GRAY // Regular assistant text
+				return COLOR.GRAY // Regular assistant text and reasoning
 			case "api_req_started":
 				if (message.text) {
 					try {
@@ -40,6 +40,8 @@ export const getMessageColor = (message: ClineMessage): string => {
 			case "browser_action_result":
 				return COLOR.PURPLE // Purple for command/browser results
 			case "subtask_result":
+			case "condense_context":
+			case "checkpoint_saved":
 				return COLOR.LIGHTGREEN
 			case "completion_result":
 				return COLOR.GREEN
@@ -47,6 +49,7 @@ export const getMessageColor = (message: ClineMessage): string => {
 			case "rooignore_error":
 			case "diff_error":
 			case "condense_context_error":
+			case "shell_integration_warning":
 			case "api_req_deleted":
 				return COLOR.RED // Red for all error types
 			default:
@@ -58,13 +61,15 @@ export const getMessageColor = (message: ClineMessage): string => {
 				return COLOR.GRAY // User message asking for input
 			case "command":
 			case "browser_action_launch":
-				return COLOR.PURPLE // Approval for command/browser
+			case "use_mcp_server":
+				return COLOR.PURPLE // Approval for command/browser/mcp
 			case "tool":
 				// This case is hit when a tool approval is asked, but the tool name can't be parsed.
 				// Default to a neutral color.
 				return COLOR.YELLOW
 			case "mistake_limit_reached":
 			case "api_req_failed":
+			case "auto_approval_max_req_reached":
 				return COLOR.RED // Red for error-related asks
 			default:
 				return COLOR.DARK_GRAY

@@ -1,10 +1,10 @@
 // Color constants for timeline and tooltips
-export const WHITE = "#FFFFFF" // White for system prompt and user feedback
-export const GRAY = "#888888" // Gray for assistant responses and user messages
-export const DARK_GRAY = "#333333" // Dark gray for unknown types
-export const YELLOW = "#ffff00" // Beige for file read operations
-export const BLUE = "#3B82F6" // Blue for file edit/create operations
-export const RED = "#EF4444" // Red for errors
-export const PURPLE = "#9E59FA" // Purple for terminal actions
-export const LIGHTGREEN = "#1fffa4" // Light green for flow control
-export const GREEN = "#00ff00" // Green for task success
+export const WHITE = "#FFFFFF" // User feedback and messages
+export const GRAY = "#999999" // Assistant responses, questions, and context operations
+export const DARK_GRAY = "#333333" // Unknown or filtered-out message types
+export const YELLOW = "#FFF000" // Read-only operations (file reads, searches)
+export const BLUE = "#3B82F6" // Edit/create operations (file edits, creations)
+export const RED = "#FF0000" // Errors, warnings, and failures
+export const PURPLE = "#DA70D6" // Terminal and browser actions/commands
+export const LIGHTGREEN = "#1fffa4" // Flow control, subtasks, and background processes
+export const GREEN = "#00ff00" // Task success and completion
