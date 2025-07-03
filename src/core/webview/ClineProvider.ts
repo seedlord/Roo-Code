@@ -575,7 +575,11 @@ export class ClineProvider
 	}
 
 	public async initClineWithHistoryItem(
-		historyItem: HistoryItem & { rootTask?: Task; parentTask?: Task; scrollToMessageTs?: number },
+		historyItem: HistoryItem & {
+			rootTask?: Task
+			parentTask?: Task
+			scrollToMessageIndex?: number
+		},
 	) {
 		await this.removeClineFromStack()
 
@@ -599,7 +603,7 @@ export class ClineProvider
 			parentTask: historyItem.parentTask,
 			taskNumber: historyItem.number,
 			onCreated: (cline) => this.emit("clineCreated", cline),
-			scrollToMessageTs: historyItem.scrollToMessageTs,
+			scrollToMessageIndex: historyItem.scrollToMessageIndex,
 		})
 
 		await this.addClineToStack(cline)
@@ -1160,18 +1164,18 @@ export class ClineProvider
 		throw new Error("Task not found")
 	}
 
-	async showTaskWithId(id: string, scrollToMessageTs?: number) {
+	async showTaskWithId(id: string, scrollToMessageIndex?: number) {
 		if (id !== this.getCurrentCline()?.taskId) {
 			// Non-current task.
 			const { historyItem } = await this.getTaskWithId(id)
-			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageTs }) // Clears existing task.
+			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageIndex }) // Clears existing task.
 			TelemetryService.instance.captureEvent(TelemetryEventName.TASK_RESTARTED, { taskId: id })
-		} else if (scrollToMessageTs) {
+		} else if (typeof scrollToMessageIndex === "number") {
 			// Current task, just scroll.
 			await this.postMessageToWebview({
 				type: "action",
 				action: "scrollToMessage",
-				value: scrollToMessageTs,
+				value: scrollToMessageIndex,
 			})
 		}
 
@@ -1494,9 +1498,9 @@ export class ClineProvider
 					return undefined
 				}
 				const item = (taskHistory || []).find((item: HistoryItem) => item.id === currentTask.taskId)
-				if (item && currentTask.scrollToMessageTs) {
-					item.scrollToMessageTs = currentTask.scrollToMessageTs
-					currentTask.scrollToMessageTs = undefined // One-time operation
+				if (item && typeof currentTask.scrollToMessageIndex === "number") {
+					item.scrollToMessageIndex = currentTask.scrollToMessageIndex
+					currentTask.scrollToMessageIndex = undefined // One-time operation
 				}
 				return item
 			})(),

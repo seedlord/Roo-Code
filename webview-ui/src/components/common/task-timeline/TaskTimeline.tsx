@@ -14,7 +14,7 @@ const TOOLTIP_MARGIN = 32 // 32px margin on each side
 
 interface TaskTimelineProps {
 	messages: ClineMessage[]
-	onBlockClick?: (messageId: number) => void
+	onBlockClick?: (messageIndex: number) => void
 }
 
 const getBlockColor = (message: ClineMessage): string => {
@@ -163,33 +163,23 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 		const handleWheel = (event: WheelEvent) => {
 			if (!scrollableElement || !isHovering) return
 
-			const { deltaY } = event
-			const { scrollLeft, scrollWidth, clientWidth } = scrollableElement
-
-			// If there's no horizontal overflow, don't interfere with vertical scrolling.
+			const { scrollWidth, clientWidth } = scrollableElement
+			// If there's no horizontal overflow, let the default behavior happen.
+			// Since the listener is passive, the page will scroll.
 			if (scrollWidth <= clientWidth) {
 				return
 			}
 
-			// If scrolling right (deltaY > 0) and we're at the end, allow page scroll down.
-			if (deltaY > 0 && scrollLeft + clientWidth >= scrollWidth - 1) {
-				// Subtract 1 for pixel-perfect comparison
-				return
-			}
-
-			// If scrolling left (deltaY < 0) and we're at the beginning, allow page scroll up.
-			if (deltaY < 0 && scrollLeft === 0) {
-				return
-			}
-
-			// Otherwise, prevent page scroll and scroll the timeline horizontally.
-			event.preventDefault()
+			// With a passive listener, we cannot call `preventDefault`.
+			// The vertical scroll is prevented by `overflow-y: hidden` and
+			// `overscroll-behavior-y: contain` on the element's style.
+			const { deltaY } = event
 			scrollableElement.scrollLeft += deltaY
 		}
 
 		scrollableElement.addEventListener("mouseenter", handleMouseEnter)
 		scrollableElement.addEventListener("mouseleave", handleMouseLeave)
-		scrollableElement.addEventListener("wheel", handleWheel)
+		scrollableElement.addEventListener("wheel", handleWheel, { passive: true })
 
 		return () => {
 			scrollableElement.removeEventListener("mouseenter", handleMouseEnter)
@@ -235,6 +225,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					display: "flex",
 					height: TIMELINE_HEIGHT,
 					overflowX: "auto",
+					overflowY: "hidden",
+					overscrollBehaviorY: "contain",
 					scrollbarWidth: "none",
 					msOverflowStyle: "none",
 					width: "100%",
@@ -250,9 +242,14 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	         `}
 				</style>
 				{taskTimelinePropsMessages.map((message, index) => {
-					const handleClick = () => {
+					const handleClick = (e: React.MouseEvent) => {
+						e.stopPropagation() // Prevent the click from bubbling up to the parent TaskItem
 						if (onBlockClick) {
-							onBlockClick(message.ts)
+							// Find the original index of the message in the unfiltered `messages` array
+							const originalIndex = messages.findIndex((m) => m.ts === message.ts)
+							if (originalIndex !== -1) {
+								onBlockClick(originalIndex - 1)
+							}
 						}
 					}
 					return (

@@ -2077,8 +2077,8 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "openTaskAndScroll":
-			if (message.taskId && message.messageTs) {
-				provider.showTaskWithId(message.taskId, message.messageTs)
+			if (message.taskId && typeof message.messageIndex === "number") {
+				provider.showTaskWithId(message.taskId, message.messageIndex)
 			}
 			break
 	}

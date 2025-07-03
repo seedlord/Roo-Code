@@ -25,7 +25,7 @@ import TaskTimeline from "../common/task-timeline/TaskTimeline"
 export interface TaskHeaderProps {
 	task: ClineMessage
 	history: ClineMessage[]
-	onScrollToMessage: (messageId: number) => void
+	onScrollToMessage: (messageIndex: number) => void
 	tokensIn: number
 	tokensOut: number
 	cacheWrites?: number

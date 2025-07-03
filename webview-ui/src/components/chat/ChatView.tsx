@@ -789,26 +789,16 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		return result
 	}, [isCondensing, visibleMessages])
 
-	const scrollToMessage = useCallback(
-		(messageId: number) => {
-			const messageIndex = groupedMessages.findIndex((message) => {
-				if (Array.isArray(message)) {
-					return message.some((m) => m.ts === messageId)
-				}
-				return message.ts === messageId
+	const scrollToMessage = useCallback((messageIndex: number) => {
+		if (messageIndex !== -1) {
+			virtuosoRef.current?.scrollToIndex({
+				index: messageIndex,
+				align: "start",
+				behavior: "smooth",
 			})
-
-			if (messageIndex !== -1) {
-				virtuosoRef.current?.scrollToIndex({
-					index: messageIndex,
-					align: "start",
-					behavior: "smooth",
-				})
-				disableAutoScrollRef.current = true
-			}
-		},
-		[groupedMessages],
-	)
+			disableAutoScrollRef.current = true
+		}
+	}, [])
 	const handleMessage = useCallback(
 		(e: MessageEvent) => {
 			const message: ExtensionMessage = e.data
@@ -1169,7 +1159,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	useEffect(() => {
 		let timer: NodeJS.Timeout | undefined
-		if (!disableAutoScrollRef.current && !currentTaskItem?.scrollToMessageTs) {
+		if (!disableAutoScrollRef.current && typeof currentTaskItem?.scrollToMessageIndex !== "number") {
 			timer = setTimeout(() => scrollToBottomSmooth(), 50)
 		}
 		return () => {
@@ -1177,7 +1167,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				clearTimeout(timer)
 			}
 		}
-	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageTs])
+	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageIndex])
 
 	const handleWheel = useCallback((event: Event) => {
 		const wheelEvent = event as WheelEvent
@@ -1577,22 +1567,11 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 								setShowScrollToBottom(disableAutoScrollRef.current && !isAtBottom)
 							}}
 							atBottomThreshold={10} // anything lower causes issues with followOutput
-							initialTopMostItemIndex={(() => {
-								if (currentTaskItem?.scrollToMessageTs) {
-									const index = groupedMessages.findIndex((message) => {
-										if (Array.isArray(message)) {
-											return message.some((m) => m.ts === currentTaskItem.scrollToMessageTs)
-										}
-										return message.ts === currentTaskItem.scrollToMessageTs
-									})
-									if (index !== -1) {
-										// Disable auto-scrolling to the bottom when a specific message is targeted.
-										disableAutoScrollRef.current = true
-										return index
-									}
-								}
-								return groupedMessages.length - 1
-							})()}
+							initialTopMostItemIndex={
+								typeof currentTaskItem?.scrollToMessageIndex === "number"
+									? currentTaskItem.scrollToMessageIndex
+									: groupedMessages.length - 1
+							}
 						/>
 					</div>
 					<div className={`flex-initial min-h-0 ${!areButtonsVisible ? "mb-1" : ""}`}>

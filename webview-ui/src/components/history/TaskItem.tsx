@@ -142,11 +142,11 @@ const TaskItem = ({
 											<div className="mb-2">
 												<TaskTimeline
 													messages={taskHistory}
-													onBlockClick={(messageTs) => {
+													onBlockClick={(messageIndex) => {
 														vscode.postMessage({
 															type: "openTaskAndScroll",
 															taskId: item.id,
-															messageTs,
+															messageIndex,
 														})
 													}}
 												/>
