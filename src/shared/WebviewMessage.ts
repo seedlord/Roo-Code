@@ -189,7 +189,7 @@ export interface WebviewMessage {
 		| "openTaskAndScroll"
 	text?: string
 	taskId?: string
-	messageIndex?: number
+	timestamp?: number
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 	disabled?: boolean
 	dataUri?: string

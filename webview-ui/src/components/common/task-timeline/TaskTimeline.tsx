@@ -4,6 +4,7 @@ import { combineApiRequests } from "@roo/combineApiRequests"
 import { combineCommandSequences } from "@roo/combineCommandSequences"
 import TaskTimelineTooltip from "./TaskTimelineTooltip"
 import { getMessageColor } from "./messageUtils"
+import * as COLOR from "./colors"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
@@ -14,7 +15,7 @@ const TOOLTIP_VERTICAL_OFFSET = 20 // 20px vertical offset from the cursor
 
 interface TaskTimelineProps {
 	messages: ClineMessage[]
-	onBlockClick?: (messageIndex: number) => void
+	onBlockClick?: (timestamp: number) => void
 }
 
 const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) => {
@@ -26,46 +27,36 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	const taskTimelinePropsMessages = useMemo(() => {
 		if (messages.length <= 1) return []
 
+		// The message processing pipeline MUST be identical to the one used in ChatView
+		// to ensure that the indices align correctly for the click-to-scroll functionality.
 		const processed = combineApiRequests(combineCommandSequences(messages.slice(1)))
 
-		const filtered = processed.filter((msg) => {
-			// Filter out standard "say" events we don't want to show
-			if (msg.type === "say") {
-				if (msg.say === "api_req_started") {
-					if (msg.text) {
-						try {
-							const info = JSON.parse(msg.text)
-							if (info.streamingFailedMessage) {
-								// It's a failed request, so we DON'T filter it.
-							} else {
-								return false // It's a normal start, filter it.
-							}
-						} catch (_e) {
-							return false // Parse error, filter it.
-						}
-					} else {
-						return false // No text, filter it.
-					}
-				}
-				// Filter out other standard "say" events
-				else if (
-					msg.say === "api_req_finished" ||
-					msg.say === "api_req_retried" ||
-					(msg.say === "text" && (!msg.text || msg.text.trim() === ""))
-				) {
-					return false
-				}
-			}
-
-			// Filter out "ask" events we don't want to show, including the duplicate completion_result
-			if (
-				msg.type === "ask" &&
-				(msg.ask === "resume_task" || msg.ask === "resume_completed_task" || msg.ask === "completion_result") // Filter out the duplicate completion_result "ask" message
-			) {
+		// Filter messages based on their assigned color.
+		// Messages with DARK_GRAY are considered "hidden" or "unimportant" for the timeline.
+		// This centralizes the filtering logic within messageUtils.ts.
+		const filtered = processed.filter((msg, index) => {
+			// Explicitly filter out empty text messages, as they have a color but no content.
+			if (msg.type === "say" && msg.say === "text" && (!msg.text || msg.text.trim() === "")) {
 				return false
 			}
-			return true
+
+			// This is the crucial fix: After a user answers a follow-up question,
+			// a completion_result 'ask' message is sent. This message is hidden in the main
+			// chat view IF it has no text, so it MUST also be hidden here to keep the indices synchronized.
+			if (msg.type === "ask" && msg.ask === "completion_result" && !msg.text) {
+				return false
+			}
+
+			// To keep the timeline synchronized with the chat view, we must hide the 'followup' question
+			// prompt once it has been answered (i.e., it's not the last message anymore).
+			// This prevents the "off-by-one" scrolling error.
+			if (msg.type === "ask" && msg.ask === "followup" && index < processed.length - 1) {
+				return false
+			}
+
+			return getMessageColor(msg) !== COLOR.DARK_GRAY
 		})
+
 		return filtered
 	}, [messages])
 
@@ -147,16 +138,12 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 					const handleClick = (e: React.MouseEvent) => {
 						e.stopPropagation() // Prevent the click from bubbling up to the parent TaskItem
 						if (onBlockClick) {
-							// Find the original index of the message in the unfiltered `messages` array
-							const originalIndex = messages.findIndex((m) => m.ts === message.ts)
-							if (originalIndex !== -1) {
-								onBlockClick(originalIndex - 1)
-							}
+							onBlockClick(message.ts)
 						}
 					}
 					return (
 						<div
-							key={index}
+							key={`${message.ts}-${index}`}
 							className="h-full flex-shrink-0 cursor-pointer"
 							style={{
 								width: BLOCK_WIDTH,
