@@ -139,6 +139,13 @@ const toolMetadata: Record<string, ToolMetadata> = {
 			<Trans i18nKey="chat:subtasks.wantsToCreate" components={{ code: <code /> }} values={{ mode: tool.mode }} />
 		),
 	},
+	finishTask: {
+		group: "flow",
+		getDescription: (tool) => (
+			<Trans i18nKey="chat:subtasks.wantsToFinish" components={{ code: <code /> }} values={{ mode: tool.mode }} />
+		),
+	},
+
 	switchMode: {
 		group: "flow",
 		getDescription: (tool) => (
