@@ -1425,8 +1425,18 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 								setIsAtBottom(isAtBottom)
 								if (isAtBottom) {
 									disableAutoScrollRef.current = false
+									setShowScrollToBottom(false)
+								} else {
+									// Show the button if auto-scroll is already disabled, or if we've just loaded a task to a specific scroll point.
+									const shouldShow =
+										disableAutoScrollRef.current ||
+										typeof currentTaskItem?.scrollToMessageTimestamp === "number"
+									setShowScrollToBottom(shouldShow)
+									if (shouldShow) {
+										// If we are showing the button, ensure auto-scrolling remains disabled.
+										disableAutoScrollRef.current = true
+									}
 								}
-								setShowScrollToBottom(disableAutoScrollRef.current && !isAtBottom)
 							}}
 							atBottomThreshold={10} // anything lower causes issues with followOutput
 							initialTopMostItemIndex={

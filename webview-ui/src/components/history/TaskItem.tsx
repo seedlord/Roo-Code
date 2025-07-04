@@ -55,10 +55,15 @@ const TaskItem = ({
 
 	const toggleTimelineVisibility = (e: React.MouseEvent) => {
 		e.stopPropagation()
+		const newExpandedState = !currentExpandedState
 		if (isControlled) {
 			onToggleExpansion(item.id)
 		} else {
-			setIsTimelineVisible(!isTimelineVisible)
+			setIsTimelineVisible(newExpandedState)
+		}
+
+		if (newExpandedState && !taskHistory) {
+			vscode.postMessage({ type: "getTaskDetails", text: item.id })
 		}
 	}
 

@@ -161,9 +161,7 @@ export interface ExtensionMessage {
 	visibility?: ShareVisibility
 	rulesFolderPath?: string
 	settings?: any
-	history?: HistoryItem[]
 	historyItem?: HistoryItem
-	taskId?: string
 }
 
 export type ExtensionState = Pick<

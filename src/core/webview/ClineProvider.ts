@@ -1192,7 +1192,7 @@ export class ClineProvider
 		await downloadTask(historyItem.ts, apiConversationHistory)
 	}
 
-	async getTaskDetails(taskId: string): Promise<HistoryItem[] | undefined> {
+	async getTaskDetails(taskId: string): Promise<HistoryItem | undefined> {
 		const history = this.getGlobalState("taskHistory") ?? []
 		let historyItem = history.find((item) => item.id === taskId)
 
@@ -1220,11 +1220,10 @@ export class ClineProvider
 				await this.updateTaskHistory(historyItem)
 			}
 
-			const detailedHistoryItem = {
+			return {
 				...historyItem,
 				history: uiMessages,
 			}
-			return [detailedHistoryItem]
 		}
 
 		return undefined
@@ -1512,7 +1511,9 @@ export class ClineProvider
 			clineMessages: this.getCurrentCline()?.clineMessages || [],
 			taskHistory: (taskHistory || [])
 				.filter((item: HistoryItem) => item.ts && item.task)
-				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts),
+				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts)
+				// Remove the history from the initial state to prevent large state issues
+				.map(({ history, ...item }) => item),
 			soundEnabled: soundEnabled ?? false,
 			ttsEnabled: ttsEnabled ?? false,
 			ttsSpeed: ttsSpeed ?? 1.0,
@@ -1748,10 +1749,13 @@ export class ClineProvider
 		const history = (this.getGlobalState("taskHistory") as HistoryItem[] | undefined) || []
 		const existingItemIndex = history.findIndex((h) => h.id === item.id)
 
+		// Create a shallow copy and remove the 'history' property before saving to global state
+		const { history: _, ...itemToSave } = item
+
 		if (existingItemIndex !== -1) {
-			history[existingItemIndex] = item
+			history[existingItemIndex] = itemToSave
 		} else {
-			history.push(item)
+			history.push(itemToSave)
 		}
 
 		await this.updateGlobalState("taskHistory", history)

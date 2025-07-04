@@ -2061,15 +2061,14 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "getTaskDetails": {
-			if (message.taskId) {
-				const historyItems = await provider.getTaskDetails(message.taskId)
-				if (historyItems && historyItems.length > 0) {
-					const timelineMessages = historyItems[0].history
+			if (message.text) {
+				const historyItem = await provider.getTaskDetails(message.text)
+				if (historyItem) {
 					await provider.postMessageToWebview({
 						type: "taskDetails",
 						payload: {
-							taskId: message.taskId,
-							history: timelineMessages,
+							taskId: message.text,
+							history: historyItem.history,
 						},
 					})
 				}

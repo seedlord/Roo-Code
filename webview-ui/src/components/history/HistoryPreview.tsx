@@ -26,7 +26,7 @@ const HistoryPreview = () => {
 		return () => {
 			window.removeEventListener("message", handleMessage)
 		}
-	}, [])
+	}, [setTimelineData])
 
 	const toggleTaskExpansion = useCallback(
 		(taskId: string) => {
@@ -37,7 +37,7 @@ const HistoryPreview = () => {
 			}))
 
 			if (isExpanding && !timelineData[taskId]) {
-				vscode.postMessage({ type: "getTaskDetails", taskId: taskId })
+				vscode.postMessage({ type: "getTaskDetails", text: taskId })
 			}
 		},
 		[expandedTaskIds, timelineData],

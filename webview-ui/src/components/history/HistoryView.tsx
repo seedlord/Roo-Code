@@ -66,18 +66,18 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 		return () => {
 			window.removeEventListener("message", handleMessage)
 		}
-	}, [])
+	}, [setTimelineData])
 
 	const prefetchVisibleTaskTimelines = useCallback(
 		({ startIndex, endIndex }: { startIndex: number; endIndex: number }) => {
 			for (let i = startIndex; i <= endIndex; i++) {
 				const task = tasks[i]
 				if (task && !timelineData[task.id]) {
-					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
+					vscode.postMessage({ type: "getTaskDetails", text: task.id })
 				}
 				// Backfill missing context window info for old tasks
 				if (task && task.contextWindow === undefined && !requestedDetailsRef.current.has(task.id)) {
-					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
+					vscode.postMessage({ type: "getTaskDetails", text: task.id })
 					requestedDetailsRef.current.add(task.id)
 				}
 			}
@@ -94,7 +94,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			}))
 
 			if (isExpanding && !timelineData[taskId]) {
-				vscode.postMessage({ type: "getTaskDetails", taskId: taskId })
+				vscode.postMessage({ type: "getTaskDetails", text: taskId })
 			}
 		},
 		[expandedTaskIds, timelineData],
