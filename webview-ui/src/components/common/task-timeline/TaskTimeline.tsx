@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from "react"
+import { LRUCache } from "lru-cache"
 import { ClineMessage } from "@roo-code/types"
 import { TaskTimelineTooltip } from "./TaskTimelineTooltip"
 import { getMessageColor } from "./messageUtils"
-import { processMessagesForDisplay } from "../../../utils/messageProcessing"
+import { processChatHistory } from "../../../utils/messageProcessing"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
@@ -22,7 +23,12 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	const containerRef = useRef<HTMLDivElement>(null)
 	const scrollableRef = useRef<HTMLDivElement>(null)
 
-	const taskTimelinePropsMessages = useMemo(() => processMessagesForDisplay(messages), [messages])
+	const everVisibleMessagesTsRef = useRef(new LRUCache({ max: 250, ttl: 1000 * 60 * 15 }))
+	const taskTimelinePropsMessages = useMemo(
+		() =>
+			processChatHistory(messages, false, everVisibleMessagesTsRef).flatMap((m) => (Array.isArray(m) ? m : [m])),
+		[messages],
+	)
 
 	useEffect(() => {
 		if (scrollableRef.current && taskTimelinePropsMessages.length > 0) {
