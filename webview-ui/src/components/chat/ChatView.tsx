@@ -815,8 +815,14 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							textAreaRef.current?.focus()
 							break
 						case "scrollToMessage":
-							if (message.value) {
-								scrollToMessage(message.value as number)
+							if (message.timestamp) {
+								const targetIndex = groupedMessages.findIndex((msgOrGroup) => {
+									if (Array.isArray(msgOrGroup)) {
+										return msgOrGroup.some((msg) => msg.ts === message.timestamp)
+									}
+									return msgOrGroup.ts === message.timestamp
+								})
+								scrollToMessage(targetIndex)
 							}
 							break
 					}
@@ -873,6 +879,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			handlePrimaryButtonClick,
 			handleSecondaryButtonClick,
 			isCondensing,
+			groupedMessages,
 		],
 	)
 
@@ -1159,7 +1166,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	useEffect(() => {
 		let timer: NodeJS.Timeout | undefined
-		if (!disableAutoScrollRef.current && typeof currentTaskItem?.scrollToMessageIndex !== "number") {
+		if (!disableAutoScrollRef.current && typeof currentTaskItem?.scrollToMessageTimestamp !== "number") {
 			timer = setTimeout(() => scrollToBottomSmooth(), 50)
 		}
 		return () => {
@@ -1167,7 +1174,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				clearTimeout(timer)
 			}
 		}
-	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageIndex])
+	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageTimestamp])
 
 	const handleWheel = useCallback((event: Event) => {
 		const wheelEvent = event as WheelEvent
@@ -1568,8 +1575,15 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							}}
 							atBottomThreshold={10} // anything lower causes issues with followOutput
 							initialTopMostItemIndex={
-								typeof currentTaskItem?.scrollToMessageIndex === "number"
-									? currentTaskItem.scrollToMessageIndex
+								typeof currentTaskItem?.scrollToMessageTimestamp === "number"
+									? groupedMessages.findIndex((msgOrGroup) => {
+											if (Array.isArray(msgOrGroup)) {
+												return msgOrGroup.some(
+													(msg) => msg.ts === currentTaskItem.scrollToMessageTimestamp,
+												)
+											}
+											return msgOrGroup.ts === currentTaskItem.scrollToMessageTimestamp
+										})
 									: groupedMessages.length - 1
 							}
 						/>

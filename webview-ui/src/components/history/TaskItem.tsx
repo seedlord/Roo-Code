@@ -146,7 +146,7 @@ const TaskItem = ({
 														vscode.postMessage({
 															type: "openTaskAndScroll",
 															taskId: item.id,
-															timestamp,
+															timestamp: timestamp,
 														})
 													}}
 												/>

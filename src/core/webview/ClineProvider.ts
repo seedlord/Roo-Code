@@ -578,7 +578,7 @@ export class ClineProvider
 		historyItem: HistoryItem & {
 			rootTask?: Task
 			parentTask?: Task
-			scrollToMessageIndex?: number
+			scrollToMessageTimestamp?: number
 		},
 	) {
 		await this.removeClineFromStack()
@@ -603,7 +603,7 @@ export class ClineProvider
 			parentTask: historyItem.parentTask,
 			taskNumber: historyItem.number,
 			onCreated: (cline) => this.emit("clineCreated", cline),
-			scrollToMessageIndex: historyItem.scrollToMessageIndex,
+			scrollToMessageTimestamp: historyItem.scrollToMessageTimestamp,
 		})
 
 		await this.addClineToStack(cline)
@@ -1164,19 +1164,24 @@ export class ClineProvider
 		throw new Error("Task not found")
 	}
 
-	async showTaskWithId(id: string, scrollToMessageIndex?: number) {
+	async showTaskWithId(id: string, scrollToMessageTimestamp?: number) {
 		if (id !== this.getCurrentCline()?.taskId) {
 			// Non-current task.
 			const { historyItem } = await this.getTaskWithId(id)
-			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageIndex }) // Clears existing task.
+			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageTimestamp }) // Clears existing task.
 			TelemetryService.instance.captureEvent(TelemetryEventName.TASK_RESTARTED, { taskId: id })
-		} else if (typeof scrollToMessageIndex === "number") {
+		} else if (typeof scrollToMessageTimestamp === "number") {
 			// Current task, just scroll.
-			await this.postMessageToWebview({
-				type: "action",
-				action: "scrollToMessage",
-				value: scrollToMessageIndex,
-			})
+			const messageIndex = this.getCurrentCline()?.clineMessages.findIndex(
+				(m) => m.ts === scrollToMessageTimestamp,
+			)
+			if (typeof messageIndex === "number" && messageIndex !== -1) {
+				await this.postMessageToWebview({
+					type: "action",
+					action: "scrollToMessage",
+					value: scrollToMessageTimestamp,
+				})
+			}
 		}
 
 		await this.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
@@ -1498,9 +1503,9 @@ export class ClineProvider
 					return undefined
 				}
 				const item = (taskHistory || []).find((item: HistoryItem) => item.id === currentTask.taskId)
-				if (item && typeof currentTask.scrollToMessageIndex === "number") {
-					item.scrollToMessageIndex = currentTask.scrollToMessageIndex
-					currentTask.scrollToMessageIndex = undefined // One-time operation
+				if (item && typeof currentTask.scrollToMessageTimestamp === "number") {
+					item.scrollToMessageTimestamp = currentTask.scrollToMessageTimestamp
+					currentTask.scrollToMessageTimestamp = undefined // One-time operation
 				}
 				return item
 			})(),

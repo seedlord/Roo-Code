@@ -109,6 +109,7 @@ export interface ExtensionMessage {
 		| "taskHistoryItemUpdated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	timestamp?: number
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"

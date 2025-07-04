@@ -2078,13 +2078,7 @@ export const webviewMessageHandler = async (
 		}
 		case "openTaskAndScroll":
 			if (message.taskId && typeof message.timestamp === "number") {
-				const task = await provider.getTaskDetails(message.taskId)
-				if (task && task.length > 0) {
-					const messageIndex = task[0].history?.findIndex((m) => m.ts === message.timestamp)
-					if (messageIndex !== -1) {
-						provider.showTaskWithId(message.taskId, messageIndex)
-					}
-				}
+				provider.showTaskWithId(message.taskId, message.timestamp)
 			}
 			break
 	}

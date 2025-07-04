@@ -19,6 +19,8 @@ export const getMessageColor = (message: ClineMessage): string => {
 		switch (message.say) {
 			case "user_feedback":
 				return COLOR.WHITE
+			case "user_feedback_diff":
+				return COLOR.BLUE
 			case "reasoning":
 			case "text":
 				return COLOR.GRAY // Regular assistant text and reasoning
@@ -42,7 +44,7 @@ export const getMessageColor = (message: ClineMessage): string => {
 			case "subtask_result":
 			case "condense_context":
 			case "checkpoint_saved":
-				return COLOR.LIGHTGREEN
+				return COLOR.LIGHT_GREEN
 			case "completion_result":
 				return COLOR.GREEN
 			case "error":

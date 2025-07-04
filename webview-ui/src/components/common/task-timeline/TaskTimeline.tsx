@@ -1,10 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from "react"
 import { ClineMessage } from "@roo-code/types"
-import { combineApiRequests } from "@roo/combineApiRequests"
-import { combineCommandSequences } from "@roo/combineCommandSequences"
-import TaskTimelineTooltip from "./TaskTimelineTooltip"
+import { TaskTimelineTooltip } from "./TaskTimelineTooltip"
 import { getMessageColor } from "./messageUtils"
-import * as COLOR from "./colors"
+import { processMessagesForDisplay } from "../../../utils/messageProcessing"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
@@ -24,41 +22,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	const containerRef = useRef<HTMLDivElement>(null)
 	const scrollableRef = useRef<HTMLDivElement>(null)
 
-	const taskTimelinePropsMessages = useMemo(() => {
-		if (messages.length <= 1) return []
-
-		// The message processing pipeline MUST be identical to the one used in ChatView
-		// to ensure that the indices align correctly for the click-to-scroll functionality.
-		const processed = combineApiRequests(combineCommandSequences(messages.slice(1)))
-
-		// Filter messages based on their assigned color.
-		// Messages with DARK_GRAY are considered "hidden" or "unimportant" for the timeline.
-		// This centralizes the filtering logic within messageUtils.ts.
-		const filtered = processed.filter((msg, index) => {
-			// Explicitly filter out empty text messages, as they have a color but no content.
-			if (msg.type === "say" && msg.say === "text" && (!msg.text || msg.text.trim() === "")) {
-				return false
-			}
-
-			// This is the crucial fix: After a user answers a follow-up question,
-			// a completion_result 'ask' message is sent. This message is hidden in the main
-			// chat view IF it has no text, so it MUST also be hidden here to keep the indices synchronized.
-			if (msg.type === "ask" && msg.ask === "completion_result" && !msg.text) {
-				return false
-			}
-
-			// To keep the timeline synchronized with the chat view, we must hide the 'followup' question
-			// prompt once it has been answered (i.e., it's not the last message anymore).
-			// This prevents the "off-by-one" scrolling error.
-			if (msg.type === "ask" && msg.ask === "followup" && index < processed.length - 1) {
-				return false
-			}
-
-			return getMessageColor(msg) !== COLOR.DARK_GRAY
-		})
-
-		return filtered
-	}, [messages])
+	const taskTimelinePropsMessages = useMemo(() => processMessagesForDisplay(messages), [messages])
 
 	useEffect(() => {
 		if (scrollableRef.current && taskTimelinePropsMessages.length > 0) {

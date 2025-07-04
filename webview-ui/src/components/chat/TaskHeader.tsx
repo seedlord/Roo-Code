@@ -25,7 +25,7 @@ import TaskTimeline from "../common/task-timeline/TaskTimeline"
 export interface TaskHeaderProps {
 	task: ClineMessage
 	history: ClineMessage[]
-	onScrollToMessage: (messageIndex: number) => void
+	onScrollToMessage: (timestamp: number) => void
 	tokensIn: number
 	tokensOut: number
 	cacheWrites?: number
@@ -127,7 +127,15 @@ const TaskHeader = ({
 				{/* Expanded state: Show task text and images */}
 				{isTaskExpanded && (
 					<>
-						<TaskTimeline messages={history} onBlockClick={onScrollToMessage} />
+						<TaskTimeline
+							messages={history}
+							onBlockClick={(timestamp) => {
+								const index = history.findIndex((m) => m.ts === timestamp)
+								if (index !== -1) {
+									onScrollToMessage(index)
+								}
+							}}
+						/>
 						<div
 							ref={textContainerRef}
 							className="-mt-0.5 text-vscode-font-size overflow-y-auto break-words break-anywhere relative">

@@ -13,9 +13,35 @@ interface TaskTimelineTooltipProps {
 	message: ClineMessage
 }
 
-const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) => {
+const getAskMessageDescription = (message: ClineMessage, tool: ClineSayTool | null): React.ReactNode => {
+	switch (message.ask) {
+		case "followup":
+			return t("chat:questions.hasQuestion")
+		case "tool":
+			// This case is hit for tool approvals. The description is handled by getToolMetadata.
+			return `Tool Approval: ${tool?.tool || ""}`
+		case "command":
+			return t("chat:runCommand.title")
+		case "browser_action_launch":
+			return t("chat:browser.approval")
+		case "use_mcp_server": {
+			const mcpInfo = safeJsonParse<{ serverName: string; toolName?: string }>(message.text)
+			return t("chat:mcp.wantsToUseTool", { serverName: mcpInfo?.serverName })
+		}
+		case "mistake_limit_reached":
+			return t("chat:troubleMessage")
+		case "api_req_failed":
+			return t("chat:apiRequest.failed")
+		case "auto_approval_max_req_reached":
+			return t("chat:autoApproval.limitReached")
+		default:
+			return message.ask || "Unknown"
+	}
+}
+
+export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) => {
 	const getMessageDescription = (message: ClineMessage): React.ReactNode => {
-		const tool = message.ask === "tool" ? safeJsonParse<ClineSayTool>(message.text) : null
+		const tool = message.ask === "tool" ? (safeJsonParse<ClineSayTool>(message.text) ?? null) : null
 		let description: React.ReactNode = null
 
 		if (tool) {
@@ -49,78 +75,9 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 
 		// Fallback for non-tool messages or unhandled tools
 		if (message.type === "say") {
-			switch (message.say) {
-				case "user_feedback":
-					return t("chat:userFeedback.title")
-				case "user_feedback_diff":
-					return t("chat:userFeedback.diffTitle")
-				case "text":
-					return t("chat:response")
-				case "reasoning":
-					return t("chat:reasoning.thinking")
-				case "subtask_result":
-					return t("chat:subtasks.resultContent")
-				case "command_output":
-					return t("chat:runCommand.outputTitle")
-				case "browser_action":
-					return t("chat:browser.action")
-				case "browser_action_result":
-					return t("chat:browser.result")
-				case "completion_result":
-					return t("chat:taskCompleted")
-				case "api_req_started":
-					return t("chat:apiRequest.streamingFailed")
-				case "checkpoint_saved":
-					return t("chat:checkpoint.saved")
-				case "condense_context":
-					return t("chat:context.condensing")
-				case "codebase_search_result": {
-					const parsed = safeJsonParse<{ content: { query: string; results: unknown[] } }>(message.text)
-					const query = parsed?.content?.query || ""
-					const count = parsed?.content?.results?.length || 0
-					return (
-						<Trans
-							i18nKey="chat:codebaseSearch.didSearch"
-							components={{ code: <code /> }}
-							values={{ query, count }}
-						/>
-					)
-				}
-				case "error":
-				case "rooignore_error":
-				case "diff_error":
-				case "condense_context_error":
-				case "shell_integration_warning":
-					return t("chat:error")
-				case "api_req_deleted":
-					return t("chat:apiRequest.cancelled")
-				default:
-					return message.say || "Unknown"
-			}
+			return getSayMessageDescription(message)
 		} else if (message.type === "ask") {
-			switch (message.ask) {
-				case "followup":
-					return t("chat:questions.hasQuestion")
-				case "tool":
-					// This case is hit for tool approvals. The description is handled by getToolMetadata.
-					return `Tool Approval: ${tool?.tool || ""}`
-				case "command":
-					return t("chat:runCommand.title")
-				case "browser_action_launch":
-					return t("chat:browser.approval")
-				case "use_mcp_server": {
-					const mcpInfo = safeJsonParse<{ serverName: string; toolName?: string }>(message.text)
-					return t("chat:mcp.wantsToUseTool", { serverName: mcpInfo?.serverName })
-				}
-				case "mistake_limit_reached":
-					return t("chat:troubleMessage")
-				case "api_req_failed":
-					return t("chat:apiRequest.failed")
-				case "auto_approval_max_req_reached":
-					return t("chat:autoApproval.limitReached")
-				default:
-					return message.ask || "Unknown"
-			}
+			return getAskMessageDescription(message, tool)
 		}
 		return "Unknown Message Type"
 	}
@@ -137,35 +94,7 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 
 				// Handle tool calls
 				if (parsedJson?.tool) {
-					const toolData = parsedJson as ClineSayTool
-					switch (toolData.tool) {
-						case "switchMode":
-							return toolData.reason || ""
-						case "newTask":
-							return toolData.content || ""
-						case "newFileCreated":
-						case "insertContent":
-							return toolData.content || ""
-						case "appliedDiff":
-							if (toolData.batchDiffs && Array.isArray(toolData.batchDiffs)) {
-								return toolData.batchDiffs.map((d: any) => d.path).join("\n")
-							}
-							return toolData.diff || ""
-						case "editedExistingFile":
-						case "searchAndReplace":
-							return toolData.diff || ""
-						// For read-only tools, we don't need to show a content body
-						case "readFile":
-						case "listFilesTopLevel":
-						case "listFilesRecursive":
-						case "listCodeDefinitionNames":
-						case "searchFiles":
-						case "codebaseSearch":
-							return ""
-						// Default to showing the JSON for unhandled tools
-						default:
-							return JSON.stringify(toolData, null, 2)
-					}
+					return getToolContent(parsedJson as ClineSayTool)
 				}
 			} catch (_e) {
 				// Not a JSON string, fall through to default text handling
@@ -274,4 +203,84 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 	)
 }
 
-export default TaskTimelineTooltip
+const getToolContent = (toolData: ClineSayTool): string => {
+	switch (toolData.tool) {
+		case "switchMode":
+			return toolData.reason || ""
+		case "newTask":
+			return toolData.content || ""
+		case "newFileCreated":
+		case "insertContent":
+			return toolData.content || ""
+		case "appliedDiff":
+			if (toolData.batchDiffs && Array.isArray(toolData.batchDiffs)) {
+				return toolData.batchDiffs.map((d: any) => d.path).join("\n")
+			}
+			return toolData.diff || ""
+		case "editedExistingFile":
+		case "searchAndReplace":
+			return toolData.diff || ""
+		// For read-only tools, we don't need to show a content body
+		case "readFile":
+		case "listFilesTopLevel":
+		case "listFilesRecursive":
+		case "listCodeDefinitionNames":
+		case "searchFiles":
+		case "codebaseSearch":
+			return ""
+		// Default to showing the JSON for unhandled tools
+		default:
+			return JSON.stringify(toolData, null, 2)
+	}
+}
+
+const getSayMessageDescription = (message: ClineMessage): React.ReactNode => {
+	switch (message.say) {
+		case "user_feedback":
+			return t("chat:userFeedback.title")
+		case "user_feedback_diff":
+			return t("chat:userFeedback.diffTitle")
+		case "text":
+			return t("chat:response")
+		case "reasoning":
+			return t("chat:reasoning.thinking")
+		case "subtask_result":
+			return t("chat:subtasks.resultContent")
+		case "command_output":
+			return t("chat:runCommand.outputTitle")
+		case "browser_action":
+			return t("chat:browser.action")
+		case "browser_action_result":
+			return t("chat:browser.result")
+		case "completion_result":
+			return t("chat:taskCompleted")
+		case "api_req_started":
+			return t("chat:apiRequest.streamingFailed")
+		case "checkpoint_saved":
+			return t("chat:checkpoint.saved")
+		case "condense_context":
+			return t("chat:context.condensing")
+		case "codebase_search_result": {
+			const parsed = safeJsonParse<{ content: { query: string; results: unknown[] } }>(message.text)
+			const query = parsed?.content?.query || ""
+			const count = parsed?.content?.results?.length || 0
+			return (
+				<Trans
+					i18nKey="chat:codebaseSearch.didSearch"
+					components={{ code: <code /> }}
+					values={{ query, count }}
+				/>
+			)
+		}
+		case "error":
+		case "rooignore_error":
+		case "diff_error":
+		case "condense_context_error":
+		case "shell_integration_warning":
+			return t("chat:error")
+		case "api_req_deleted":
+			return t("chat:apiRequest.cancelled")
+		default:
+			return message.say || "Unknown"
+	}
+}

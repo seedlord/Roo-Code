@@ -213,7 +213,7 @@ export function getToolColor(toolName: string): string {
 		case "command":
 			return COLOR.PURPLE
 		case "flow":
-			return COLOR.LIGHTGREEN
+			return COLOR.LIGHT_GREEN
 		case "ask":
 			return COLOR.GRAY
 		default:
