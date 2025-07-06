@@ -162,9 +162,30 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 		if (!scrollableElement) return
 
 		const handleWheel = (event: WheelEvent) => {
-			if (event.deltaY === 0) return
+			if (!scrollableElement) return
+
+			const { deltaY } = event
+			const { scrollLeft, scrollWidth, clientWidth } = scrollableElement
+
+			// If there's no horizontal overflow, don't interfere with vertical scrolling.
+			if (scrollWidth <= clientWidth) {
+				return
+			}
+
+			// If scrolling right (deltaY > 0) and we're at the end, allow page scroll down.
+			if (deltaY > 0 && scrollLeft + clientWidth >= scrollWidth - 1) {
+				// Subtract 1 for pixel-perfect comparison
+				return
+			}
+
+			// If scrolling left (deltaY < 0) and we're at the beginning, allow page scroll up.
+			if (deltaY < 0 && scrollLeft === 0) {
+				return
+			}
+
+			// Otherwise, prevent page scroll and scroll the timeline horizontally.
 			event.preventDefault()
-			scrollableElement.scrollLeft += event.deltaY
+			scrollableElement.scrollLeft += deltaY
 		}
 
 		scrollableElement.addEventListener("wheel", handleWheel)

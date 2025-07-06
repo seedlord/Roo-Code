@@ -196,8 +196,12 @@ export interface WebviewMessage {
 		| "checkRulesDirectoryResult"
 		| "saveCodeIndexSettingsAtomic"
 		| "requestCodeIndexSecretStatus"
+		| "getTaskDetails"
+		| "openTaskAndScroll"
 	text?: string
 	editedMessageContent?: string
+	taskId?: string
+	messageTs?: number
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 	disabled?: boolean
 	context?: string

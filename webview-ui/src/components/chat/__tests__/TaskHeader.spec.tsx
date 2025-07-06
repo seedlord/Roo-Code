@@ -54,6 +54,10 @@ describe("TaskHeader", () => {
 		buttonsDisabled: false,
 		handleCondenseContext: vi.fn(),
 		onClose: vi.fn(),
+		history: [],
+		onScrollToMessage: function (_messageId: number): void {
+			throw new Error("Function not implemented.")
+		},
 	}
 
 	const queryClient = new QueryClient()

@@ -1,9 +1,11 @@
-import { memo } from "react"
-import type { HistoryItem } from "@roo-code/types"
+import { memo, useState, useEffect } from "react"
+import type { HistoryItem, ClineMessage } from "@roo-code/types"
+import { ExtensionMessage } from "@roo/ExtensionMessage"
 
 import { vscode } from "@/utils/vscode"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
+import TaskTimeline from "@/components/chat/task-header/TaskTimeline"
 
 import TaskItemHeader from "./TaskItemHeader"
 import TaskItemFooter from "./TaskItemFooter"
@@ -33,6 +35,32 @@ const TaskItem = ({
 	onDelete,
 	className,
 }: TaskItemProps) => {
+	const [isTimelineVisible, setIsTimelineVisible] = useState(false)
+	const [taskHistory, setTaskHistory] = useState<ClineMessage[] | null>(null)
+
+	const toggleTimelineVisibility = () => {
+		const newVisibility = !isTimelineVisible
+		setIsTimelineVisible(newVisibility)
+
+		if (newVisibility && taskHistory === null) {
+			vscode.postMessage({ type: "getTaskDetails", taskId: item.id })
+		}
+	}
+
+	useEffect(() => {
+		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
+			const message = event.data
+			if (message.type === "taskDetails" && message.payload?.taskId === item.id) {
+				setTaskHistory(message.payload.history)
+			}
+		}
+
+		window.addEventListener("message", handleMessage)
+		return () => {
+			window.removeEventListener("message", handleMessage)
+		}
+	}, [item.id])
+
 	const handleClick = () => {
 		if (isSelectionMode && onToggleSelection) {
 			onToggleSelection(item.id, !isSelected)
@@ -50,9 +78,8 @@ const TaskItem = ({
 			className={cn(
 				"cursor-pointer group bg-vscode-editor-background rounded relative overflow-hidden hover:border-vscode-toolbar-hoverBackground/60",
 				className,
-			)}
-			onClick={handleClick}>
-			<div className="flex gap-2 p-3">
+			)}>
+			<div onClick={handleClick} className="flex gap-2 p-3">
 				{/* Selection checkbox - only in full variant */}
 				{!isCompact && isSelectionMode && (
 					<div
@@ -70,7 +97,13 @@ const TaskItem = ({
 
 				<div className="flex-1 min-w-0">
 					{/* Header with metadata */}
-					<TaskItemHeader item={item} isSelectionMode={isSelectionMode} onDelete={onDelete} />
+					<TaskItemHeader
+						item={item}
+						isSelectionMode={isSelectionMode}
+						onDelete={onDelete}
+						isTimelineVisible={isTimelineVisible}
+						onToggleTimeline={toggleTimelineVisibility}
+					/>
 
 					{/* Task content */}
 					<div
@@ -95,6 +128,20 @@ const TaskItem = ({
 					)}
 				</div>
 			</div>
+			{isTimelineVisible && taskHistory && (
+				<div className="px-3 pb-2">
+					<TaskTimeline
+						messages={taskHistory}
+						onBlockClick={(messageTs) => {
+							vscode.postMessage({
+								type: "openTaskAndScroll",
+								taskId: item.id,
+								messageTs,
+							})
+						}}
+					/>
+				</div>
+			)}
 		</div>
 	)
 }

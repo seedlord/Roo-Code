@@ -704,94 +704,6 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	const shouldDisableImages =
 		!model?.supportsImages || sendingDisabled || selectedImages.length >= MAX_IMAGES_PER_MESSAGE
-
-	const handleMessage = useCallback(
-		(e: MessageEvent) => {
-			const message: ExtensionMessage = e.data
-
-			switch (message.type) {
-				case "action":
-					switch (message.action!) {
-						case "didBecomeVisible":
-							if (!isHidden && !sendingDisabled && !enableButtons) {
-								textAreaRef.current?.focus()
-							}
-							break
-						case "focusInput":
-							textAreaRef.current?.focus()
-							break
-					}
-					break
-				case "selectedImages":
-					// Only handle selectedImages if it's not for editing context
-					// When context is "edit", ChatRow will handle the images
-					if (message.context !== "edit") {
-						setSelectedImages((prevImages) =>
-							appendImages(prevImages, message.images, MAX_IMAGES_PER_MESSAGE),
-						)
-					}
-					break
-				case "invoke":
-					switch (message.invoke!) {
-						case "newChat":
-							handleChatReset()
-							break
-						case "sendMessage":
-							handleSendMessage(message.text ?? "", message.images ?? [])
-							break
-						case "setChatBoxMessage":
-							handleSetChatBoxMessage(message.text ?? "", message.images ?? [])
-							break
-						case "primaryButtonClick":
-							handlePrimaryButtonClick(message.text ?? "", message.images ?? [])
-							break
-						case "secondaryButtonClick":
-							handleSecondaryButtonClick(message.text ?? "", message.images ?? [])
-							break
-					}
-					break
-				case "condenseTaskContextResponse":
-					if (message.text && message.text === currentTaskItem?.id) {
-						if (isCondensing && sendingDisabled) {
-							setSendingDisabled(false)
-						}
-						setIsCondensing(false)
-					}
-					break
-			}
-			// textAreaRef.current is not explicitly required here since React
-			// guarantees that ref will be stable across re-renders, and we're
-			// not using its value but its reference.
-		},
-		[
-			isCondensing,
-			isHidden,
-			sendingDisabled,
-			enableButtons,
-			currentTaskItem,
-			handleChatReset,
-			handleSendMessage,
-			handleSetChatBoxMessage,
-			handlePrimaryButtonClick,
-			handleSecondaryButtonClick,
-		],
-	)
-
-	useEvent("message", handleMessage)
-
-	// NOTE: the VSCode window needs to be focused for this to work.
-	useMount(() => textAreaRef.current?.focus())
-
-	useDebounceEffect(
-		() => {
-			if (!isHidden && !sendingDisabled && !enableButtons) {
-				textAreaRef.current?.focus()
-			}
-		},
-		50,
-		[isHidden, sendingDisabled, enableButtons],
-	)
-
 	const visibleMessages = useMemo(() => {
 		const newVisibleMessages = modifiedMessages.filter((message) => {
 			if (everVisibleMessagesTsRef.current.has(message.ts)) {
@@ -856,6 +768,197 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 		return newVisibleMessages
 	}, [modifiedMessages])
+	const groupedMessages = useMemo(() => {
+		const result: (ClineMessage | ClineMessage[])[] = []
+		let currentGroup: ClineMessage[] = []
+		let isInBrowserSession = false
+
+		const endBrowserSession = () => {
+			if (currentGroup.length > 0) {
+				result.push([...currentGroup])
+				currentGroup = []
+				isInBrowserSession = false
+			}
+		}
+
+		visibleMessages.forEach((message) => {
+			if (message.ask === "browser_action_launch") {
+				// Complete existing browser session if any.
+				endBrowserSession()
+				// Start new.
+				isInBrowserSession = true
+				currentGroup.push(message)
+			} else if (isInBrowserSession) {
+				// End session if `api_req_started` is cancelled.
+
+				if (message.say === "api_req_started") {
+					// Get last `api_req_started` in currentGroup to check if
+					// it's cancelled. If it is then this api req is not part
+					// of the current browser session.
+					const lastApiReqStarted = [...currentGroup].reverse().find((m) => m.say === "api_req_started")
+
+					if (lastApiReqStarted?.text !== null && lastApiReqStarted?.text !== undefined) {
+						const info = JSON.parse(lastApiReqStarted.text)
+						const isCancelled = info.cancelReason !== null && info.cancelReason !== undefined
+
+						if (isCancelled) {
+							endBrowserSession()
+							result.push(message)
+							return
+						}
+					}
+				}
+
+				if (isBrowserSessionMessage(message)) {
+					currentGroup.push(message)
+
+					// Check if this is a close action
+					if (message.say === "browser_action") {
+						const browserAction = JSON.parse(message.text || "{}") as ClineSayBrowserAction
+						if (browserAction.action === "close") {
+							endBrowserSession()
+						}
+					}
+				} else {
+					// complete existing browser session if any
+					endBrowserSession()
+					result.push(message)
+				}
+			} else {
+				result.push(message)
+			}
+		})
+
+		// Handle case where browser session is the last group
+		if (currentGroup.length > 0) {
+			result.push([...currentGroup])
+		}
+
+		if (isCondensing) {
+			// Show indicator after clicking condense button
+			result.push({
+				type: "say",
+				say: "condense_context",
+				ts: Date.now(),
+				partial: true,
+			})
+		}
+
+		return result
+	}, [isCondensing, visibleMessages])
+
+	const scrollToMessage = useCallback(
+		(messageId: number) => {
+			const messageIndex = groupedMessages.findIndex((message) => {
+				if (Array.isArray(message)) {
+					return message.some((m) => m.ts === messageId)
+				}
+				return message.ts === messageId
+			})
+
+			if (messageIndex !== -1) {
+				virtuosoRef.current?.scrollToIndex({
+					index: messageIndex,
+					align: "start",
+					behavior: "smooth",
+				})
+				disableAutoScrollRef.current = true
+			}
+		},
+		[groupedMessages],
+	)
+	const handleMessage = useCallback(
+		(e: MessageEvent) => {
+			const message: ExtensionMessage = e.data
+
+			switch (message.type) {
+				case "action":
+					switch (message.action!) {
+						case "didBecomeVisible":
+							if (!isHidden && !sendingDisabled && !enableButtons) {
+								textAreaRef.current?.focus()
+							}
+							break
+						case "focusInput":
+							textAreaRef.current?.focus()
+							break
+						case "scrollToMessage":
+							if (message.value) {
+								scrollToMessage(message.value as number)
+							}
+							break
+					}
+					break
+				case "selectedImages":
+					// Only handle selectedImages if it's not for editing context
+					// When context is "edit", ChatRow will handle the images
+					if (message.context !== "edit") {
+						setSelectedImages((prevImages) =>
+							appendImages(prevImages, message.images, MAX_IMAGES_PER_MESSAGE),
+						)
+					}
+					break
+				case "invoke":
+					switch (message.invoke!) {
+						case "newChat":
+							handleChatReset()
+							break
+						case "sendMessage":
+							handleSendMessage(message.text ?? "", message.images ?? [])
+							break
+						case "setChatBoxMessage":
+							handleSetChatBoxMessage(message.text ?? "", message.images ?? [])
+							break
+						case "primaryButtonClick":
+							handlePrimaryButtonClick(message.text ?? "", message.images ?? [])
+							break
+						case "secondaryButtonClick":
+							handleSecondaryButtonClick(message.text ?? "", message.images ?? [])
+							break
+					}
+					break
+				case "condenseTaskContextResponse":
+					if (message.text && message.text === currentTaskItem?.id) {
+						if (isCondensing && sendingDisabled) {
+							setSendingDisabled(false)
+						}
+						setIsCondensing(false)
+					}
+					break
+			}
+			// textAreaRef.current is not explicitly required here since React
+			// guarantees that ref will be stable across re-renders, and we're
+			// not using its value but its reference.
+		},
+		[
+			currentTaskItem?.id,
+			isHidden,
+			sendingDisabled,
+			enableButtons,
+			scrollToMessage,
+			handleChatReset,
+			handleSendMessage,
+			handleSetChatBoxMessage,
+			handlePrimaryButtonClick,
+			handleSecondaryButtonClick,
+			isCondensing,
+		],
+	)
+
+	useEvent("message", handleMessage)
+
+	// NOTE: the VSCode window needs to be focused for this to work.
+	useMount(() => textAreaRef.current?.focus())
+
+	useDebounceEffect(
+		() => {
+			if (!isHidden && !sendingDisabled && !enableButtons) {
+				textAreaRef.current?.focus()
+			}
+		},
+		50,
+		[isHidden, sendingDisabled, enableButtons],
+	)
 
 	const isReadOnlyToolAction = useCallback((message: ClineMessage | undefined) => {
 		if (message?.type === "ask") {
@@ -1119,85 +1222,6 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		return false
 	}
 
-	const groupedMessages = useMemo(() => {
-		const result: (ClineMessage | ClineMessage[])[] = []
-		let currentGroup: ClineMessage[] = []
-		let isInBrowserSession = false
-
-		const endBrowserSession = () => {
-			if (currentGroup.length > 0) {
-				result.push([...currentGroup])
-				currentGroup = []
-				isInBrowserSession = false
-			}
-		}
-
-		visibleMessages.forEach((message) => {
-			if (message.ask === "browser_action_launch") {
-				// Complete existing browser session if any.
-				endBrowserSession()
-				// Start new.
-				isInBrowserSession = true
-				currentGroup.push(message)
-			} else if (isInBrowserSession) {
-				// End session if `api_req_started` is cancelled.
-
-				if (message.say === "api_req_started") {
-					// Get last `api_req_started` in currentGroup to check if
-					// it's cancelled. If it is then this api req is not part
-					// of the current browser session.
-					const lastApiReqStarted = [...currentGroup].reverse().find((m) => m.say === "api_req_started")
-
-					if (lastApiReqStarted?.text !== null && lastApiReqStarted?.text !== undefined) {
-						const info = JSON.parse(lastApiReqStarted.text)
-						const isCancelled = info.cancelReason !== null && info.cancelReason !== undefined
-
-						if (isCancelled) {
-							endBrowserSession()
-							result.push(message)
-							return
-						}
-					}
-				}
-
-				if (isBrowserSessionMessage(message)) {
-					currentGroup.push(message)
-
-					// Check if this is a close action
-					if (message.say === "browser_action") {
-						const browserAction = JSON.parse(message.text || "{}") as ClineSayBrowserAction
-						if (browserAction.action === "close") {
-							endBrowserSession()
-						}
-					}
-				} else {
-					// complete existing browser session if any
-					endBrowserSession()
-					result.push(message)
-				}
-			} else {
-				result.push(message)
-			}
-		})
-
-		// Handle case where browser session is the last group
-		if (currentGroup.length > 0) {
-			result.push([...currentGroup])
-		}
-
-		if (isCondensing) {
-			// Show indicator after clicking condense button
-			result.push({
-				type: "say",
-				say: "condense_context",
-				ts: Date.now(),
-				partial: true,
-			})
-		}
-
-		return result
-	}, [isCondensing, visibleMessages])
-
 	// scrolling
 
 	const scrollToBottomSmooth = useMemo(
@@ -1255,7 +1279,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	useEffect(() => {
 		let timer: NodeJS.Timeout | undefined
-		if (!disableAutoScrollRef.current) {
+		if (!disableAutoScrollRef.current && !currentTaskItem?.scrollToMessageTs) {
 			timer = setTimeout(() => scrollToBottomSmooth(), 50)
 		}
 		return () => {
@@ -1263,7 +1287,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				clearTimeout(timer)
 			}
 		}
-	}, [groupedMessages.length, scrollToBottomSmooth])
+	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageTs])
 
 	const handleWheel = useCallback((event: Event) => {
 		const wheelEvent = event as WheelEvent
@@ -1277,27 +1301,6 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	}, [])
 
 	useEvent("wheel", handleWheel, window, { passive: true }) // passive improves scrolling performance
-
-	const scrollToMessage = useCallback(
-		(messageId: number) => {
-			const messageIndex = groupedMessages.findIndex((message) => {
-				if (Array.isArray(message)) {
-					return message.some((m) => m.ts === messageId)
-				}
-				return message.ts === messageId
-			})
-
-			if (messageIndex !== -1) {
-				virtuosoRef.current?.scrollToIndex({
-					index: messageIndex,
-					align: "start",
-					behavior: "smooth",
-				})
-				disableAutoScrollRef.current = true
-			}
-		},
-		[groupedMessages],
-	)
 
 	// Effect to handle showing the checkpoint warning after a delay
 	useEffect(() => {
@@ -1780,7 +1783,22 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 								setShowScrollToBottom(disableAutoScrollRef.current && !isAtBottom)
 							}}
 							atBottomThreshold={10} // anything lower causes issues with followOutput
-							initialTopMostItemIndex={groupedMessages.length - 1}
+							initialTopMostItemIndex={(() => {
+								if (currentTaskItem?.scrollToMessageTs) {
+									const index = groupedMessages.findIndex((message) => {
+										if (Array.isArray(message)) {
+											return message.some((m) => m.ts === currentTaskItem.scrollToMessageTs)
+										}
+										return message.ts === currentTaskItem.scrollToMessageTs
+									})
+									if (index !== -1) {
+										// Disable auto-scrolling to the bottom when a specific message is targeted.
+										disableAutoScrollRef.current = true
+										return index
+									}
+								}
+								return groupedMessages.length - 1
+							})()}
 						/>
 					</div>
 					<div className={`flex-initial min-h-0 ${!areButtonsVisible ? "mb-1" : ""}`}>

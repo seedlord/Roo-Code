@@ -60,7 +60,14 @@ describe("ContextWindowProgress", () => {
 
 		return render(
 			<QueryClientProvider client={queryClient}>
-				<TaskHeader {...defaultProps} {...props} />
+				<TaskHeader
+					history={[]}
+					onScrollToMessage={function (_messageId: number): void {
+						throw new Error("Function not implemented.")
+					}}
+					{...defaultProps}
+					{...props}
+				/>
 			</QueryClientProvider>,
 		)
 	}
