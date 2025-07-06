@@ -5,7 +5,7 @@ import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { vscode } from "@/utils/vscode"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
-import TaskTimeline from "@/components/chat/task-header/TaskTimeline"
+import TaskTimeline from "@/components/common/task-timeline/TaskTimeline"
 
 import TaskItemHeader from "./TaskItemHeader"
 import TaskItemFooter from "./TaskItemFooter"
