@@ -22,7 +22,10 @@ export const Mention = ({ text, withShadow = false }: MentionProps) => {
 				<span
 					key={index}
 					className={`${withShadow ? "mention-context-highlight-with-shadow" : "mention-context-highlight"} cursor-pointer`}
-					onClick={() => vscode.postMessage({ type: "openMention", text: part })}>
+					onClick={(e) => {
+						e.stopPropagation()
+						vscode.postMessage({ type: "openMention", text: part })
+					}}>
 					@{part}
 				</span>
 			)
