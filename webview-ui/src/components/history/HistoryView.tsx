@@ -1,4 +1,4 @@
-import React, { memo, useState } from "react"
+import React, { memo, useState, useCallback, useEffect } from "react"
 import { DeleteTaskDialog } from "./DeleteTaskDialog"
 import { BatchDeleteTaskDialog } from "./BatchDeleteTaskDialog"
 import { Virtuoso } from "react-virtuoso"
@@ -20,6 +20,9 @@ import { useAppTranslation } from "@/i18n/TranslationContext"
 import { Tab, TabContent, TabHeader } from "../common/Tab"
 import { useTaskSearch } from "./useTaskSearch"
 import TaskItem from "./TaskItem"
+import { vscode } from "@/utils/vscode"
+import { ExtensionMessage } from "@roo/ExtensionMessage"
+import { ClineMessage } from "@roo-code/types"
 
 type HistoryViewProps = {
 	onDone: () => void
@@ -45,13 +48,52 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
 	const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState<boolean>(false)
 	const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({})
+	const [timelineData, setTimelineData] = useState<Record<string, ClineMessage[]>>({})
 
-	const toggleTaskExpansion = (taskId: string) => {
-		setExpandedTaskIds((prev) => ({
-			...prev,
-			[taskId]: !prev[taskId],
-		}))
-	}
+	useEffect(() => {
+		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
+			const message = event.data
+			if (message.type === "taskDetails" && message.payload?.taskId) {
+				setTimelineData((prev) => ({
+					...prev,
+					[message.payload.taskId]: message.payload.history,
+				}))
+			}
+		}
+
+		window.addEventListener("message", handleMessage)
+		return () => {
+			window.removeEventListener("message", handleMessage)
+		}
+	}, [])
+
+	const prefetchVisibleTaskTimelines = useCallback(
+		({ startIndex, endIndex }: { startIndex: number; endIndex: number }) => {
+			for (let i = startIndex; i <= endIndex; i++) {
+				const task = tasks[i]
+				if (task && !timelineData[task.id]) {
+					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
+				}
+			}
+		},
+		[tasks, timelineData],
+	)
+
+	const toggleTaskExpansion = useCallback(
+		(taskId: string) => {
+			const isExpanding = !expandedTaskIds[taskId]
+			setExpandedTaskIds((prev) => ({
+				...prev,
+				[taskId]: isExpanding,
+			}))
+
+			if (isExpanding && !timelineData[taskId]) {
+				vscode.postMessage({ type: "getTaskDetails", taskId: taskId })
+			}
+		},
+		[expandedTaskIds, timelineData],
+	)
+
 	// Toggle selection mode
 	const toggleSelectionMode = () => {
 		setIsSelectionMode(!isSelectionMode)
@@ -235,6 +277,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 					data={tasks}
 					data-testid="virtuoso-container"
 					initialTopMostItemIndex={0}
+					rangeChanged={prefetchVisibleTaskTimelines}
 					components={{
 						List: React.forwardRef((props, ref) => (
 							<div {...props} ref={ref} data-testid="virtuoso-item-list" />
@@ -252,7 +295,8 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 							onDelete={setDeleteTaskId}
 							className="m-2 mr-0"
 							isExpanded={expandedTaskIds[item.id] ?? false}
-							onToggleExpansion={() => toggleTaskExpansion(item.id)}
+							onToggleExpansion={toggleTaskExpansion}
+							taskHistory={timelineData[item.id]}
 						/>
 					)}
 				/>
