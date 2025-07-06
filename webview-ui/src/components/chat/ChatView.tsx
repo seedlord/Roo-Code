@@ -1278,6 +1278,27 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	useEvent("wheel", handleWheel, window, { passive: true }) // passive improves scrolling performance
 
+	const scrollToMessage = useCallback(
+		(messageId: number) => {
+			const messageIndex = groupedMessages.findIndex((message) => {
+				if (Array.isArray(message)) {
+					return message.some((m) => m.ts === messageId)
+				}
+				return message.ts === messageId
+			})
+
+			if (messageIndex !== -1) {
+				virtuosoRef.current?.scrollToIndex({
+					index: messageIndex,
+					align: "start",
+					behavior: "smooth",
+				})
+				disableAutoScrollRef.current = true
+			}
+		},
+		[groupedMessages],
+	)
+
 	// Effect to handle showing the checkpoint warning after a delay
 	useEffect(() => {
 		// Only show the warning when there's a task but no visible messages yet
@@ -1647,6 +1668,8 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				<>
 					<TaskHeader
 						task={task}
+						history={modifiedMessages}
+						onScrollToMessage={scrollToMessage}
 						tokensIn={apiMetrics.totalTokensIn}
 						tokensOut={apiMetrics.totalTokensOut}
 						cacheWrites={apiMetrics.totalCacheWrites}
