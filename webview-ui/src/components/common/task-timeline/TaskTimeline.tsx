@@ -3,8 +3,8 @@ import { ClineMessage } from "@roo-code/types"
 import { combineApiRequests } from "@roo/combineApiRequests"
 import { combineCommandSequences } from "@roo/combineCommandSequences"
 import TaskTimelineTooltip from "./TaskTimelineTooltip"
-import * as COLOR from "../colors"
-import { readTools, editTools, commandTools, flowTools, askTools } from "./toolCategories"
+import * as COLOR from "./colors"
+import { getToolColor } from "./toolManager"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
@@ -18,22 +18,12 @@ interface TaskTimelineProps {
 }
 
 const getBlockColor = (message: ClineMessage): string => {
-	const getColorFromTool = (toolName: string): string => {
-		if (readTools.includes(toolName)) return COLOR.YELLOW
-		if (editTools.includes(toolName)) return COLOR.BLUE
-		if (commandTools.includes(toolName)) return COLOR.PURPLE
-		if (flowTools.includes(toolName)) return COLOR.LIGHTGREEN
-		if (askTools.includes(toolName)) return COLOR.GRAY
-
-		return COLOR.DARK_GRAY // Default for uncategorized tools
-	}
-
 	// First, try to determine color based on the tool being used
 	if (message.text) {
 		try {
 			const toolData = JSON.parse(message.text)
 			if (toolData.tool) {
-				return getColorFromTool(toolData.tool)
+				return getToolColor(toolData.tool)
 			}
 		} catch (_e) {
 			// Not a tool call, continue to the logic below

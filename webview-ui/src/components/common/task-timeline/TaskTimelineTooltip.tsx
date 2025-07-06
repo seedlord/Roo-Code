@@ -1,11 +1,11 @@
 import React from "react"
 import { ClineMessage } from "@roo-code/types"
-import * as COLOR from "../colors"
-import { readTools, editTools, commandTools, flowTools, askTools } from "./toolCategories"
+import * as COLOR from "./colors"
 import { Trans } from "react-i18next"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import { ClineSayTool } from "@roo/ExtensionMessage"
 import { t } from "i18next"
+import { getToolColor, getToolMetadata } from "./toolManager"
 
 // Color mapping for different message types
 
@@ -15,121 +15,36 @@ interface TaskTimelineTooltipProps {
 
 const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) => {
 	const getMessageDescription = (message: ClineMessage): React.ReactNode => {
+		const tool = message.ask === "tool" ? safeJsonParse<ClineSayTool>(message.text) : null
+		let description: React.ReactNode = null
+
+		if (tool) {
+			const metadata = getToolMetadata(tool.tool)
+			if (metadata) {
+				description = metadata.getDescription(tool)
+			}
+		}
+
+		// A progress text is considered a "status" if it contains any digit.
+		const isStatusProgress = message.progressStatus?.text && /\d/.test(message.progressStatus.text)
+
+		// If we have a base description and a status-like progress, combine them.
+		if (description && isStatusProgress) {
+			return (
+				<>
+					{description} ({message.progressStatus?.text})
+				</>
+			)
+		}
+
+		// If there's any other progress text (likely a full sentence), show it with priority.
 		if (message.progressStatus?.text) {
 			return message.progressStatus.text
 		}
 
-		const tool = message.ask === "tool" ? safeJsonParse<ClineSayTool>(message.text) : null
-		if (tool) {
-			switch (tool.tool) {
-				case "codebaseSearch":
-					return tool.path ? (
-						<Trans
-							i18nKey="chat:codebaseSearch.wantsToSearchWithPath"
-							components={{ code: <code /> }}
-							values={{ query: tool.query, path: tool.path }}
-						/>
-					) : (
-						<Trans
-							i18nKey="chat:codebaseSearch.wantsToSearch"
-							components={{ code: <code /> }}
-							values={{ query: tool.query }}
-						/>
-					)
-				case "readFile": {
-					const title =
-						tool.batchFiles && Array.isArray(tool.batchFiles)
-							? `${t("chat:fileOperations.wantsToReadMultiple")} ${tool.batchFiles.map((f: any) => f.path).join(", ")}`
-							: tool.isOutsideWorkspace
-								? t("chat:fileOperations.wantsToReadOutsideWorkspace")
-								: tool.additionalFileCount && tool.additionalFileCount > 0
-									? t("chat:fileOperations.wantsToReadAndXMore", { count: tool.additionalFileCount })
-									: t("chat:fileOperations.wantsToRead")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "listFilesTopLevel": {
-					const title = tool.isOutsideWorkspace
-						? t("chat:directoryOperations.wantsToViewTopLevelOutsideWorkspace")
-						: t("chat:directoryOperations.wantsToViewTopLevel")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "listCodeDefinitionNames": {
-					const title = tool.isOutsideWorkspace
-						? t("chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace")
-						: t("chat:directoryOperations.wantsToViewDefinitions")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "newTask":
-					return (
-						<Trans
-							i18nKey="chat:subtasks.wantsToCreate"
-							components={{ code: <code /> }}
-							values={{ mode: tool.mode }}
-						/>
-					)
-				case "editedExistingFile":
-				case "appliedDiff": {
-					const title = tool.isProtected
-						? t("chat:fileOperations.wantsToEditProtected")
-						: tool.isOutsideWorkspace
-							? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-							: t("chat:fileOperations.wantsToEdit")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "insertContent": {
-					const title = tool.isProtected
-						? t("chat:fileOperations.wantsToEditProtected")
-						: tool.isOutsideWorkspace
-							? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-							: tool.lineNumber === 0
-								? t("chat:fileOperations.wantsToInsertAtEnd")
-								: t("chat:fileOperations.wantsToInsertWithLineNumber", {
-										lineNumber: tool.lineNumber,
-									})
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "searchAndReplace": {
-					const title = tool.isProtected
-						? t("chat:fileOperations.wantsToEditProtected")
-						: t("chat:fileOperations.wantsToSearchReplace")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "newFileCreated": {
-					const title = tool.isProtected
-						? t("chat:fileOperations.wantsToEditProtected")
-						: t("chat:fileOperations.wantsToCreate")
-					return tool.path ? `${title} ${tool.path}` : title
-				}
-				case "searchFiles":
-					return (
-						<Trans
-							i18nKey={
-								tool.isOutsideWorkspace
-									? "chat:directoryOperations.wantsToSearchOutsideWorkspace"
-									: "chat:directoryOperations.wantsToSearch"
-							}
-							components={{ code: <code>{tool.regex}</code> }}
-							values={{ regex: tool.regex }}
-						/>
-					)
-				default:
-					// Fallback for other tools
-					break
-			}
-		}
-
-		if (tool?.tool === "searchFiles") {
-			return (
-				<Trans
-					i18nKey={
-						tool.isOutsideWorkspace
-							? "chat:directoryOperations.wantsToSearchOutsideWorkspace"
-							: "chat:directoryOperations.wantsToSearch"
-					}
-					components={{ code: <code>{tool.regex}</code> }}
-					values={{ regex: tool.regex }}
-				/>
-			)
+		// Otherwise, fall back to the base description if it exists.
+		if (description) {
+			return description
 		}
 
 		// Fallback for non-tool messages or unhandled tools
@@ -137,6 +52,8 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 			switch (message.say) {
 				case "user_feedback":
 					return "User Message"
+				case "user_feedback_diff":
+					return "User Edits"
 				case "text":
 					return "Assistant Response"
 				case "subtask_result":
@@ -197,20 +114,39 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 	const getMessageContent = (message: ClineMessage): string => {
 		if (message.text) {
 			try {
-				const data = JSON.parse(message.text)
+				const parsedJson = safeJsonParse<any>(message.text)
+
 				// Handle API streaming failure message
-				if (message.say === "api_req_started" && data.streamingFailedMessage) {
-					return data.streamingFailedMessage
+				if (message.say === "api_req_started" && parsedJson?.streamingFailedMessage) {
+					return parsedJson.streamingFailedMessage
 				}
+
 				// Handle tool calls
-				if (data.tool) {
-					if (data.tool === "newTask") {
-						return data.content || ""
+				if (parsedJson?.tool) {
+					const toolData = parsedJson as ClineSayTool
+					switch (toolData.tool) {
+						case "switchMode":
+							return toolData.reason || ""
+						case "newTask":
+							return toolData.content || ""
+						case "newFileCreated":
+						case "insertContent":
+							return toolData.content || ""
+						case "appliedDiff":
+						case "editedExistingFile":
+						case "searchAndReplace":
+							return toolData.diff || ""
+						// For read-only tools, we don't need to show a content body
+						case "readFile":
+						case "listFilesTopLevel":
+						case "listCodeDefinitionNames":
+						case "searchFiles":
+						case "codebaseSearch":
+							return ""
+						// Default to showing the JSON for unhandled tools
+						default:
+							return JSON.stringify(toolData, null, 2)
 					}
-					if (editTools.includes(data.tool) || readTools.includes(data.tool)) {
-						return JSON.stringify(data, null, 2)
-					}
-					return JSON.stringify(data, null, 2)
 				}
 			} catch (_e) {
 				// Not a JSON string, fall through to default text handling
@@ -249,22 +185,12 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 
 	// Get color for the indicator based on message type
 	const getMessageColor = (message: ClineMessage): string => {
-		const getColorFromTool = (toolName: string): string => {
-			if (readTools.includes(toolName)) return COLOR.YELLOW
-			if (editTools.includes(toolName)) return COLOR.BLUE
-			if (commandTools.includes(toolName)) return COLOR.PURPLE
-			if (flowTools.includes(toolName)) return COLOR.LIGHTGREEN
-			if (askTools.includes(toolName)) return COLOR.GRAY
-
-			return COLOR.DARK_GRAY // Default for uncategorized tools
-		}
-
 		// First, try to determine color based on the tool being used
 		if (message.text) {
 			try {
 				const toolData = JSON.parse(message.text)
 				if (toolData.tool) {
-					return getColorFromTool(toolData.tool)
+					return getToolColor(toolData.tool)
 				}
 			} catch (_e) {
 				// Not a tool call, continue to the logic below
