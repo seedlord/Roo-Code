@@ -23,6 +23,8 @@ interface TaskItemProps {
 	onToggleSelection?: (taskId: string, isSelected: boolean) => void
 	onDelete?: (taskId: string) => void
 	className?: string
+	isExpanded?: boolean
+	onToggleExpansion?: (taskId: string) => void
 }
 
 const TaskItem = ({
@@ -34,18 +36,28 @@ const TaskItem = ({
 	onToggleSelection,
 	onDelete,
 	className,
+	isExpanded,
+	onToggleExpansion,
 }: TaskItemProps) => {
-	const [isTimelineVisible, setIsTimelineVisible] = useState(false)
 	const [taskHistory, setTaskHistory] = useState<ClineMessage[] | null>(null)
+	const [isTimelineVisible, setIsTimelineVisible] = useState(false)
+
+	const isControlled = onToggleExpansion !== undefined
+	const currentExpandedState = isControlled ? isExpanded : isTimelineVisible
 
 	const toggleTimelineVisibility = () => {
-		const newVisibility = !isTimelineVisible
-		setIsTimelineVisible(newVisibility)
-
-		if (newVisibility && taskHistory === null) {
-			vscode.postMessage({ type: "getTaskDetails", taskId: item.id })
+		if (isControlled) {
+			onToggleExpansion(item.id)
+		} else {
+			setIsTimelineVisible(!isTimelineVisible)
 		}
 	}
+
+	useEffect(() => {
+		if (currentExpandedState && taskHistory === null) {
+			vscode.postMessage({ type: "getTaskDetails", taskId: item.id })
+		}
+	}, [currentExpandedState, taskHistory, item.id])
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -101,7 +113,7 @@ const TaskItem = ({
 						item={item}
 						isSelectionMode={isSelectionMode}
 						onDelete={onDelete}
-						isTimelineVisible={isTimelineVisible}
+						isTimelineVisible={currentExpandedState}
 						onToggleTimeline={toggleTimelineVisibility}
 					/>
 
@@ -128,7 +140,7 @@ const TaskItem = ({
 					)}
 				</div>
 			</div>
-			{isTimelineVisible && taskHistory && (
+			{currentExpandedState && taskHistory && (
 				<div className="px-3 pb-2">
 					<TaskTimeline
 						messages={taskHistory}
