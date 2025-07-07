@@ -238,9 +238,9 @@ export class Task extends EventEmitter<ClineEvents> {
 
 		this.taskId = historyItem ? historyItem.id : crypto.randomUUID()
 		// normal use-case is usually retry similar history task with new workspace
-		this.workspacePath = parentTask
-			? parentTask.workspacePath
-			: getWorkspacePath(path.join(os.homedir(), "Desktop"))
+		this.workspacePath =
+			historyItem?.workspace ||
+			(parentTask ? parentTask.workspacePath : getWorkspacePath(path.join(os.homedir(), "Desktop")))
 		this.instanceId = crypto.randomUUID().slice(0, 8)
 		this.taskNumber = -1
 
@@ -413,6 +413,9 @@ export class Task extends EventEmitter<ClineEvents> {
 				taskNumber: this.taskNumber,
 				globalStoragePath: this.globalStoragePath,
 				workspace: this.cwd,
+				modelId: this.api.getModel().id,
+				apiProvider: this.apiConfiguration.apiProvider,
+				contextWindow: this.api.getModel().info.contextWindow,
 			})
 
 			this.emit("taskTokenUsageUpdated", this.taskId, tokenUsage)

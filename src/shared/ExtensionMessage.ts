@@ -108,6 +108,7 @@ export interface ExtensionMessage {
 		| "showDeleteMessageDialog"
 		| "showEditMessageDialog"
 		| "taskDetails"
+		| "taskHistoryItemUpdated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -164,6 +165,7 @@ export interface ExtensionMessage {
 	messageTs?: number
 	context?: string
 	history?: HistoryItem[]
+	historyItem?: HistoryItem
 	taskId?: string
 }
 

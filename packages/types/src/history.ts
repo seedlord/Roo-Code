@@ -5,6 +5,7 @@ import { z } from "zod"
  */
 
 import { clineMessageSchema } from "./message.js"
+import { providerNamesSchema } from "./provider-settings.js"
 
 export const historyItemSchema = z.object({
 	id: z.string(),
@@ -16,6 +17,10 @@ export const historyItemSchema = z.object({
 	cacheWrites: z.number().optional(),
 	cacheReads: z.number().optional(),
 	totalCost: z.number(),
+	contextTokens: z.number().optional(),
+	modelId: z.string().optional(),
+	apiProvider: providerNamesSchema.optional(),
+	contextWindow: z.number().optional(),
 	size: z.number().optional(),
 	workspace: z.string().optional(),
 	history: z.array(clineMessageSchema).optional(),

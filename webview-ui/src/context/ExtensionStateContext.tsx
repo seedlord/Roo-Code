@@ -338,6 +338,22 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					break
 				}
+				case "taskHistoryItemUpdated": {
+					const historyItem = message.historyItem
+					if (historyItem) {
+						setState((prevState) => {
+							const newHistory = [...prevState.taskHistory]
+							const index = newHistory.findIndex((item) => item.id === historyItem.id)
+							if (index !== -1) {
+								newHistory[index] = historyItem
+							} else {
+								newHistory.push(historyItem)
+							}
+							return { ...prevState, taskHistory: newHistory }
+						})
+					}
+					break
+				}
 			}
 		},
 		[setListApiConfigMeta],

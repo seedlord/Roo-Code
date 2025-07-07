@@ -70,6 +70,7 @@ import { WebviewMessage } from "../../shared/WebviewMessage"
 import { EMBEDDING_MODEL_PROFILES } from "../../shared/embeddingModels"
 import { ProfileValidator } from "../../shared/ProfileValidator"
 import { getWorkspaceGitInfo } from "../../utils/git"
+import { taskMetadata } from "../task-persistence"
 
 /**
  * https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -1186,11 +1187,32 @@ export class ClineProvider
 
 	async getTaskDetails(taskId: string): Promise<HistoryItem[] | undefined> {
 		const history = this.getGlobalState("taskHistory") ?? []
-		const historyItem = history.find((item) => item.id === taskId)
+		let historyItem = history.find((item) => item.id === taskId)
 
 		if (historyItem) {
 			const { uiMessagesFilePath } = await this.getTaskWithId(taskId)
 			const uiMessages = JSON.parse(await fs.readFile(uiMessagesFilePath, "utf8"))
+
+			// Backfill context window info for older tasks
+			if (historyItem.contextWindow === undefined || historyItem.contextTokens === undefined) {
+				const { apiConfiguration } = await this.getState()
+				const apiHandler = buildApiHandler({ ...apiConfiguration, apiProvider: historyItem.apiProvider })
+				const modelInfo = apiHandler.getModel().info
+
+				const { historyItem: updatedHistoryItem } = await taskMetadata({
+					messages: uiMessages,
+					taskId: historyItem.id,
+					taskNumber: historyItem.number,
+					globalStoragePath: this.context.globalStorageUri.fsPath,
+					workspace: historyItem.workspace || this.cwd,
+					modelId: historyItem.modelId,
+					apiProvider: historyItem.apiProvider,
+					contextWindow: modelInfo.contextWindow,
+				})
+				historyItem = updatedHistoryItem
+				await this.updateTaskHistory(historyItem)
+			}
+
 			const detailedHistoryItem = {
 				...historyItem,
 				history: uiMessages,
@@ -1769,6 +1791,7 @@ export class ClineProvider
 		}
 
 		await this.updateGlobalState("taskHistory", history)
+		await this.postMessageToWebview({ type: "taskHistoryItemUpdated", historyItem: item })
 		return history
 	}
 
