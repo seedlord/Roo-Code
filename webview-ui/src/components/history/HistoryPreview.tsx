@@ -6,13 +6,10 @@ import { ExtensionMessage } from "@roo/ExtensionMessage"
 
 import { useTaskSearch } from "./useTaskSearch"
 import TaskItem from "./TaskItem"
-import { useTimelineFilter } from "../common/task-timeline/TimelineFilterContext"
-import { getMessageMetadata } from "../common/task-timeline/toolManager"
 import { useMemo } from "react"
 
 const HistoryPreview = () => {
 	const { tasks } = useTaskSearch()
-	const { activeFilters, hideTasksWithoutFilteredTypes } = useTimelineFilter()
 	const { t } = useAppTranslation()
 
 	const handleViewAllHistory = () => {
@@ -24,35 +21,8 @@ const HistoryPreview = () => {
 
 	const recentTasks = useMemo(() => tasks.slice(0, 3), [tasks])
 
-	const filteredTasks = useMemo(() => {
-		if (!hideTasksWithoutFilteredTypes) {
-			return recentTasks
-		}
-		return recentTasks.filter((task) => {
-			const history = timelineData[task.id]
-			if (!history) return true // Keep it visible if not loaded
-			return history.some((message) => {
-				const metadata = getMessageMetadata(message)
-				return metadata ? activeFilters.includes(metadata.group) : false
-			})
-		})
-	}, [recentTasks, timelineData, hideTasksWithoutFilteredTypes, activeFilters])
-
-	// Prefetch all visible tasks when filter is activated
 	useEffect(() => {
-		if (hideTasksWithoutFilteredTypes) {
-			const idsToFetch = recentTasks
-				.map((task) => task.id)
-				.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
-			if (idsToFetch.length > 0) {
-				idsToFetch.forEach((id) => requestedDetailsRef.current.add(id))
-				vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: idsToFetch })
-			}
-		}
-	}, [hideTasksWithoutFilteredTypes, recentTasks, timelineData])
-
-	useEffect(() => {
-		const idsToFetch = filteredTasks
+		const idsToFetch = recentTasks
 			.map((task) => task.id)
 			.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
 
@@ -60,7 +30,7 @@ const HistoryPreview = () => {
 			idsToFetch.forEach((id) => requestedDetailsRef.current.add(id))
 			vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: idsToFetch })
 		}
-	}, [filteredTasks, timelineData])
+	}, [recentTasks, timelineData])
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -108,7 +78,7 @@ const HistoryPreview = () => {
 
 	return (
 		<div className="flex flex-col gap-3">
-			{filteredTasks.map((item) => (
+			{recentTasks.map((item) => (
 				<TaskItem
 					key={item.id}
 					item={item}

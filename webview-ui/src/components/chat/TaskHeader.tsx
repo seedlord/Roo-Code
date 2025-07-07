@@ -22,7 +22,6 @@ import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
 import { TodoListDisplay } from "./TodoListDisplay"
 import TaskTimeline from "../common/task-timeline/TaskTimeline"
-import { TimelineFilterControls } from "../common/task-timeline/TimelineFilterControls"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
@@ -83,7 +82,7 @@ const TaskHeader = ({
 		<div className="py-2 px-3">
 			<div
 				className={cn(
-					"p-2.5 flex flex-col gap-1.5 relative z-1 border",
+					"p-2.5 flex flex-col relative z-1 border",
 					hasTodos ? "rounded-t-xs border-b-0" : "rounded-xs",
 					isTaskExpanded
 						? "border-vscode-panel-border text-vscode-foreground"
@@ -133,7 +132,7 @@ const TaskHeader = ({
 				)}
 				{/* Expanded state: Show task text and images */}
 				{isTaskExpanded && (
-					<>
+					<div className="mt-0.5 flex flex-col gap-1">
 						<TaskTimeline
 							messages={history}
 							onBlockClick={(timestamp) => {
@@ -143,12 +142,9 @@ const TaskHeader = ({
 								}
 							}}
 						/>
-						<div className="my-2">
-							<TimelineFilterControls />
-						</div>
 						<div
 							ref={textContainerRef}
-							className="-mt-0.5 text-vscode-font-size overflow-y-auto break-words break-anywhere relative">
+							className="text-vscode-font-size overflow-y-auto break-words break-anywhere relative">
 							<div
 								ref={textRef}
 								className="overflow-auto max-h-80 whitespace-pre-wrap break-words break-anywhere"
@@ -235,7 +231,7 @@ const TaskHeader = ({
 								</div>
 							)}
 						</div>
-					</>
+					</div>
 				)}
 			</div>
 			<TodoListDisplay todos={todos ?? (task as any)?.tool?.todos ?? []} />

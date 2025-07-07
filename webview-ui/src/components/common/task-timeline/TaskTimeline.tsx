@@ -13,9 +13,10 @@ const VERTICAL_OFFSET = 8 // Vertical offset from the timeline block
 interface TaskTimelineProps {
 	messages: ClineMessage[]
 	onBlockClick?: (timestamp: number) => void
+	enableFilter?: boolean
 }
 
-const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) => {
+const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, enableFilter = false }) => {
 	const { activeFilters } = useTimelineFilter()
 	const [hoveredMessage, setHoveredMessage] = useState<ClineMessage | null>(null)
 	const [hoveredElement, setHoveredElement] = useState<HTMLDivElement | null>(null)
@@ -34,10 +35,11 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 		return messages
 			.filter((message) => message.say !== "api_req_retry_delayed")
 			.filter((message) => {
+				if (!enableFilter) return true
 				const metadata = getMessageMetadata(message)
 				return metadata ? activeFilters.includes(metadata.group) : true
 			})
-	}, [messages, activeFilters])
+	}, [messages, enableFilter, activeFilters])
 
 	useEffect(() => {
 		if (scrollableRef.current && filteredMessages.length > 0) {
@@ -134,7 +136,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 	}
 
 	return (
-		<div ref={containerRef} className="relative w-full mt-0 mb-1 overflow-hidden">
+		<div ref={containerRef} className="relative w-full mt-1 mb-1 overflow-hidden">
 			<div
 				ref={scrollableRef}
 				className="flex w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"

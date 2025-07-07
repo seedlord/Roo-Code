@@ -473,6 +473,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 							isExpanded={areAllExpanded || (expandedTaskIds[item.id] ?? false)}
 							onToggleExpansion={toggleTaskExpansion}
 							taskHistory={timelineData[item.id]}
+							enableFilter
 						/>
 					)}
 				/>
