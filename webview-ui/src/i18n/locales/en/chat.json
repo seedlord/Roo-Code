@@ -338,7 +338,8 @@
 			"flow": "Flow",
 			"ask": "Ask",
 			"info": "Info",
-			"error": "Error"
+			"error": "Error",
+			"checkpoint": "Checkpoints"
 		},
 		"onlyShowTasksWithFilteredTypes": "Only show tasks containing filtered types"
 	}

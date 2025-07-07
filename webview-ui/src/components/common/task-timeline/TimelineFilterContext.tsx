@@ -1,9 +1,18 @@
 import React, { createContext, useState, useContext, useMemo } from "react"
 
 // Defines the types of message groups available for filtering.
-export type MessageGroup = "read" | "edit" | "command" | "flow" | "ask" | "info" | "error"
+export type MessageGroup = "read" | "edit" | "command" | "flow" | "ask" | "info" | "error" | "checkpoint"
 
-export const ALL_MESSAGE_GROUPS: MessageGroup[] = ["read", "edit", "command", "flow", "ask", "info", "error"]
+export const ALL_MESSAGE_GROUPS: MessageGroup[] = [
+	"read",
+	"edit",
+	"command",
+	"flow",
+	"ask",
+	"info",
+	"error",
+	"checkpoint",
+]
 
 interface TimelineFilterContextType {
 	activeFilters: MessageGroup[]

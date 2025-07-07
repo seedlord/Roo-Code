@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react"
 import { ClineMessage } from "@roo-code/types"
 import { TaskTimelineTooltip } from "./TaskTimelineTooltip"
-import { getMessageColor, getMessageMetadata } from "./toolManager"
+import { getMessageColor, getMessageMetadata, getMessageIcon } from "./toolManager"
 import { useTimelineFilter } from "./TimelineFilterContext"
 
 // Timeline dimensions and spacing
@@ -146,18 +146,26 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick }) =
 							onBlockClick(message.ts)
 						}
 					}
+					const icon = getMessageIcon(message)
+					const color = getMessageColor(message)
+
+					const renderIcon = (name: string) => (
+						<span className={`codicon codicon-${name}`} style={{ color }}></span>
+					)
+
 					return (
 						<div
 							key={`${message.ts}-${index}`}
-							className="h-full flex-shrink-0 cursor-pointer"
+							className="h-full flex-shrink-0 cursor-pointer flex items-center justify-center"
 							style={{
 								width: BLOCK_WIDTH,
-								backgroundColor: getMessageColor(message),
+								backgroundColor: icon ? "transparent" : color,
 							}}
 							onMouseEnter={(e) => handleMouseEnter(message, e)}
 							onMouseLeave={handleMouseLeave}
-							onClick={handleClick}
-						/>
+							onClick={handleClick}>
+							{icon && renderIcon(icon)}
+						</div>
 					)
 				})}
 			</div>
