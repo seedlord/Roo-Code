@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@/utils/test-utils"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 
 import HistoryView from "../HistoryView"
+import { TimelineFilterProvider } from "@/components/common/task-timeline/TimelineFilterContext"
 
 vi.mock("@src/context/ExtensionStateContext")
 vi.mock("@src/utils/vscode")
@@ -45,7 +46,11 @@ describe("HistoryView", () => {
 
 	it("renders the history interface", () => {
 		const onDone = vi.fn()
-		render(<HistoryView onDone={onDone} />)
+		render(
+			<TimelineFilterProvider>
+				<HistoryView onDone={onDone} />
+			</TimelineFilterProvider>,
+		)
 
 		// Check for main UI elements
 		expect(screen.getByText("history:history")).toBeInTheDocument()
@@ -55,7 +60,11 @@ describe("HistoryView", () => {
 
 	it("calls onDone when done button is clicked", () => {
 		const onDone = vi.fn()
-		render(<HistoryView onDone={onDone} />)
+		render(
+			<TimelineFilterProvider>
+				<HistoryView onDone={onDone} />
+			</TimelineFilterProvider>,
+		)
 
 		const doneButton = screen.getByText("history:done")
 		fireEvent.click(doneButton)

@@ -4,6 +4,7 @@ import { vi } from "vitest"
 
 import { ContextWindowProgress } from "../ContextWindowProgress"
 import * as modelUtils from "@/utils/model-utils"
+import { TooltipProvider } from "@/components/ui"
 
 // Mock the translation hook
 vi.mock("react-i18next", () => ({
@@ -39,7 +40,11 @@ describe("ContextWindowProgress", () => {
 			availableSize: 2500,
 		})
 
-		render(<ContextWindowProgress contextWindow={10000} contextTokens={5000} maxTokens={2500} />)
+		render(
+			<TooltipProvider>
+				<ContextWindowProgress contextWindow={10000} contextTokens={5000} maxTokens={2500} />
+			</TooltipProvider>,
+		)
 
 		const usedBar = screen.getByTestId("context-tokens-used")
 		const reservedBar = screen.getByTestId("context-reserved-tokens")
@@ -59,7 +64,11 @@ describe("ContextWindowProgress", () => {
 			availableSize: 2000,
 		})
 
-		render(<ContextWindowProgress contextWindow={10000} contextTokens={6000} maxTokens={2000} />)
+		render(
+			<TooltipProvider>
+				<ContextWindowProgress contextWindow={10000} contextTokens={6000} maxTokens={2000} />
+			</TooltipProvider>,
+		)
 
 		const progressBar = screen.getByTestId("context-tokens-used").parentElement?.parentElement
 		if (!progressBar) {
@@ -67,17 +76,33 @@ describe("ContextWindowProgress", () => {
 		}
 		await userEvent.hover(progressBar)
 
-		expect(await screen.findByText(/chat:tokenProgress.tokensUsed/)).toBeInTheDocument()
-		expect(await screen.findByText(/chat:tokenProgress.reservedForResponse/)).toBeInTheDocument()
-		expect(await screen.findByText(/chat:tokenProgress.availableSpace/)).toBeInTheDocument()
+		const tokensUsedElements = await screen.findAllByText(/chat:tokenProgress.tokensUsed/)
+		expect(tokensUsedElements[0]).toBeInTheDocument()
+		const reservedForResponseElements = await screen.findAllByText(/chat:tokenProgress.reservedForResponse/)
+		expect(reservedForResponseElements[0]).toBeInTheDocument()
+		const availableSpaceElements = await screen.findAllByText(/chat:tokenProgress.availableSpace/)
+		expect(availableSpaceElements[0]).toBeInTheDocument()
 
-		expect(screen.getByText('chat:tokenProgress.tokensUsed {"used":"6000","total":"10000"}')).toBeInTheDocument()
-		expect(screen.getByText('chat:tokenProgress.reservedForResponse {"amount":"2000"}')).toBeInTheDocument()
-		expect(screen.getByText('chat:tokenProgress.availableSpace {"amount":"2000"}')).toBeInTheDocument()
+		const tokensUsedTextElements = await screen.findAllByText(
+			'chat:tokenProgress.tokensUsed {"used":"6000","total":"10000"}',
+		)
+		expect(tokensUsedTextElements[0]).toBeInTheDocument()
+		const reservedForResponseTextElements = await screen.findAllByText(
+			'chat:tokenProgress.reservedForResponse {"amount":"2000"}',
+		)
+		expect(reservedForResponseTextElements[0]).toBeInTheDocument()
+		const availableSpaceTextElements = await screen.findAllByText(
+			'chat:tokenProgress.availableSpace {"amount":"2000"}',
+		)
+		expect(availableSpaceTextElements[0]).toBeInTheDocument()
 	})
 
 	it("sollte calculateTokenDistribution mit den korrekten Argumenten aufrufen", () => {
-		render(<ContextWindowProgress contextWindow={128000} contextTokens={10000} maxTokens={4096} />)
+		render(
+			<TooltipProvider>
+				<ContextWindowProgress contextWindow={128000} contextTokens={10000} maxTokens={4096} />
+			</TooltipProvider>,
+		)
 
 		expect(calculateTokenDistributionSpy).toHaveBeenCalledTimes(1)
 		expect(calculateTokenDistributionSpy).toHaveBeenCalledWith(128000, 10000, 4096)
@@ -92,7 +117,11 @@ describe("ContextWindowProgress", () => {
 			availableSize: 0,
 		})
 
-		render(<ContextWindowProgress contextWindow={10000} contextTokens={8000} maxTokens={2000} />)
+		render(
+			<TooltipProvider>
+				<ContextWindowProgress contextWindow={10000} contextTokens={8000} maxTokens={2000} />
+			</TooltipProvider>,
+		)
 
 		const availableBar = screen.queryByTestId("context-available-space-section")
 		expect(availableBar).not.toBeInTheDocument()
