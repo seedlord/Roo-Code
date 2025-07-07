@@ -1,8 +1,8 @@
 import React from "react"
 import type { HistoryItem } from "@roo-code/types"
-import { formatDate } from "@/utils/format"
+import { formatDate } from "@src/utils/format"
 import { DeleteButton } from "./DeleteButton"
-import { cn } from "@/lib/utils"
+import { cn } from "@src/lib/utils"
 import { FileIcon } from "lucide-react"
 import prettyBytes from "pretty-bytes"
 

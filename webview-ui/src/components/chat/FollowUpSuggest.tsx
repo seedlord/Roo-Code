@@ -30,6 +30,8 @@ export const FollowUpSuggest = ({
 	const [suggestionSelected, setSuggestionSelected] = useState(false)
 	const { t } = useAppTranslation()
 
+	const normalizedSuggestions: SuggestionItem[] = suggestions.map((s) => (typeof s === "string" ? { answer: s } : s))
+
 	// Start countdown timer when auto-approval is enabled for follow-up questions
 	useEffect(() => {
 		// Only start countdown if auto-approval is enabled for follow-up questions and no suggestion has been selected
@@ -37,7 +39,7 @@ export const FollowUpSuggest = ({
 		if (
 			autoApprovalEnabled &&
 			alwaysAllowFollowupQuestions &&
-			suggestions.length > 0 &&
+			normalizedSuggestions.length > 0 &&
 			!suggestionSelected &&
 			!isAnswered
 		) {
@@ -74,7 +76,7 @@ export const FollowUpSuggest = ({
 	}, [
 		autoApprovalEnabled,
 		alwaysAllowFollowupQuestions,
-		suggestions,
+		normalizedSuggestions,
 		followupAutoApproveTimeoutMs,
 		suggestionSelected,
 		onCancelAutoApproval,
@@ -98,13 +100,13 @@ export const FollowUpSuggest = ({
 	)
 
 	// Don't render if there are no suggestions or no click handler.
-	if (!suggestions?.length || !onSuggestionClick) {
+	if (!normalizedSuggestions?.length || !onSuggestionClick) {
 		return null
 	}
 
 	return (
 		<div className="flex mb-2 flex-col h-full gap-2">
-			{suggestions.map((suggestion, index) => {
+			{normalizedSuggestions.map((suggestion, index) => {
 				const isFirstSuggestion = index === 0
 
 				return (

@@ -106,9 +106,11 @@ export interface ExtensionMessage {
 		| "codeIndexSettingsSaved"
 		| "codeIndexSecretStatus"
 		| "taskDetails"
+		| "taskDetailsBatch"
 		| "taskHistoryItemUpdated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	timestamp?: number
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"
@@ -160,9 +162,7 @@ export interface ExtensionMessage {
 	visibility?: ShareVisibility
 	rulesFolderPath?: string
 	settings?: any
-	history?: HistoryItem[]
 	historyItem?: HistoryItem
-	taskId?: string
 }
 
 export type ExtensionState = Pick<

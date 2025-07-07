@@ -1,7 +1,7 @@
 import React from "react"
 import type { HistoryItem } from "@roo-code/types"
 import { Coins, TextSelect } from "lucide-react"
-import { formatLargeNumber } from "@/utils/format"
+import { formatLargeNumber } from "@src/utils/format"
 import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
 

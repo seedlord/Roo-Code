@@ -1,21 +1,44 @@
 import React from "react"
 import { t } from "i18next"
 import { Trans } from "react-i18next"
+import { ClineMessage } from "@roo-code/types"
 import { ClineSayTool } from "@roo/ExtensionMessage"
 import * as COLOR from "./colors"
+import { TOOL_NAMES } from "../../../../../src/shared/constants"
+import { safeJsonParse } from "@roo/safeJsonParse"
+import { MessageGroup } from "./TimelineFilterContext"
 
-type ToolGroup = "read" | "edit" | "command" | "flow" | "ask"
-
-interface ToolMetadata {
-	group: ToolGroup
-	getDescription: (tool: ClineSayTool) => React.ReactNode
+interface MessageMetadata {
+	group: MessageGroup
+	color: string
+	getDescription: (tool: ClineSayTool | null, message: ClineMessage) => React.ReactNode
 }
 
-const toolMetadata: Record<string, ToolMetadata> = {
-	codebaseSearch: {
+const getFileOpTitle = (
+	tool: ClineSayTool,
+	keys: {
+		normal: string
+		outside?: string
+		protected?: string
+	},
+	values?: { [key: string]: any },
+): string => {
+	let key = keys.normal
+	if (tool.isProtected && keys.protected) {
+		key = keys.protected
+	} else if (tool.isOutsideWorkspace && keys.outside) {
+		key = keys.outside
+	}
+	return t(key, values)
+}
+
+const messageMetadata: Record<string, MessageMetadata> = {
+	// Tools
+	[TOOL_NAMES.CODEBASE_SEARCH]: {
 		group: "read",
+		color: COLOR.YELLOW,
 		getDescription: (tool) =>
-			tool.path ? (
+			tool?.path ? (
 				<Trans
 					i18nKey="chat:codebaseSearch.wantsToSearchWithPath"
 					components={{ code: <code /> }}
@@ -25,152 +48,356 @@ const toolMetadata: Record<string, ToolMetadata> = {
 				<Trans
 					i18nKey="chat:codebaseSearch.wantsToSearch"
 					components={{ code: <code /> }}
-					values={{ query: tool.query }}
+					values={{ query: tool?.query }}
 				/>
 			),
 	},
-	readFile: {
+	[TOOL_NAMES.READ_FILE]: {
 		group: "read",
+		color: COLOR.YELLOW,
 		getDescription: (tool) => {
 			const title =
-				tool.batchFiles && Array.isArray(tool.batchFiles)
+				tool?.batchFiles && Array.isArray(tool.batchFiles)
 					? `${t("chat:fileOperations.wantsToReadMultiple")} ${tool.batchFiles.map((f: any) => f.path).join(", ")}`
-					: tool.isOutsideWorkspace
+					: tool?.isOutsideWorkspace
 						? t("chat:fileOperations.wantsToReadOutsideWorkspace")
-						: tool.additionalFileCount && tool.additionalFileCount > 0
+						: tool?.additionalFileCount && tool.additionalFileCount > 0
 							? t("chat:fileOperations.wantsToReadAndXMore", { count: tool.additionalFileCount })
 							: t("chat:fileOperations.wantsToRead")
-			return tool.path ? `${title} ${tool.path}` : title
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	listFilesTopLevel: {
+	[TOOL_NAMES.LIST_FILES_TOP_LEVEL]: {
 		group: "read",
+		color: COLOR.YELLOW,
 		getDescription: (tool) => {
-			const title = tool.isOutsideWorkspace
-				? t("chat:directoryOperations.wantsToViewTopLevelOutsideWorkspace")
-				: t("chat:directoryOperations.wantsToViewTopLevel")
-			return tool.path ? `${title} ${tool.path}` : title
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:directoryOperations.wantsToViewTopLevel",
+				outside: "chat:directoryOperations.wantsToViewTopLevelOutsideWorkspace",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	listCodeDefinitionNames: {
+	[TOOL_NAMES.LIST_FILES_RECURSIVE]: {
 		group: "read",
+		color: COLOR.YELLOW,
 		getDescription: (tool) => {
-			const title = tool.isOutsideWorkspace
-				? t("chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace")
-				: t("chat:directoryOperations.wantsToViewDefinitions")
-			return tool.path ? `${title} ${tool.path}` : title
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:directoryOperations.wantsToViewRecursive",
+				outside: "chat:directoryOperations.wantsToViewRecursiveOutsideWorkspace",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	searchFiles: {
+	[TOOL_NAMES.LIST_CODE_DEFINITION_NAMES]: {
 		group: "read",
+		color: COLOR.YELLOW,
+		getDescription: (tool) => {
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:directoryOperations.wantsToViewDefinitions",
+				outside: "chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
+		},
+	},
+	[TOOL_NAMES.SEARCH_FILES]: {
+		group: "read",
+		color: COLOR.YELLOW,
 		getDescription: (tool) => (
 			<Trans
 				i18nKey={
-					tool.isOutsideWorkspace
+					tool?.isOutsideWorkspace
 						? "chat:directoryOperations.wantsToSearchOutsideWorkspace"
 						: "chat:directoryOperations.wantsToSearch"
 				}
-				components={{ code: <code>{tool.regex}</code> }}
-				values={{ regex: tool.regex }}
+				components={{ code: <code>{tool?.regex}</code> }}
+				values={{ regex: tool?.regex }}
 			/>
 		),
 	},
-	// Edit Tools
-	appliedDiff: {
+	[TOOL_NAMES.APPLIED_DIFF]: {
 		group: "edit",
+		color: COLOR.BLUE,
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: t("chat:fileOperations.wantsToEdit")
-			return tool.path ? `${title} ${tool.path}` : title
+			if (tool?.batchDiffs && Array.isArray(tool.batchDiffs)) {
+				return t("chat:fileOperations.wantsToApplyBatchChanges")
+			}
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:fileOperations.wantsToEdit",
+				outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	editedExistingFile: {
+	[TOOL_NAMES.EDITED_EXISTING_FILE]: {
 		group: "edit",
+		color: COLOR.BLUE,
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: t("chat:fileOperations.wantsToEdit")
-			return tool.path ? `${title} ${tool.path}` : title
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:fileOperations.wantsToEdit",
+				outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	insertContent: {
+	[TOOL_NAMES.INSERT_CONTENT]: {
 		group: "edit",
+		color: COLOR.BLUE,
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: tool.isOutsideWorkspace
-					? t("chat:fileOperations.wantsToEditOutsideWorkspace")
-					: tool.lineNumber === 0
-						? t("chat:fileOperations.wantsToInsertAtEnd")
-						: t("chat:fileOperations.wantsToInsertWithLineNumber", {
-								lineNumber: tool.lineNumber,
-							})
-			return tool.path ? `${title} ${tool.path}` : title
+			const normalKey =
+				tool?.lineNumber === 0
+					? "chat:fileOperations.wantsToInsertAtEnd"
+					: "chat:fileOperations.wantsToInsertWithLineNumber"
+
+			const title = getFileOpTitle(
+				tool!,
+				{
+					normal: normalKey,
+					outside: "chat:fileOperations.wantsToEditOutsideWorkspace",
+					protected: "chat:fileOperations.wantsToEditProtected",
+				},
+				{ lineNumber: tool?.lineNumber },
+			)
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	searchAndReplace: {
+	[TOOL_NAMES.SEARCH_AND_REPLACE]: {
 		group: "edit",
+		color: COLOR.BLUE,
 		getDescription: (tool) => {
-			// This is the fix for the bug. We explicitly ignore progressStatus.text for this tool.
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: t("chat:fileOperations.wantsToSearchReplace")
-			return tool.path ? `${title} ${tool.path}` : title
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:fileOperations.wantsToSearchReplace",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	newFileCreated: {
+	[TOOL_NAMES.NEW_FILE_CREATED]: {
 		group: "edit",
+		color: COLOR.BLUE,
 		getDescription: (tool) => {
-			const title = tool.isProtected
-				? t("chat:fileOperations.wantsToEditProtected")
-				: t("chat:fileOperations.wantsToCreate")
-			return tool.path ? `${title} ${tool.path}` : title
+			const title = getFileOpTitle(tool!, {
+				normal: "chat:fileOperations.wantsToCreate",
+				protected: "chat:fileOperations.wantsToEditProtected",
+			})
+			return tool?.path ? `${title} ${tool.path}` : title
 		},
 	},
-	// Flow Tools
-	newTask: {
+	[TOOL_NAMES.NEW_TASK]: {
 		group: "flow",
+		color: COLOR.LIGHT_GREEN,
 		getDescription: (tool) => (
-			<Trans i18nKey="chat:subtasks.wantsToCreate" components={{ code: <code /> }} values={{ mode: tool.mode }} />
+			<Trans
+				i18nKey="chat:subtasks.wantsToCreate"
+				components={{ code: <code /> }}
+				values={{ mode: tool?.mode }}
+			/>
 		),
 	},
-	switchMode: {
+	[TOOL_NAMES.FINISH_TASK]: {
 		group: "flow",
+		color: COLOR.LIGHT_GREEN,
 		getDescription: (tool) => (
-			<Trans i18nKey="chat:modes.wantsToSwitch" components={{ code: <code /> }} values={{ mode: tool.mode }} />
+			<Trans
+				i18nKey="chat:subtasks.wantsToFinish"
+				components={{ code: <code /> }}
+				values={{ mode: tool?.mode }}
+			/>
 		),
 	},
-	attempt_completion: {
+	[TOOL_NAMES.SWITCH_MODE]: {
 		group: "flow",
+		color: COLOR.LIGHT_GREEN,
+		getDescription: (tool) => (
+			<Trans i18nKey="chat:modes.wantsToSwitch" components={{ code: <code /> }} values={{ mode: tool?.mode }} />
+		),
+	},
+	[TOOL_NAMES.ATTEMPT_COMPLETION]: {
+		group: "flow",
+		color: COLOR.GREEN,
 		getDescription: () => t("chat:completion.wantsToComplete"),
 	},
+
+	// Ask Messages
+	followup: {
+		group: "ask",
+		color: COLOR.GRAY,
+		getDescription: () => t("chat:questions.hasQuestion"),
+	},
+	tool: {
+		group: "ask",
+		color: COLOR.YELLOW,
+		getDescription: (tool) => `Tool Approval: ${tool?.tool || ""}`,
+	},
+	command: {
+		group: "command",
+		color: COLOR.PURPLE,
+		getDescription: () => t("chat:runCommand.title"),
+	},
+	browser_action_launch: {
+		group: "command",
+		color: COLOR.PURPLE,
+		getDescription: () => t("chat:browser.approval"),
+	},
+	use_mcp_server: {
+		group: "command",
+		color: COLOR.PURPLE,
+		getDescription: (_tool, message) => {
+			const mcpInfo = safeJsonParse<{ serverName: string; toolName?: string }>(message.text)
+			return t("chat:mcp.wantsToUseTool", { serverName: mcpInfo?.serverName })
+		},
+	},
+	mistake_limit_reached: {
+		group: "error",
+		color: COLOR.RED,
+		getDescription: () => t("chat:troubleMessage"),
+	},
+	api_req_failed: {
+		group: "error",
+		color: COLOR.RED,
+		getDescription: () => t("chat:apiRequest.failed"),
+	},
+	auto_approval_max_req_reached: {
+		group: "error",
+		color: COLOR.RED,
+		getDescription: () => t("chat:autoApproval.limitReached"),
+	},
+
+	// Say Messages
+	user_feedback: {
+		group: "info",
+		color: COLOR.WHITE,
+		getDescription: () => t("chat:userFeedback.title"),
+	},
+	user_feedback_diff: {
+		group: "edit",
+		color: COLOR.BLUE,
+		getDescription: () => t("chat:userFeedback.diffTitle"),
+	},
+	text: {
+		group: "info",
+		color: COLOR.GRAY,
+		getDescription: () => t("chat:response"),
+	},
+	reasoning: {
+		group: "info",
+		color: COLOR.GRAY,
+		getDescription: () => t("chat:reasoning.thinking"),
+	},
+	subtask_result: {
+		group: "flow",
+		color: COLOR.LIGHT_GREEN,
+		getDescription: () => t("chat:subtasks.resultContent"),
+	},
+	command_output: {
+		group: "command",
+		color: COLOR.RED,
+		getDescription: () => t("chat:runCommand.outputTitle"),
+	},
+	browser_action: {
+		group: "command",
+		color: COLOR.PURPLE,
+		getDescription: () => t("chat:browser.action"),
+	},
+	browser_action_result: {
+		group: "command",
+		color: COLOR.PURPLE,
+		getDescription: () => t("chat:browser.result"),
+	},
+	completion_result: {
+		group: "flow",
+		color: COLOR.GREEN,
+		getDescription: () => t("chat:taskCompleted"),
+	},
+	api_req_started: {
+		group: "error",
+		color: COLOR.RED, // Default to red, will be overridden if no error
+		getDescription: () => t("chat:apiRequest.streamingFailed"),
+	},
+	checkpoint_saved: {
+		group: "flow",
+		color: COLOR.LIGHT_GREEN,
+		getDescription: () => t("chat:checkpoint.saved"),
+	},
+	condense_context: {
+		group: "flow",
+		color: COLOR.LIGHT_GREEN,
+		getDescription: () => t("chat:context.condensing"),
+	},
+	codebase_search_result: {
+		group: "read",
+		color: COLOR.YELLOW,
+		getDescription: (_tool, message) => {
+			const parsed = safeJsonParse<{ content: { query: string; results: unknown[] } }>(message.text)
+			const query = parsed?.content?.query || ""
+			const count = parsed?.content?.results?.length || 0
+			return (
+				<Trans
+					i18nKey="chat:codebaseSearch.didSearch"
+					components={{ code: <code /> }}
+					values={{ query, count }}
+				/>
+			)
+		},
+	},
+	error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	rooignore_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	diff_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	condense_context_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	shell_integration_warning: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	api_req_deleted: {
+		group: "error",
+		color: COLOR.RED,
+		getDescription: () => t("chat:apiRequest.cancelled"),
+	},
 }
 
-export function getToolMetadata(toolName: string): ToolMetadata | null {
-	return toolMetadata[toolName] || null
-}
+export function getMessageMetadata(message: ClineMessage): MessageMetadata | null {
+	const tool = safeJsonParse<ClineSayTool>(message.text) ?? null
+	const key = tool?.tool || message.ask || message.say
+	if (!key) return null
 
-export function getToolColor(toolName: string): string {
-	const metadata = getToolMetadata(toolName)
-	if (!metadata) return COLOR.DARK_GRAY
-
-	switch (metadata.group) {
-		case "read":
-			return COLOR.YELLOW
-		case "edit":
-			return COLOR.BLUE
-		case "command":
-			return COLOR.PURPLE
-		case "flow":
-			return COLOR.LIGHTGREEN
-		case "ask":
-			return COLOR.GRAY
-		default:
-			return COLOR.DARK_GRAY
+	// Special handling for api_req_started
+	if (key === "api_req_started") {
+		const info = safeJsonParse<{ streamingFailedMessage?: string }>(message.text)
+		if (!info?.streamingFailedMessage) {
+			return {
+				group: "info",
+				color: COLOR.DARK_GRAY,
+				getDescription: () => "API Request Started", // This should be filtered out anyway
+			}
+		}
 	}
+
+	const metadata = messageMetadata[key]
+	if (metadata) {
+		// Pass both tool and message to getDescription
+		return {
+			...metadata,
+			getDescription: () => metadata.getDescription(tool, message),
+		}
+	}
+	return null
+}
+
+export const getMessageColor = (message: ClineMessage): string => {
+	const metadata = getMessageMetadata(message)
+	return metadata?.color ?? COLOR.DARK_GRAY
+}
+
+export const getGroupColor = (group: MessageGroup): string => {
+	const representativeMessages: Record<MessageGroup, Partial<ClineMessage>> = {
+		read: { say: "codebase_search_result" },
+		edit: { say: "user_feedback_diff" },
+		command: { ask: "command" },
+		flow: { say: "completion_result" },
+		ask: { ask: "followup" },
+		info: { say: "text" },
+		error: { say: "error" },
+	}
+	const representativeMessage = representativeMessages[group]
+	const metadata = getMessageMetadata(representativeMessage as ClineMessage)
+	return metadata?.color ?? COLOR.DARK_GRAY
 }

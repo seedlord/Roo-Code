@@ -1,19 +1,22 @@
-import { memo, useState } from "react"
+import { memo, useMemo, useRef, useState } from "react"
 import type { HistoryItem, ClineMessage } from "@roo-code/types"
 
-import { vscode } from "@/utils/vscode"
-import { cn } from "@/lib/utils"
-import { formatLargeNumber } from "@/utils/format"
-import { useAppTranslation } from "@/i18n/TranslationContext"
+import { vscode } from "@src/utils/vscode"
+import { cn } from "@src/lib/utils"
+import { formatLargeNumber } from "@src/utils/format"
+import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { CloudDownload, CloudUpload } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from "@src/components/ui/checkbox"
 import { ContextWindowProgress } from "../chat/ContextWindowProgress"
-import TaskTimeline from "@/components/common/task-timeline/TaskTimeline"
+import TaskTimeline from "@src/components/common/task-timeline/TaskTimeline"
+import { processChatHistory } from "@src/utils/messageProcessing"
 import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
 import TaskItemHeader from "./TaskItemHeader"
 import TaskItemFooter from "./TaskItemFooter"
 import { Mention } from "../chat/Mention"
+import { LRUCache } from "lru-cache"
+import { TimelineFilterControls } from "../common/task-timeline/TimelineFilterControls"
 
 interface DisplayHistoryItem extends HistoryItem {
 	highlight?: string
@@ -48,6 +51,17 @@ const TaskItem = ({
 }: TaskItemProps) => {
 	const { t } = useAppTranslation()
 	const [isTimelineVisible, setIsTimelineVisible] = useState(false)
+	const everVisibleMessagesTsRef = useRef(new LRUCache({ max: 250, ttl: 1000 * 60 * 15 }))
+
+	const processedHistory = useMemo(
+		() =>
+			taskHistory
+				? processChatHistory(taskHistory, false, everVisibleMessagesTsRef).flatMap((m) =>
+						Array.isArray(m) ? m : [m],
+					)
+				: null,
+		[taskHistory, everVisibleMessagesTsRef],
+	)
 
 	const isControlled = onToggleExpansion !== undefined
 	const currentExpandedState = isControlled ? isExpanded : isTimelineVisible
@@ -55,10 +69,15 @@ const TaskItem = ({
 
 	const toggleTimelineVisibility = (e: React.MouseEvent) => {
 		e.stopPropagation()
+		const newExpandedState = !currentExpandedState
 		if (isControlled) {
 			onToggleExpansion(item.id)
 		} else {
-			setIsTimelineVisible(!isTimelineVisible)
+			setIsTimelineVisible(newExpandedState)
+		}
+
+		if (newExpandedState && !taskHistory) {
+			vscode.postMessage({ type: "getTaskDetails", text: item.id })
 		}
 	}
 
@@ -140,17 +159,24 @@ const TaskItem = ({
 									{taskHistory ? (
 										<>
 											<div className="mb-2">
-												<TaskTimeline
-													messages={taskHistory}
-													onBlockClick={(messageTs) => {
-														vscode.postMessage({
-															type: "openTaskAndScroll",
-															taskId: item.id,
-															messageTs,
-														})
-													}}
-												/>
+												{processedHistory && (
+													<TaskTimeline
+														messages={processedHistory}
+														onBlockClick={(timestamp) => {
+															vscode.postMessage({
+																type: "openTaskAndScroll",
+																taskId: item.id,
+																timestamp: timestamp,
+															})
+														}}
+													/>
+												)}
 											</div>
+											{isCompact && (
+												<div className="my-2">
+													<TimelineFilterControls />
+												</div>
+											)}
 											<div
 												className="min-w-0 text-vscode-font-size max-h-80 overflow-y-auto break-words break-anywhere relative"
 												data-testid="task-content-expanded">

@@ -24,7 +24,7 @@ export const historyItemSchema = z.object({
 	size: z.number().optional(),
 	workspace: z.string().optional(),
 	history: z.array(clineMessageSchema).optional(),
-	scrollToMessageTs: z.number().optional(),
+	scrollToMessageTimestamp: z.number().optional(),
 })
 
 export type HistoryItem = z.infer<typeof historyItemSchema>

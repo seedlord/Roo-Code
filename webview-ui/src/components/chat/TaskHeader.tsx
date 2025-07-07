@@ -12,7 +12,7 @@ import { formatLargeNumber } from "@src/utils/format"
 import { cn } from "@src/lib/utils"
 import { Button, StandardTooltip } from "@src/components/ui"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
-import { useSelectedModel } from "@/components/ui/hooks/useSelectedModel"
+import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
 
 import Thumbnails from "../common/Thumbnails"
 
@@ -22,11 +22,12 @@ import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
 import { TodoListDisplay } from "./TodoListDisplay"
 import TaskTimeline from "../common/task-timeline/TaskTimeline"
+import { TimelineFilterControls } from "../common/task-timeline/TimelineFilterControls"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
 	history: ClineMessage[]
-	onScrollToMessage: (messageId: number) => void
+	onScrollToMessage: (timestamp: number) => void
 	tokensIn: number
 	tokensOut: number
 	cacheWrites?: number
@@ -133,7 +134,18 @@ const TaskHeader = ({
 				{/* Expanded state: Show task text and images */}
 				{isTaskExpanded && (
 					<>
-						<TaskTimeline messages={history} onBlockClick={onScrollToMessage} />
+						<TaskTimeline
+							messages={history}
+							onBlockClick={(timestamp) => {
+								const index = history.findIndex((m) => m.ts === timestamp)
+								if (index !== -1) {
+									onScrollToMessage(index)
+								}
+							}}
+						/>
+						<div className="my-2">
+							<TimelineFilterControls />
+						</div>
 						<div
 							ref={textContainerRef}
 							className="-mt-0.5 text-vscode-font-size overflow-y-auto break-words break-anywhere relative">
