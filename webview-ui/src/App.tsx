@@ -23,6 +23,7 @@ import { AccountView } from "./components/account/AccountView"
 import { useAddNonInteractiveClickListener } from "./components/ui/hooks/useNonInteractiveClick"
 import { TooltipProvider } from "./components/ui/tooltip"
 import { STANDARD_TOOLTIP_DELAY } from "./components/ui/standard-tooltip"
+import { TimelineFilterProvider } from "./components/common/task-timeline/TimelineFilterContext"
 
 type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
 
@@ -287,7 +288,9 @@ const AppWithProviders = () => (
 		<TranslationProvider>
 			<QueryClientProvider client={queryClient}>
 				<TooltipProvider delayDuration={STANDARD_TOOLTIP_DELAY}>
-					<App />
+					<TimelineFilterProvider>
+						<App />
+					</TimelineFilterProvider>
 				</TooltipProvider>
 			</QueryClientProvider>
 		</TranslationProvider>

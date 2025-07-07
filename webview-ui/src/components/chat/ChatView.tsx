@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { useDeepCompareEffect, useEvent, useMount } from "react-use"
+import { useEvent, useMount } from "react-use"
 import debounce from "debounce"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import removeMd from "remove-markdown"
@@ -13,14 +13,14 @@ import { appendImages } from "@src/utils/imageUtils"
 
 import type { ClineAsk, ClineMessage } from "@roo-code/types"
 
-import { ClineSayBrowserAction, ClineSayTool, ExtensionMessage } from "@roo/ExtensionMessage"
+import { processChatHistory } from "@src/utils/messageProcessing"
+import { ClineSayTool, ExtensionMessage } from "@roo/ExtensionMessage"
 import { McpServer, McpTool } from "@roo/mcp"
 import { findLast } from "@roo/array"
 import { FollowUpData, SuggestionItem } from "@roo-code/types"
-import { combineApiRequests } from "@roo/combineApiRequests"
-import { combineCommandSequences } from "@roo/combineCommandSequences"
 import { getApiMetrics } from "@roo/getApiMetrics"
 import { AudioType } from "@roo/WebviewMessage"
+import { WEBVIEW_MESSAGE_TYPES } from "@roo/constants"
 import { getAllModes } from "@roo/modes"
 import { ProfileValidator } from "@roo/ProfileValidator"
 
@@ -133,7 +133,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		const newState = !isExpanded
 		setIsExpanded(newState)
 		// Send message to extension to persist the new collapsed state
-		vscode.postMessage({ type: "setHistoryPreviewCollapsed", bool: !newState })
+		vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.SET_HISTORY_PREVIEW_COLLAPSED, bool: !newState })
 	}, [isExpanded])
 
 	// Leaving this less safe version here since if the first message is not a
@@ -145,7 +145,18 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		return getLatestTodo(messages)
 	}, [messages])
 
-	const modifiedMessages = useMemo(() => combineApiRequests(combineCommandSequences(messages.slice(1))), [messages])
+	const everVisibleMessagesTsRef = useRef<LRUCache<number, boolean>>(
+		new LRUCache({
+			max: 250,
+			ttl: 1000 * 60 * 15, // 15 minutes TTL for long-running tasks
+		}),
+	)
+
+	const modifiedMessages = useMemo(
+		() =>
+			processChatHistory(messages, false, everVisibleMessagesTsRef).flatMap((m) => (Array.isArray(m) ? m : [m])),
+		[messages],
+	)
 
 	// Has to be after api_req_finished are all reduced into api_req_started messages.
 	const apiMetrics = useMemo(() => getApiMetrics(modifiedMessages), [modifiedMessages])
@@ -173,12 +184,6 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	const [showCheckpointWarning, setShowCheckpointWarning] = useState<boolean>(false)
 	const [isCondensing, setIsCondensing] = useState<boolean>(false)
 	const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
-	const everVisibleMessagesTsRef = useRef<LRUCache<number, boolean>>(
-		new LRUCache({
-			max: 250,
-			ttl: 1000 * 60 * 15, // 15 minutes TTL for long-running tasks
-		}),
-	)
 	const autoApproveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 	const userRespondedRef = useRef<boolean>(false)
 	const [currentFollowUpTs, setCurrentFollowUpTs] = useState<number | null>(null)
@@ -222,200 +227,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	const [playCelebration] = useSound(getAudioUrl("celebration.wav"), soundConfig)
 	const [playProgressLoop] = useSound(getAudioUrl("progress_loop.wav"), soundConfig)
 
-	function playSound(audioType: AudioType) {
-		// Play the appropriate sound based on type
-		// The disabled state is handled by the useSound hook configuration
-		switch (audioType) {
-			case "notification":
-				playNotification()
-				break
-			case "celebration":
-				playCelebration()
-				break
-			case "progress_loop":
-				playProgressLoop()
-				break
-			default:
-				console.warn(`Unknown audio type: ${audioType}`)
-		}
-	}
-
 	function playTts(text: string) {
-		vscode.postMessage({ type: "playTts", text })
+		vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.PLAY_TTS, text })
 	}
-
-	useDeepCompareEffect(() => {
-		// if last message is an ask, show user ask UI
-		// if user finished a task, then start a new task with a new conversation history since in this moment that the extension is waiting for user response, the user could close the extension and the conversation history would be lost.
-		// basically as long as a task is active, the conversation history will be persisted
-		if (lastMessage) {
-			switch (lastMessage.type) {
-				case "ask":
-					// Reset user response flag when a new ask arrives to allow auto-approval
-					userRespondedRef.current = false
-					const isPartial = lastMessage.partial === true
-					switch (lastMessage.ask) {
-						case "api_req_failed":
-							playSound("progress_loop")
-							setSendingDisabled(true)
-							setClineAsk("api_req_failed")
-							setEnableButtons(true)
-							setPrimaryButtonText(t("chat:retry.title"))
-							setSecondaryButtonText(t("chat:startNewTask.title"))
-							break
-						case "mistake_limit_reached":
-							playSound("progress_loop")
-							setSendingDisabled(false)
-							setClineAsk("mistake_limit_reached")
-							setEnableButtons(true)
-							setPrimaryButtonText(t("chat:proceedAnyways.title"))
-							setSecondaryButtonText(t("chat:startNewTask.title"))
-							break
-						case "followup":
-							if (!isPartial) {
-								playSound("notification")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("followup")
-							// setting enable buttons to `false` would trigger a focus grab when
-							// the text area is enabled which is undesirable.
-							// We have no buttons for this tool, so no problem having them "enabled"
-							// to workaround this issue.  See #1358.
-							setEnableButtons(true)
-							setPrimaryButtonText(undefined)
-							setSecondaryButtonText(undefined)
-							break
-						case "tool":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
-								playSound("notification")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("tool")
-							setEnableButtons(!isPartial)
-							const tool = JSON.parse(lastMessage.text || "{}") as ClineSayTool
-							switch (tool.tool) {
-								case "editedExistingFile":
-								case "appliedDiff":
-								case "newFileCreated":
-								case "insertContent":
-									setPrimaryButtonText(t("chat:save.title"))
-									setSecondaryButtonText(t("chat:reject.title"))
-									break
-								case "finishTask":
-									setPrimaryButtonText(t("chat:completeSubtaskAndReturn"))
-									setSecondaryButtonText(undefined)
-									break
-								case "readFile":
-									if (tool.batchFiles && Array.isArray(tool.batchFiles)) {
-										setPrimaryButtonText(t("chat:read-batch.approve.title"))
-										setSecondaryButtonText(t("chat:read-batch.deny.title"))
-									} else {
-										setPrimaryButtonText(t("chat:approve.title"))
-										setSecondaryButtonText(t("chat:reject.title"))
-									}
-									break
-								default:
-									setPrimaryButtonText(t("chat:approve.title"))
-									setSecondaryButtonText(t("chat:reject.title"))
-									break
-							}
-							break
-						case "browser_action_launch":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
-								playSound("notification")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("browser_action_launch")
-							setEnableButtons(!isPartial)
-							setPrimaryButtonText(t("chat:approve.title"))
-							setSecondaryButtonText(t("chat:reject.title"))
-							break
-						case "command":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
-								playSound("notification")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("command")
-							setEnableButtons(!isPartial)
-							setPrimaryButtonText(t("chat:runCommand.title"))
-							setSecondaryButtonText(t("chat:reject.title"))
-							break
-						case "command_output":
-							setSendingDisabled(false)
-							setClineAsk("command_output")
-							setEnableButtons(true)
-							setPrimaryButtonText(t("chat:proceedWhileRunning.title"))
-							setSecondaryButtonText(t("chat:killCommand.title"))
-							break
-						case "use_mcp_server":
-							if (!isAutoApproved(lastMessage) && !isPartial) {
-								playSound("notification")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("use_mcp_server")
-							setEnableButtons(!isPartial)
-							setPrimaryButtonText(t("chat:approve.title"))
-							setSecondaryButtonText(t("chat:reject.title"))
-							break
-						case "completion_result":
-							// extension waiting for feedback. but we can just present a new task button
-							if (!isPartial) {
-								playSound("celebration")
-							}
-							setSendingDisabled(isPartial)
-							setClineAsk("completion_result")
-							setEnableButtons(!isPartial)
-							setPrimaryButtonText(t("chat:startNewTask.title"))
-							setSecondaryButtonText(undefined)
-							break
-						case "resume_task":
-							setSendingDisabled(false)
-							setClineAsk("resume_task")
-							setEnableButtons(true)
-							setPrimaryButtonText(t("chat:resumeTask.title"))
-							setSecondaryButtonText(t("chat:terminate.title"))
-							setDidClickCancel(false) // special case where we reset the cancel button state
-							break
-						case "resume_completed_task":
-							setSendingDisabled(false)
-							setClineAsk("resume_completed_task")
-							setEnableButtons(true)
-							setPrimaryButtonText(t("chat:startNewTask.title"))
-							setSecondaryButtonText(undefined)
-							setDidClickCancel(false)
-							break
-					}
-					break
-				case "say":
-					// Don't want to reset since there could be a "say" after
-					// an "ask" while ask is waiting for response.
-					switch (lastMessage.say) {
-						case "api_req_retry_delayed":
-							setSendingDisabled(true)
-							break
-						case "api_req_started":
-							if (secondLastMessage?.ask === "command_output") {
-								setSendingDisabled(true)
-								setSelectedImages([])
-								setClineAsk(undefined)
-								setEnableButtons(false)
-							}
-							break
-						case "api_req_finished":
-						case "error":
-						case "text":
-						case "browser_action":
-						case "browser_action_result":
-						case "command_output":
-						case "mcp_server_request_started":
-						case "mcp_server_response":
-						case "completion_result":
-							break
-					}
-					break
-			}
-		}
-	}, [lastMessage, secondLastMessage])
 
 	useEffect(() => {
 		if (messages.length === 0) {
@@ -547,7 +361,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				userRespondedRef.current = true
 
 				if (messagesRef.current.length === 0) {
-					vscode.postMessage({ type: "newTask", text, images })
+					vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.NEW_TASK, text, images })
 				} else if (clineAskRef.current) {
 					if (clineAskRef.current === "followup") {
 						markFollowUpAsAnswered()
@@ -567,7 +381,12 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "resume_task":
 						case "resume_completed_task":
 						case "mistake_limit_reached":
-							vscode.postMessage({ type: "askResponse", askResponse: "messageResponse", text, images })
+							vscode.postMessage({
+								type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE,
+								askResponse: "messageResponse",
+								text,
+								images,
+							})
 							break
 						// There is no other case that a textfield should be enabled.
 					}
@@ -594,7 +413,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		[inputValue, selectedImages],
 	)
 
-	const startNewTask = useCallback(() => vscode.postMessage({ type: "clearTask" }), [])
+	const startNewTask = useCallback(() => vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.CLEAR_TASK }), [])
 
 	// This logic depends on the useEffect[messages] above to set clineAsk,
 	// after which buttons are shown and we then send an askResponse to the
@@ -617,13 +436,16 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					// Only send text/images if they exist
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
-							type: "askResponse",
+							type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE,
 							askResponse: "yesButtonClicked",
 							text: trimmedInput,
 							images: images,
 						})
 					} else {
-						vscode.postMessage({ type: "askResponse", askResponse: "yesButtonClicked" })
+						vscode.postMessage({
+							type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE,
+							askResponse: "yesButtonClicked",
+						})
 					}
 					// Clear input state after sending
 					setInputValue("")
@@ -635,7 +457,10 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					startNewTask()
 					break
 				case "command_output":
-					vscode.postMessage({ type: "terminalOperation", terminalOperation: "continue" })
+					vscode.postMessage({
+						type: WEBVIEW_MESSAGE_TYPES.TERMINAL_OPERATION,
+						terminalOperation: "continue",
+					})
 					break
 			}
 
@@ -654,7 +479,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			const trimmedInput = text?.trim()
 
 			if (isStreaming) {
-				vscode.postMessage({ type: "cancelTask" })
+				vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.CANCEL_TASK })
 				setDidClickCancel(true)
 				return
 			}
@@ -672,21 +497,21 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					// Only send text/images if they exist
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
-							type: "askResponse",
+							type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE,
 							askResponse: "noButtonClicked",
 							text: trimmedInput,
 							images: images,
 						})
 					} else {
 						// Responds to the API with a "This operation failed" and lets it try again
-						vscode.postMessage({ type: "askResponse", askResponse: "noButtonClicked" })
+						vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE, askResponse: "noButtonClicked" })
 					}
 					// Clear input state after sending
 					setInputValue("")
 					setSelectedImages([])
 					break
 				case "command_output":
-					vscode.postMessage({ type: "terminalOperation", terminalOperation: "abort" })
+					vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.TERMINAL_OPERATION, terminalOperation: "abort" })
 					break
 			}
 			setSendingDisabled(true)
@@ -700,173 +525,25 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	const { info: model } = useSelectedModel(apiConfiguration)
 
-	const selectImages = useCallback(() => vscode.postMessage({ type: "selectImages" }), [])
+	const selectImages = useCallback(() => vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.SELECT_IMAGES }), [])
 
 	const shouldDisableImages =
 		!model?.supportsImages || sendingDisabled || selectedImages.length >= MAX_IMAGES_PER_MESSAGE
-	const visibleMessages = useMemo(() => {
-		const newVisibleMessages = modifiedMessages.filter((message) => {
-			if (everVisibleMessagesTsRef.current.has(message.ts)) {
-				// If it was ever visible, and it's not one of the types that should always be hidden once processed, keep it.
-				// This helps prevent flickering for messages like 'api_req_retry_delayed' if they are no longer the absolute last.
-				const alwaysHiddenOnceProcessedAsk: ClineAsk[] = [
-					"api_req_failed",
-					"resume_task",
-					"resume_completed_task",
-				]
-				const alwaysHiddenOnceProcessedSay = [
-					"api_req_finished",
-					"api_req_retried",
-					"api_req_deleted",
-					"mcp_server_request_started",
-				]
-				if (message.ask && alwaysHiddenOnceProcessedAsk.includes(message.ask)) return false
-				if (message.say && alwaysHiddenOnceProcessedSay.includes(message.say)) return false
-				// Also, re-evaluate empty text messages if they were previously visible but now empty (e.g. partial stream ended)
-				if (message.say === "text" && (message.text ?? "") === "" && (message.images?.length ?? 0) === 0) {
-					return false
-				}
-				return true
-			}
-
-			// Original filter logic
-			switch (message.ask) {
-				case "completion_result":
-					if (message.text === "") return false
-					break
-				case "api_req_failed":
-				case "resume_task":
-				case "resume_completed_task":
-					return false
-			}
-			switch (message.say) {
-				case "api_req_finished":
-				case "api_req_retried":
-				case "api_req_deleted":
-					return false
-				case "api_req_retry_delayed":
-					const last1 = modifiedMessages.at(-1)
-					const last2 = modifiedMessages.at(-2)
-					if (last1?.ask === "resume_task" && last2 === message) {
-						// This specific sequence should be visible
-					} else if (message !== last1) {
-						// If not the specific sequence above, and not the last message, hide it.
-						return false
-					}
-					break
-				case "text":
-					if ((message.text ?? "") === "" && (message.images?.length ?? 0) === 0) return false
-					break
-				case "mcp_server_request_started":
-					return false
-			}
-			return true
-		})
-
-		// Update the set of ever-visible messages (LRUCache automatically handles cleanup)
-		newVisibleMessages.forEach((msg) => everVisibleMessagesTsRef.current.set(msg.ts, true))
-
-		return newVisibleMessages
-	}, [modifiedMessages])
-	const groupedMessages = useMemo(() => {
-		const result: (ClineMessage | ClineMessage[])[] = []
-		let currentGroup: ClineMessage[] = []
-		let isInBrowserSession = false
-
-		const endBrowserSession = () => {
-			if (currentGroup.length > 0) {
-				result.push([...currentGroup])
-				currentGroup = []
-				isInBrowserSession = false
-			}
-		}
-
-		visibleMessages.forEach((message) => {
-			if (message.ask === "browser_action_launch") {
-				// Complete existing browser session if any.
-				endBrowserSession()
-				// Start new.
-				isInBrowserSession = true
-				currentGroup.push(message)
-			} else if (isInBrowserSession) {
-				// End session if `api_req_started` is cancelled.
-
-				if (message.say === "api_req_started") {
-					// Get last `api_req_started` in currentGroup to check if
-					// it's cancelled. If it is then this api req is not part
-					// of the current browser session.
-					const lastApiReqStarted = [...currentGroup].reverse().find((m) => m.say === "api_req_started")
-
-					if (lastApiReqStarted?.text !== null && lastApiReqStarted?.text !== undefined) {
-						const info = JSON.parse(lastApiReqStarted.text)
-						const isCancelled = info.cancelReason !== null && info.cancelReason !== undefined
-
-						if (isCancelled) {
-							endBrowserSession()
-							result.push(message)
-							return
-						}
-					}
-				}
-
-				if (isBrowserSessionMessage(message)) {
-					currentGroup.push(message)
-
-					// Check if this is a close action
-					if (message.say === "browser_action") {
-						const browserAction = JSON.parse(message.text || "{}") as ClineSayBrowserAction
-						if (browserAction.action === "close") {
-							endBrowserSession()
-						}
-					}
-				} else {
-					// complete existing browser session if any
-					endBrowserSession()
-					result.push(message)
-				}
-			} else {
-				result.push(message)
-			}
-		})
-
-		// Handle case where browser session is the last group
-		if (currentGroup.length > 0) {
-			result.push([...currentGroup])
-		}
-
-		if (isCondensing) {
-			// Show indicator after clicking condense button
-			result.push({
-				type: "say",
-				say: "condense_context",
-				ts: Date.now(),
-				partial: true,
-			})
-		}
-
-		return result
-	}, [isCondensing, visibleMessages])
-
-	const scrollToMessage = useCallback(
-		(messageId: number) => {
-			const messageIndex = groupedMessages.findIndex((message) => {
-				if (Array.isArray(message)) {
-					return message.some((m) => m.ts === messageId)
-				}
-				return message.ts === messageId
-			})
-
-			if (messageIndex !== -1) {
-				virtuosoRef.current?.scrollToIndex({
-					index: messageIndex,
-					align: "start",
-					behavior: "smooth",
-				})
-				disableAutoScrollRef.current = true
-			}
-		},
-		[groupedMessages],
+	const groupedMessages = useMemo(
+		() => processChatHistory(messages, isCondensing, everVisibleMessagesTsRef),
+		[messages, isCondensing],
 	)
+
+	const scrollToMessage = useCallback((messageIndex: number) => {
+		if (messageIndex !== -1) {
+			virtuosoRef.current?.scrollToIndex({
+				index: messageIndex,
+				align: "start",
+				behavior: "smooth",
+			})
+			disableAutoScrollRef.current = true
+		}
+	}, [])
 	const handleMessage = useCallback(
 		(e: MessageEvent) => {
 			const message: ExtensionMessage = e.data
@@ -883,8 +560,14 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							textAreaRef.current?.focus()
 							break
 						case "scrollToMessage":
-							if (message.value) {
-								scrollToMessage(message.value as number)
+							if (message.timestamp) {
+								const targetIndex = groupedMessages.findIndex((msgOrGroup) => {
+									if (Array.isArray(msgOrGroup)) {
+										return msgOrGroup.some((msg) => msg.ts === message.timestamp)
+									}
+									return msgOrGroup.ts === message.timestamp
+								})
+								scrollToMessage(targetIndex)
 							}
 							break
 					}
@@ -942,6 +625,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			handlePrimaryButtonClick,
 			handleSecondaryButtonClick,
 			isCondensing,
+			groupedMessages,
 		],
 	)
 
@@ -1175,6 +859,199 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			alwaysAllowUpdateTodoList,
 		],
 	)
+	const playSound = useCallback(
+		(audioType: AudioType) => {
+			// Play the appropriate sound based on type
+			// The disabled state is handled by the useSound hook configuration
+			switch (audioType) {
+				case "notification":
+					playNotification()
+					break
+				case "celebration":
+					playCelebration()
+					break
+				case "progress_loop":
+					playProgressLoop()
+					break
+				default:
+					console.warn(`Unknown audio type: ${audioType}`)
+			}
+		},
+		[playNotification, playCelebration, playProgressLoop],
+	)
+
+	useEffect(() => {
+		// if last message is an ask, show user ask UI
+		// if user finished a task, then start a new task with a new conversation history since in this moment that the extension is waiting for user response, the user could close the extension and the conversation history would be lost.
+		// basically as long as a task is active, the conversation history will be persisted
+		if (lastMessage) {
+			switch (lastMessage.type) {
+				case "ask":
+					// Reset user response flag when a new ask arrives to allow auto-approval
+					userRespondedRef.current = false
+					const isPartial = lastMessage.partial === true
+					switch (lastMessage.ask) {
+						case "api_req_failed":
+							playSound("progress_loop")
+							setSendingDisabled(true)
+							setClineAsk("api_req_failed")
+							setEnableButtons(true)
+							setPrimaryButtonText(t("chat:retry.title"))
+							setSecondaryButtonText(t("chat:startNewTask.title"))
+							break
+						case "mistake_limit_reached":
+							playSound("progress_loop")
+							setSendingDisabled(false)
+							setClineAsk("mistake_limit_reached")
+							setEnableButtons(true)
+							setPrimaryButtonText(t("chat:proceedAnyways.title"))
+							setSecondaryButtonText(t("chat:startNewTask.title"))
+							break
+						case "followup":
+							if (!isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("followup")
+							// setting enable buttons to `false` would trigger a focus grab when
+							// the text area is enabled which is undesirable.
+							// We have no buttons for this tool, so no problem having them "enabled"
+							// to workaround this issue.  See #1358.
+							setEnableButtons(true)
+							setPrimaryButtonText(undefined)
+							setSecondaryButtonText(undefined)
+							break
+						case "tool":
+							if (!isAutoApproved(lastMessage) && !isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("tool")
+							setEnableButtons(!isPartial)
+							const tool = JSON.parse(lastMessage.text || "{}") as ClineSayTool
+							switch (tool.tool) {
+								case "editedExistingFile":
+								case "appliedDiff":
+								case "newFileCreated":
+								case "insertContent":
+									setPrimaryButtonText(t("chat:save.title"))
+									setSecondaryButtonText(t("chat:reject.title"))
+									break
+								case "finishTask":
+									setPrimaryButtonText(t("chat:completeSubtaskAndReturn"))
+									setSecondaryButtonText(undefined)
+									break
+								case "readFile":
+									if (tool.batchFiles && Array.isArray(tool.batchFiles)) {
+										setPrimaryButtonText(t("chat:read-batch.approve.title"))
+										setSecondaryButtonText(t("chat:read-batch.deny.title"))
+									} else {
+										setPrimaryButtonText(t("chat:approve.title"))
+										setSecondaryButtonText(t("chat:reject.title"))
+									}
+									break
+								default:
+									setPrimaryButtonText(t("chat:approve.title"))
+									setSecondaryButtonText(t("chat:reject.title"))
+									break
+							}
+							break
+						case "browser_action_launch":
+							if (!isAutoApproved(lastMessage) && !isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("browser_action_launch")
+							setEnableButtons(!isPartial)
+							setPrimaryButtonText(t("chat:approve.title"))
+							setSecondaryButtonText(t("chat:reject.title"))
+							break
+						case "command":
+							if (!isAutoApproved(lastMessage) && !isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("command")
+							setEnableButtons(!isPartial)
+							setPrimaryButtonText(t("chat:runCommand.title"))
+							setSecondaryButtonText(t("chat:reject.title"))
+							break
+						case "command_output":
+							setSendingDisabled(false)
+							setClineAsk("command_output")
+							setEnableButtons(true)
+							setPrimaryButtonText(t("chat:proceedWhileRunning.title"))
+							setSecondaryButtonText(t("chat:killCommand.title"))
+							break
+						case "use_mcp_server":
+							if (!isAutoApproved(lastMessage) && !isPartial) {
+								playSound("notification")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("use_mcp_server")
+							setEnableButtons(!isPartial)
+							setPrimaryButtonText(t("chat:approve.title"))
+							setSecondaryButtonText(t("chat:reject.title"))
+							break
+						case "completion_result":
+							// extension waiting for feedback. but we can just present a new task button
+							if (!isPartial) {
+								playSound("celebration")
+							}
+							setSendingDisabled(isPartial)
+							setClineAsk("completion_result")
+							setEnableButtons(!isPartial)
+							setPrimaryButtonText(t("chat:startNewTask.title"))
+							setSecondaryButtonText(undefined)
+							break
+						case "resume_task":
+							setSendingDisabled(false)
+							setClineAsk("resume_task")
+							setEnableButtons(true)
+							setPrimaryButtonText(t("chat:resumeTask.title"))
+							setSecondaryButtonText(t("chat:terminate.title"))
+							setDidClickCancel(false) // special case where we reset the cancel button state
+							break
+						case "resume_completed_task":
+							setSendingDisabled(false)
+							setClineAsk("resume_completed_task")
+							setEnableButtons(true)
+							setPrimaryButtonText(t("chat:startNewTask.title"))
+							setSecondaryButtonText(undefined)
+							setDidClickCancel(false)
+							break
+					}
+					break
+				case "say":
+					// Don't want to reset since there could be a "say" after
+					// an "ask" while ask is waiting for response.
+					switch (lastMessage.say) {
+						case "api_req_retry_delayed":
+							setSendingDisabled(true)
+							break
+						case "api_req_started":
+							if (secondLastMessage?.ask === "command_output") {
+								setSendingDisabled(true)
+								setSelectedImages([])
+								setClineAsk(undefined)
+								setEnableButtons(false)
+							}
+							break
+						case "api_req_finished":
+						case "error":
+						case "text":
+						case "browser_action":
+						case "browser_action_result":
+						case "command_output":
+						case "mcp_server_request_started":
+						case "mcp_server_response":
+						case "completion_result":
+							break
+					}
+					break
+			}
+		}
+	}, [isAutoApproved, lastMessage, playSound, secondLastMessage?.ask, t])
 
 	useEffect(() => {
 		// This ensures the first message is not read, future user messages are
@@ -1209,18 +1086,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		setWasStreaming(isStreaming)
 	}, [isStreaming, lastMessage, wasStreaming, isAutoApproved, messages.length])
 
-	const isBrowserSessionMessage = (message: ClineMessage): boolean => {
-		// Which of visible messages are browser session messages, see above.
-		if (message.type === "ask") {
-			return ["browser_action_launch"].includes(message.ask!)
-		}
-
-		if (message.type === "say") {
-			return ["api_req_started", "text", "browser_action", "browser_action_result"].includes(message.say!)
-		}
-
-		return false
-	}
+	// isBrowserSessionMessage moved into webview-ui\src\utils\messageProcessing.ts
 
 	// scrolling
 
@@ -1279,7 +1145,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	useEffect(() => {
 		let timer: NodeJS.Timeout | undefined
-		if (!disableAutoScrollRef.current && !currentTaskItem?.scrollToMessageTs) {
+		if (!disableAutoScrollRef.current && typeof currentTaskItem?.scrollToMessageTimestamp !== "number") {
 			timer = setTimeout(() => scrollToBottomSmooth(), 50)
 		}
 		return () => {
@@ -1287,7 +1153,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				clearTimeout(timer)
 			}
 		}
-	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageTs])
+	}, [groupedMessages.length, scrollToBottomSmooth, currentTaskItem?.scrollToMessageTimestamp])
 
 	const handleWheel = useCallback((event: Event) => {
 		const wheelEvent = event as WheelEvent
@@ -1333,7 +1199,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 			// Send the mode switch message
 			vscode.postMessage({
-				type: "mode",
+				type: WEBVIEW_MESSAGE_TYPES.MODE,
 				text: modeSlug,
 			})
 		},
@@ -1376,7 +1242,11 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	const handleBatchFileResponse = useCallback((response: { [key: string]: boolean }) => {
 		// Handle batch file response, e.g., for file uploads
-		vscode.postMessage({ type: "askResponse", askResponse: "objectResponse", text: JSON.stringify(response) })
+		vscode.postMessage({
+			type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE,
+			askResponse: "objectResponse",
+			text: JSON.stringify(response),
+		})
 	}, [])
 
 	// Handler for when FollowUpSuggest component unmounts
@@ -1543,7 +1413,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					})
 				}
 
-				vscode.postMessage({ type: "askResponse", askResponse: "yesButtonClicked" })
+				vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.ASK_RESPONSE, askResponse: "yesButtonClicked" })
 
 				setSendingDisabled(true)
 				setClineAsk(undefined)
@@ -1648,7 +1518,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		}
 		setIsCondensing(true)
 		setSendingDisabled(true)
-		vscode.postMessage({ type: "condenseTaskContextRequest", text: taskId })
+		vscode.postMessage({ type: WEBVIEW_MESSAGE_TYPES.CONDENSE_TASK_CONTEXT_REQUEST, text: taskId })
 	}
 
 	const areButtonsVisible = showScrollToBottom || primaryButtonText || secondaryButtonText || isStreaming
@@ -1779,26 +1649,32 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 								setIsAtBottom(isAtBottom)
 								if (isAtBottom) {
 									disableAutoScrollRef.current = false
-								}
-								setShowScrollToBottom(disableAutoScrollRef.current && !isAtBottom)
-							}}
-							atBottomThreshold={10} // anything lower causes issues with followOutput
-							initialTopMostItemIndex={(() => {
-								if (currentTaskItem?.scrollToMessageTs) {
-									const index = groupedMessages.findIndex((message) => {
-										if (Array.isArray(message)) {
-											return message.some((m) => m.ts === currentTaskItem.scrollToMessageTs)
-										}
-										return message.ts === currentTaskItem.scrollToMessageTs
-									})
-									if (index !== -1) {
-										// Disable auto-scrolling to the bottom when a specific message is targeted.
+									setShowScrollToBottom(false)
+								} else {
+									// Show the button if auto-scroll is already disabled, or if we've just loaded a task to a specific scroll point.
+									const shouldShow =
+										disableAutoScrollRef.current ||
+										typeof currentTaskItem?.scrollToMessageTimestamp === "number"
+									setShowScrollToBottom(shouldShow)
+									if (shouldShow) {
+										// If we are showing the button, ensure auto-scrolling remains disabled.
 										disableAutoScrollRef.current = true
-										return index
 									}
 								}
-								return groupedMessages.length - 1
-							})()}
+							}}
+							atBottomThreshold={10} // anything lower causes issues with followOutput
+							initialTopMostItemIndex={
+								typeof currentTaskItem?.scrollToMessageTimestamp === "number"
+									? groupedMessages.findIndex((msgOrGroup) => {
+											if (Array.isArray(msgOrGroup)) {
+												return msgOrGroup.some(
+													(msg) => msg.ts === currentTaskItem.scrollToMessageTimestamp,
+												)
+											}
+											return msgOrGroup.ts === currentTaskItem.scrollToMessageTimestamp
+										})
+									: groupedMessages.length - 1
+							}
 						/>
 					</div>
 					<div className={`flex-initial min-h-0 ${!areButtonsVisible ? "mb-1" : ""}`}>

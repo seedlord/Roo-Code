@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback, useEffect, useRef } from "react"
+import React, { memo, useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { DeleteTaskDialog } from "./DeleteTaskDialog"
 import { BatchDeleteTaskDialog } from "./BatchDeleteTaskDialog"
 import { Virtuoso } from "react-virtuoso"
@@ -14,15 +14,24 @@ import {
 	SelectTrigger,
 	SelectValue,
 	StandardTooltip,
-} from "@/components/ui"
-import { useAppTranslation } from "@/i18n/TranslationContext"
+} from "@src/components/ui"
+import { useAppTranslation } from "@src/i18n/TranslationContext"
 
 import { Tab, TabContent, TabHeader } from "../common/Tab"
 import { useTaskSearch } from "./useTaskSearch"
 import TaskItem from "./TaskItem"
-import { vscode } from "@/utils/vscode"
+import { vscode } from "@src/utils/vscode"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { ClineMessage } from "@roo-code/types"
+import { TimelineFilterControls } from "../common/task-timeline/TimelineFilterControls"
+import { useTimelineFilter } from "../common/task-timeline/TimelineFilterContext"
+import { getMessageMetadata } from "../common/task-timeline/toolManager"
+import {
+	getCachedTimeline,
+	setCachedTimeline,
+	getMultipleCachedTimelines,
+	setMultipleCachedTimelines,
+} from "@src/lib/idb"
 
 type HistoryViewProps = {
 	onDone: () => void
@@ -42,7 +51,9 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 		setShowAllWorkspaces,
 	} = useTaskSearch()
 	const { t } = useAppTranslation()
+	const { activeFilters, hideTasksWithoutFilteredTypes } = useTimelineFilter()
 
+	const [areAllExpanded, setAreAllExpanded] = useState(false)
 	const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
 	const [isSelectionMode, setIsSelectionMode] = useState(false)
 	const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
@@ -51,14 +62,145 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [timelineData, setTimelineData] = useState<Record<string, ClineMessage[]>>({})
 	const requestedDetailsRef = useRef(new Set<string>())
 
+	const filteredTasks = useMemo(() => {
+		if (!hideTasksWithoutFilteredTypes) {
+			return tasks
+		}
+		return tasks.filter((task) => {
+			const history = timelineData[task.id]
+			if (!history) return true // Keep it visible if not loaded
+			return history.some((message) => {
+				const metadata = getMessageMetadata(message)
+				return metadata ? activeFilters.includes(metadata.group) : false
+			})
+		})
+	}, [tasks, timelineData, hideTasksWithoutFilteredTypes, activeFilters])
+
+	const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+	const initialCacheLoadRef = useRef(false)
+
+	// Load all available timelines from cache on initial load
+	useEffect(() => {
+		const loadInitialCache = async () => {
+			const allTaskIds = tasks.map((t) => t.id)
+			if (allTaskIds.length > 0) {
+				const cachedData = await getMultipleCachedTimelines(allTaskIds)
+				if (Object.keys(cachedData).length > 0) {
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+				}
+			}
+		}
+
+		if (!initialCacheLoadRef.current && tasks.length > 0) {
+			initialCacheLoadRef.current = true
+			loadInitialCache()
+		}
+	}, [tasks])
+
+	const prefetchVisibleTaskTimelines = useCallback(
+		({ startIndex, endIndex }: { startIndex: number; endIndex: number }) => {
+			if (debounceTimeoutRef.current) {
+				clearTimeout(debounceTimeoutRef.current)
+			}
+
+			debounceTimeoutRef.current = setTimeout(async () => {
+				const potentialIdsToFetch: string[] = []
+				for (let i = startIndex; i <= endIndex; i++) {
+					const task = filteredTasks[i]
+					if (task && !timelineData[task.id] && !requestedDetailsRef.current.has(task.id)) {
+						potentialIdsToFetch.push(task.id)
+					}
+					// Also add for backfill
+					if (
+						task &&
+						task.contextWindow === undefined &&
+						!requestedDetailsRef.current.has(task.id) &&
+						!potentialIdsToFetch.includes(task.id)
+					) {
+						potentialIdsToFetch.push(task.id)
+					}
+				}
+
+				if (potentialIdsToFetch.length > 0) {
+					const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
+					if (Object.keys(cachedData).length > 0) {
+						setTimelineData((prev) => ({ ...prev, ...cachedData }))
+					}
+
+					const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
+					if (idsToFetch.length > 0) {
+						idsToFetch.forEach((id) => requestedDetailsRef.current.add(id))
+						vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: idsToFetch })
+					}
+				}
+			}, 50)
+		},
+		[filteredTasks, timelineData],
+	)
+
+	// Background fetching when idle
+	useEffect(() => {
+		let isCancelled = false
+		let timeoutId: NodeJS.Timeout
+
+		const processBatch = async () => {
+			if (isCancelled) return
+
+			const potentialIdsToFetch = filteredTasks
+				.map((task) => task.id)
+				.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
+				.slice(0, 5)
+
+			if (potentialIdsToFetch.length > 0) {
+				const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
+				if (Object.keys(cachedData).length > 0) {
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+				}
+
+				const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
+				if (idsToFetch.length > 0) {
+					idsToFetch.forEach((id) => requestedDetailsRef.current.add(id))
+					vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: idsToFetch })
+				}
+
+				if (!isCancelled) {
+					timeoutId = setTimeout(processBatch, 100)
+				}
+			}
+		}
+
+		// Start the process
+		timeoutId = setTimeout(processBatch, 200) // Initial delay
+
+		return () => {
+			isCancelled = true
+			clearTimeout(timeoutId)
+		}
+	}, [filteredTasks, timelineData])
+
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
 			const message = event.data
 			if (message.type === "taskDetails" && message.payload?.taskId) {
+				const { taskId, history } = message.payload
 				setTimelineData((prev) => ({
 					...prev,
-					[message.payload.taskId]: message.payload.history,
+					[taskId]: history,
 				}))
+				setCachedTimeline(taskId, history)
+			} else if (message.type === "taskDetailsBatch" && message.payload) {
+				const newTimelineData = { ...timelineData }
+				let updated = false
+				for (const taskId in message.payload) {
+					if (Object.prototype.hasOwnProperty.call(message.payload, taskId)) {
+						newTimelineData[taskId] = message.payload[taskId].history
+						updated = true
+					}
+				}
+				if (updated) {
+					setTimelineData(newTimelineData)
+					setMultipleCachedTimelines(message.payload)
+				}
 			}
 		}
 
@@ -66,27 +208,10 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 		return () => {
 			window.removeEventListener("message", handleMessage)
 		}
-	}, [])
-
-	const prefetchVisibleTaskTimelines = useCallback(
-		({ startIndex, endIndex }: { startIndex: number; endIndex: number }) => {
-			for (let i = startIndex; i <= endIndex; i++) {
-				const task = tasks[i]
-				if (task && !timelineData[task.id]) {
-					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
-				}
-				// Backfill missing context window info for old tasks
-				if (task && task.contextWindow === undefined && !requestedDetailsRef.current.has(task.id)) {
-					vscode.postMessage({ type: "getTaskDetails", taskId: task.id })
-					requestedDetailsRef.current.add(task.id)
-				}
-			}
-		},
-		[tasks, timelineData],
-	)
+	}, [setTimelineData, timelineData])
 
 	const toggleTaskExpansion = useCallback(
-		(taskId: string) => {
+		async (taskId: string) => {
 			const isExpanding = !expandedTaskIds[taskId]
 			setExpandedTaskIds((prev) => ({
 				...prev,
@@ -94,11 +219,44 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			}))
 
 			if (isExpanding && !timelineData[taskId]) {
-				vscode.postMessage({ type: "getTaskDetails", taskId: taskId })
+				const cached = await getCachedTimeline(taskId)
+				if (cached) {
+					setTimelineData((prev) => ({ ...prev, [taskId]: cached }))
+				} else {
+					vscode.postMessage({ type: "getTaskDetails", text: taskId })
+				}
 			}
 		},
 		[expandedTaskIds, timelineData],
 	)
+
+	const toggleAllExpanded = () => {
+		const newExpandedState = !areAllExpanded
+		setAreAllExpanded(newExpandedState)
+
+		if (newExpandedState) {
+			// Proactively fetch all missing timelines
+			const fetchAllMissing = async () => {
+				const idsToFetch = filteredTasks
+					.map((task) => task.id)
+					.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
+
+				if (idsToFetch.length === 0) return
+
+				const cachedData = await getMultipleCachedTimelines(idsToFetch)
+				if (Object.keys(cachedData).length > 0) {
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+				}
+
+				const remainingIds = idsToFetch.filter((id) => !cachedData[id])
+				if (remainingIds.length > 0) {
+					remainingIds.forEach((id) => requestedDetailsRef.current.add(id))
+					vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: remainingIds })
+				}
+			}
+			fetchAllMissing()
+		}
+	}
 
 	// Toggle selection mode
 	const toggleSelectionMode = () => {
@@ -139,6 +297,13 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				<div className="flex justify-between items-center">
 					<h3 className="text-vscode-foreground m-0">{t("history:history")}</h3>
 					<div className="flex gap-2">
+						<StandardTooltip content={areAllExpanded ? "Collapse All" : "Expand All"}>
+							<Button variant="secondary" onClick={toggleAllExpanded}>
+								<span
+									className={`codicon ${areAllExpanded ? "codicon-collapse-all" : "codicon-expand-all"}`}
+								/>
+							</Button>
+						</StandardTooltip>
 						<StandardTooltip
 							content={
 								isSelectionMode
@@ -250,25 +415,30 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 							</SelectContent>
 						</Select>
 					</div>
+					<div className="my-2">
+						<TimelineFilterControls />
+					</div>
 
 					{/* Select all control in selection mode */}
-					{isSelectionMode && tasks.length > 0 && (
+					{isSelectionMode && filteredTasks.length > 0 && (
 						<div className="flex items-center py-1">
 							<div className="flex items-center gap-2">
 								<Checkbox
-									checked={tasks.length > 0 && selectedTaskIds.length === tasks.length}
+									checked={
+										filteredTasks.length > 0 && selectedTaskIds.length === filteredTasks.length
+									}
 									onCheckedChange={(checked) => toggleSelectAll(checked === true)}
 									variant="description"
 								/>
 								<span className="text-vscode-foreground">
-									{selectedTaskIds.length === tasks.length
+									{selectedTaskIds.length === filteredTasks.length
 										? t("history:deselectAll")
 										: t("history:selectAll")}
 								</span>
 								<span className="ml-auto text-vscode-descriptionForeground text-xs">
 									{t("history:selectedItems", {
 										selected: selectedTaskIds.length,
-										total: tasks.length,
+										total: filteredTasks.length,
 									})}
 								</span>
 							</div>
@@ -280,7 +450,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			<TabContent className="p-0">
 				<Virtuoso
 					className="flex-1 overflow-y-scroll"
-					data={tasks}
+					data={filteredTasks}
 					data-testid="virtuoso-container"
 					initialTopMostItemIndex={0}
 					rangeChanged={prefetchVisibleTaskTimelines}
@@ -300,7 +470,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 							onToggleSelection={toggleTaskSelection}
 							onDelete={setDeleteTaskId}
 							className="m-2 mr-0"
-							isExpanded={expandedTaskIds[item.id] ?? false}
+							isExpanded={areAllExpanded || (expandedTaskIds[item.id] ?? false)}
 							onToggleExpansion={toggleTaskExpansion}
 							taskHistory={timelineData[item.id]}
 						/>

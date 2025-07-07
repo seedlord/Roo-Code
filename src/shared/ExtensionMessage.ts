@@ -108,9 +108,11 @@ export interface ExtensionMessage {
 		| "showDeleteMessageDialog"
 		| "showEditMessageDialog"
 		| "taskDetails"
+		| "taskDetailsBatch"
 		| "taskHistoryItemUpdated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	timestamp?: number
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"
@@ -164,9 +166,7 @@ export interface ExtensionMessage {
 	settings?: any
 	messageTs?: number
 	context?: string
-	history?: HistoryItem[]
 	historyItem?: HistoryItem
-	taskId?: string
 }
 
 export type ExtensionState = Pick<

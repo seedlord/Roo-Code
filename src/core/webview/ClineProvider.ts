@@ -29,6 +29,7 @@ import {
 	glamaDefaultModelId,
 	ORGANIZATION_ALLOW_ALL,
 	TelemetryEventName,
+	ClineMessage,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, getRooCodeApiUrl } from "@roo-code/cloud"
@@ -71,6 +72,7 @@ import { EMBEDDING_MODEL_PROFILES } from "../../shared/embeddingModels"
 import { ProfileValidator } from "../../shared/ProfileValidator"
 import { getWorkspaceGitInfo } from "../../utils/git"
 import { taskMetadata } from "../task-persistence"
+import { safeJsonParse } from "../../shared/safeJsonParse"
 
 /**
  * https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -576,7 +578,11 @@ export class ClineProvider
 	}
 
 	public async initClineWithHistoryItem(
-		historyItem: HistoryItem & { rootTask?: Task; parentTask?: Task; scrollToMessageTs?: number },
+		historyItem: HistoryItem & {
+			rootTask?: Task
+			parentTask?: Task
+			scrollToMessageTimestamp?: number
+		},
 	) {
 		await this.removeClineFromStack()
 
@@ -601,7 +607,7 @@ export class ClineProvider
 			parentTask: historyItem.parentTask,
 			taskNumber: historyItem.number,
 			onCreated: (cline) => this.emit("clineCreated", cline),
-			scrollToMessageTs: historyItem.scrollToMessageTs,
+			scrollToMessageTimestamp: historyItem.scrollToMessageTimestamp,
 		})
 
 		await this.addClineToStack(cline)
@@ -1162,19 +1168,24 @@ export class ClineProvider
 		throw new Error("Task not found")
 	}
 
-	async showTaskWithId(id: string, scrollToMessageTs?: number) {
+	async showTaskWithId(id: string, scrollToMessageTimestamp?: number) {
 		if (id !== this.getCurrentCline()?.taskId) {
 			// Non-current task.
 			const { historyItem } = await this.getTaskWithId(id)
-			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageTs }) // Clears existing task.
+			await this.initClineWithHistoryItem({ ...historyItem, scrollToMessageTimestamp }) // Clears existing task.
 			TelemetryService.instance.captureEvent(TelemetryEventName.TASK_RESTARTED, { taskId: id })
-		} else if (scrollToMessageTs) {
+		} else if (typeof scrollToMessageTimestamp === "number") {
 			// Current task, just scroll.
-			await this.postMessageToWebview({
-				type: "action",
-				action: "scrollToMessage",
-				value: scrollToMessageTs,
-			})
+			const messageIndex = this.getCurrentCline()?.clineMessages.findIndex(
+				(m) => m.ts === scrollToMessageTimestamp,
+			)
+			if (typeof messageIndex === "number" && messageIndex !== -1) {
+				await this.postMessageToWebview({
+					type: "action",
+					action: "scrollToMessage",
+					value: scrollToMessageTimestamp,
+				})
+			}
 		}
 
 		await this.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
@@ -1185,13 +1196,18 @@ export class ClineProvider
 		await downloadTask(historyItem.ts, apiConversationHistory)
 	}
 
-	async getTaskDetails(taskId: string): Promise<HistoryItem[] | undefined> {
+	async getTaskDetails(taskId: string): Promise<HistoryItem | undefined> {
 		const history = this.getGlobalState("taskHistory") ?? []
 		let historyItem = history.find((item) => item.id === taskId)
 
 		if (historyItem) {
 			const { uiMessagesFilePath } = await this.getTaskWithId(taskId)
-			const uiMessages = JSON.parse(await fs.readFile(uiMessagesFilePath, "utf8"))
+			const uiMessages = safeJsonParse<ClineMessage[]>(await fs.readFile(uiMessagesFilePath, "utf8"))
+
+			if (!uiMessages || !Array.isArray(uiMessages)) {
+				console.error(`Failed to parse uiMessages for task ${taskId} or it is not an array`)
+				return undefined // Skip this item if JSON is invalid or not an array
+			}
 
 			// Backfill context window info for older tasks
 			if (historyItem.contextWindow === undefined || historyItem.contextTokens === undefined) {
@@ -1213,14 +1229,30 @@ export class ClineProvider
 				await this.updateTaskHistory(historyItem)
 			}
 
-			const detailedHistoryItem = {
+			return {
 				...historyItem,
 				history: uiMessages,
 			}
-			return [detailedHistoryItem]
 		}
 
 		return undefined
+	}
+
+	async getMultipleTaskDetails(taskIds: string[]): Promise<Record<string, HistoryItem>> {
+		const results: Record<string, HistoryItem> = {}
+		const promises = taskIds.map(async (id) => {
+			try {
+				const details = await this.getTaskDetails(id)
+				if (details) {
+					results[id] = details
+				}
+			} catch (error) {
+				console.error(`Failed to get details for task ${id}:`, error)
+			}
+		})
+
+		await Promise.all(promises)
+		return results
 	}
 
 	/* Condenses a task's message history to use fewer tokens. */
@@ -1524,16 +1556,18 @@ export class ClineProvider
 					return undefined
 				}
 				const item = (taskHistory || []).find((item: HistoryItem) => item.id === currentTask.taskId)
-				if (item && currentTask.scrollToMessageTs) {
-					item.scrollToMessageTs = currentTask.scrollToMessageTs
-					currentTask.scrollToMessageTs = undefined // One-time operation
+				if (item && typeof currentTask.scrollToMessageTimestamp === "number") {
+					item.scrollToMessageTimestamp = currentTask.scrollToMessageTimestamp
+					currentTask.scrollToMessageTimestamp = undefined // One-time operation
 				}
 				return item
 			})(),
 			clineMessages: this.getCurrentCline()?.clineMessages || [],
 			taskHistory: (taskHistory || [])
 				.filter((item: HistoryItem) => item.ts && item.task)
-				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts),
+				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts)
+				// Remove the history from the initial state to prevent large state issues
+				.map(({ history, ...item }) => item),
 			soundEnabled: soundEnabled ?? false,
 			ttsEnabled: ttsEnabled ?? false,
 			ttsSpeed: ttsSpeed ?? 1.0,
@@ -1784,10 +1818,13 @@ export class ClineProvider
 		const history = (this.getGlobalState("taskHistory") as HistoryItem[] | undefined) || []
 		const existingItemIndex = history.findIndex((h) => h.id === item.id)
 
+		// Create a shallow copy and remove the 'history' property before saving to global state
+		const { history: _, ...itemToSave } = item
+
 		if (existingItemIndex !== -1) {
-			history[existingItemIndex] = item
+			history[existingItemIndex] = itemToSave
 		} else {
-			history.push(item)
+			history.push(itemToSave)
 		}
 
 		await this.updateGlobalState("taskHistory", history)

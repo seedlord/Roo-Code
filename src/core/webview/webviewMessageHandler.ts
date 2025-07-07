@@ -2202,24 +2202,35 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "getTaskDetails": {
-			if (message.taskId) {
-				const historyItems = await provider.getTaskDetails(message.taskId)
-				if (historyItems && historyItems.length > 0) {
-					const timelineMessages = historyItems[0].history
+			if (message.text) {
+				const historyItem = await provider.getTaskDetails(message.text)
+				if (historyItem) {
 					await provider.postMessageToWebview({
 						type: "taskDetails",
 						payload: {
-							taskId: message.taskId,
-							history: timelineMessages,
+							taskId: message.text,
+							history: historyItem.history,
 						},
 					})
 				}
 			}
 			break
 		}
+		case "getTaskDetailsBatch": {
+			if (message.taskIds) {
+				const results = await provider.getMultipleTaskDetails(message.taskIds)
+				if (Object.keys(results).length > 0) {
+					await provider.postMessageToWebview({
+						type: "taskDetailsBatch",
+						payload: results,
+					})
+				}
+			}
+			break
+		}
 		case "openTaskAndScroll":
-			if (message.taskId && message.messageTs) {
-				provider.showTaskWithId(message.taskId, message.messageTs)
+			if (message.taskId && typeof message.timestamp === "number") {
+				provider.showTaskWithId(message.taskId, message.timestamp)
 			}
 			break
 	}

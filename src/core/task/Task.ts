@@ -124,7 +124,7 @@ export type TaskOptions = {
 	parentTask?: Task
 	taskNumber?: number
 	onCreated?: (cline: Task) => void
-	scrollToMessageTs?: number
+	scrollToMessageTimestamp?: number
 }
 
 export class Task extends EventEmitter<ClineEvents> {
@@ -211,7 +211,7 @@ export class Task extends EventEmitter<ClineEvents> {
 	didRejectTool = false
 	didAlreadyUseTool = false
 	didCompleteReadingStream = false
-	scrollToMessageTs?: number
+	scrollToMessageTimestamp?: number
 
 	constructor({
 		provider,
@@ -228,7 +228,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		parentTask,
 		taskNumber = -1,
 		onCreated,
-		scrollToMessageTs,
+		scrollToMessageTimestamp,
 	}: TaskOptions) {
 		super()
 
@@ -268,7 +268,7 @@ export class Task extends EventEmitter<ClineEvents> {
 		this.rootTask = rootTask
 		this.parentTask = parentTask
 		this.taskNumber = taskNumber
-		this.scrollToMessageTs = scrollToMessageTs
+		this.scrollToMessageTimestamp = scrollToMessageTimestamp
 
 		if (historyItem) {
 			TelemetryService.instance.captureTaskRestarted(this.taskId)

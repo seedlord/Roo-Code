@@ -270,6 +270,10 @@
 		"autoSelectCountdown": "Auto-selecting in {{count}}s",
 		"countdownDisplay": "{{count}}s"
 	},
+	"userFeedback": {
+		"title": "User Feedback",
+		"diffTitle": "User Feedback - Diff"
+	},
 	"browser": {
 		"rooWantsToUse": "Roo wants to use the browser:",
 		"consoleLogs": "Console Logs",
@@ -324,5 +328,18 @@
 	},
 	"versionIndicator": {
 		"ariaLabel": "Version {{version}} - Click to view release notes"
+	},
+	"timeline": {
+		"filterBy": "Filter by:",
+		"filterGroups": {
+			"read": "Read",
+			"edit": "Edit",
+			"command": "Command",
+			"flow": "Flow",
+			"ask": "Ask",
+			"info": "Info",
+			"error": "Error"
+		},
+		"onlyShowTasksWithFilteredTypes": "Only show tasks containing filtered types"
 	}
 }

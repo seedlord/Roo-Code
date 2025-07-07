@@ -1,7 +1,7 @@
 // npx vitest src/components/chat/__tests__/TaskHeader.spec.tsx
 
 import React from "react"
-import { render, screen, fireEvent } from "@/utils/test-utils"
+import { render, screen, fireEvent } from "@src/utils/test-utils"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import type { ProviderSettings } from "@roo-code/types"
@@ -21,7 +21,7 @@ vi.mock("react-i18next", () => ({
 }))
 
 // Mock the vscode API
-vi.mock("@/utils/vscode", () => ({
+vi.mock("@src/utils/vscode", () => ({
 	vscode: {
 		postMessage: vi.fn(),
 	},
