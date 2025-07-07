@@ -117,4 +117,46 @@ describe("TaskItem", () => {
 		// Cache section should not be present
 		expect(screen.queryByTestId("cache-compact")).not.toBeInTheDocument()
 	})
+
+	it("should display highlighted text when collapsed", () => {
+		const mockTaskWithHighlight = {
+			...mockTask,
+			highlight: "Test <mark>task</mark>",
+		}
+		render(
+			<TaskItem
+				item={mockTaskWithHighlight}
+				variant="full"
+				isSelected={false}
+				onToggleSelection={vi.fn()}
+				isSelectionMode={false}
+				isExpanded={false}
+			/>,
+		)
+
+		const highlightedElement = screen.getByText("task")
+		expect(highlightedElement).toBeInTheDocument()
+		expect(highlightedElement.tagName).toBe("MARK")
+	})
+
+	it("should display highlighted text when expanded", () => {
+		const mockTaskWithHighlight = {
+			...mockTask,
+			highlight: "Test <mark>task</mark>",
+		}
+		render(
+			<TaskItem
+				item={mockTaskWithHighlight}
+				variant="full"
+				isSelected={false}
+				onToggleSelection={vi.fn()}
+				isSelectionMode={false}
+				isExpanded={true}
+			/>,
+		)
+
+		const highlightedElement = screen.getByText("task")
+		expect(highlightedElement).toBeInTheDocument()
+		expect(highlightedElement.tagName).toBe("MARK")
+	})
 })
