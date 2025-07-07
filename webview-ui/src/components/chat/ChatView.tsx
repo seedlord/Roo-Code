@@ -159,7 +159,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	)
 
 	// Has to be after api_req_finished are all reduced into api_req_started messages.
-	const apiMetrics = useMemo(() => getApiMetrics(modifiedMessages), [modifiedMessages])
+	const apiMetrics = useMemo(() => getApiMetrics(messages), [messages])
 
 	const [inputValue, setInputValue] = useState("")
 	const textAreaRef = useRef<HTMLTextAreaElement>(null)
