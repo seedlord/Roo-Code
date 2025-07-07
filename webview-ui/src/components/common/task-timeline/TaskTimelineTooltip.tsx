@@ -93,7 +93,7 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 		} else if (message.type === "ask") {
 			switch (message.ask) {
 				case "followup":
-					return "User Message"
+					return t("chat:questions.hasQuestion")
 				case "tool":
 					return `Tool Approval: ${tool?.tool || ""}`
 				case "command":
@@ -114,7 +114,7 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 	const getMessageContent = (message: ClineMessage): string => {
 		if (message.text) {
 			try {
-				const parsedJson = safeJsonParse<any>(message.text)
+				const parsedJson = safeJsonParse<any>(message.text, undefined, false)
 
 				// Handle API streaming failure message
 				if (message.say === "api_req_started" && parsedJson?.streamingFailedMessage) {
@@ -152,6 +152,20 @@ const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) =>
 				// Not a JSON string, fall through to default text handling
 			}
 		}
+
+		if (message.type === "ask" && message.ask === "followup") {
+			const parsed = safeJsonParse<{ question: string; suggest: { answer: string }[] }>(
+				message.text,
+				undefined,
+				false,
+			)
+			if (parsed) {
+				const suggestions = parsed.suggest?.map((s) => `- ${s.answer}`).join("\n")
+				return `${parsed.question}\n${suggestions}`
+			}
+			return message.text || ""
+		}
+
 		// Default text handling
 		if (message.text && message.text.length > 200) {
 			return message.text.substring(0, 200) + "..."

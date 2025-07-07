@@ -3,9 +3,14 @@
  *
  * @param jsonString The string to parse
  * @param defaultValue Value to return if parsing fails
+ * @param logError Whether to log parsing errors to the console
  * @returns Parsed JSON object or defaultValue if parsing fails
  */
-export function safeJsonParse<T>(jsonString: string | null | undefined, defaultValue?: T): T | undefined {
+export function safeJsonParse<T>(
+	jsonString: string | null | undefined,
+	defaultValue?: T,
+	logError = false,
+): T | undefined {
 	if (!jsonString) {
 		return defaultValue
 	}
@@ -13,8 +18,10 @@ export function safeJsonParse<T>(jsonString: string | null | undefined, defaultV
 	try {
 		return JSON.parse(jsonString) as T
 	} catch (error) {
-		// Log the error to the console for debugging
-		console.error("Error parsing JSON:", error)
+		if (logError) {
+			// Log the error to the console for debugging
+			console.error("Error parsing JSON:", error)
+		}
 		return defaultValue
 	}
 }

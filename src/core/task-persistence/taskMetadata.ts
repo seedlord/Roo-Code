@@ -1,7 +1,8 @@
+import { workspace as vscodeWorkspace } from "vscode"
 import NodeCache from "node-cache"
 import getFolderSize from "get-folder-size"
 
-import type { ClineMessage, HistoryItem } from "@roo-code/types"
+import type { ClineMessage, HistoryItem, ProviderName } from "@roo-code/types"
 
 import { combineApiRequests } from "../../shared/combineApiRequests"
 import { combineCommandSequences } from "../../shared/combineCommandSequences"
@@ -18,6 +19,9 @@ export type TaskMetadataOptions = {
 	taskNumber: number
 	globalStoragePath: string
 	workspace: string
+	modelId?: string
+	apiProvider?: ProviderName
+	contextWindow?: number
 }
 
 export async function taskMetadata({
@@ -26,6 +30,9 @@ export async function taskMetadata({
 	taskNumber,
 	globalStoragePath,
 	workspace,
+	modelId,
+	apiProvider,
+	contextWindow,
 }: TaskMetadataOptions) {
 	const taskDir = await getTaskDirectoryPath(globalStoragePath, taskId)
 
@@ -78,6 +85,9 @@ export async function taskMetadata({
 	}
 
 	// Create historyItem once with pre-calculated values
+	const finalWorkspace =
+		workspace || (vscodeWorkspace.workspaceFolders && vscodeWorkspace.workspaceFolders[0]?.uri.fsPath) || ""
+
 	const historyItem: HistoryItem = {
 		id: taskId,
 		number: taskNumber,
@@ -90,8 +100,12 @@ export async function taskMetadata({
 		cacheWrites: tokenUsage.totalCacheWrites,
 		cacheReads: tokenUsage.totalCacheReads,
 		totalCost: tokenUsage.totalCost,
+		contextTokens: tokenUsage.contextTokens,
+		modelId: modelId,
+		apiProvider: apiProvider,
+		contextWindow: contextWindow,
 		size: taskDirSize,
-		workspace,
+		workspace: finalWorkspace,
 	}
 
 	return { historyItem, tokenUsage }
