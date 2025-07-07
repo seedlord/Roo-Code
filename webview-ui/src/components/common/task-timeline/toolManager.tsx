@@ -11,6 +11,7 @@ import { MessageGroup } from "./TimelineFilterContext"
 interface MessageMetadata {
 	group: MessageGroup
 	color: string
+	icon?: string // icon name, e.g. "question"
 	getDescription: (tool: ClineSayTool | null, message: ClineMessage) => React.ReactNode
 }
 
@@ -188,6 +189,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.NEW_TASK]: {
 		group: "flow",
 		color: COLOR.LIGHT_GREEN,
+		icon: "tasklist",
 		getDescription: (tool) => (
 			<Trans
 				i18nKey="chat:subtasks.wantsToCreate"
@@ -210,6 +212,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.SWITCH_MODE]: {
 		group: "flow",
 		color: COLOR.LIGHT_GREEN,
+		icon: "symbol-enum",
 		getDescription: (tool) => (
 			<Trans i18nKey="chat:modes.wantsToSwitch" components={{ code: <code /> }} values={{ mode: tool?.mode }} />
 		),
@@ -224,6 +227,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	followup: {
 		group: "ask",
 		color: COLOR.GRAY,
+		icon: "question",
 		getDescription: () => t("chat:questions.hasQuestion"),
 	},
 	tool: {
@@ -317,8 +321,9 @@ const messageMetadata: Record<string, MessageMetadata> = {
 		getDescription: () => t("chat:apiRequest.streamingFailed"),
 	},
 	checkpoint_saved: {
-		group: "flow",
-		color: COLOR.LIGHT_GREEN,
+		group: "checkpoint",
+		color: COLOR.BLUE,
+		icon: "git-commit",
 		getDescription: () => t("chat:checkpoint.saved"),
 	},
 	condense_context: {
@@ -387,17 +392,7 @@ export const getMessageColor = (message: ClineMessage): string => {
 	return metadata?.color ?? COLOR.DARK_GRAY
 }
 
-export const getGroupColor = (group: MessageGroup): string => {
-	const representativeMessages: Record<MessageGroup, Partial<ClineMessage>> = {
-		read: { say: "codebase_search_result" },
-		edit: { say: "user_feedback_diff" },
-		command: { ask: "command" },
-		flow: { say: "completion_result" },
-		ask: { ask: "followup" },
-		info: { say: "text" },
-		error: { say: "error" },
-	}
-	const representativeMessage = representativeMessages[group]
-	const metadata = getMessageMetadata(representativeMessage as ClineMessage)
-	return metadata?.color ?? COLOR.DARK_GRAY
+export const getMessageIcon = (message: ClineMessage): string | undefined => {
+	const metadata = getMessageMetadata(message)
+	return metadata?.icon
 }
