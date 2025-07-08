@@ -28,6 +28,7 @@ export const providerProfilesSchema = z.object({
 			diffSettingsMigrated: z.boolean().optional(),
 			openAiHeadersMigrated: z.boolean().optional(),
 			consecutiveMistakeLimitMigrated: z.boolean().optional(),
+			providerModelSelectionsMigrated: z.boolean().optional(),
 		})
 		.optional(),
 })
@@ -51,6 +52,7 @@ export class ProviderSettingsManager {
 			diffSettingsMigrated: true, // Mark as migrated on fresh installs
 			openAiHeadersMigrated: true, // Mark as migrated on fresh installs
 			consecutiveMistakeLimitMigrated: true, // Mark as migrated on fresh installs
+			providerModelSelectionsMigrated: true, // Mark as migrated on fresh installs
 		},
 	}
 
@@ -117,6 +119,7 @@ export class ProviderSettingsManager {
 						diffSettingsMigrated: false,
 						openAiHeadersMigrated: false,
 						consecutiveMistakeLimitMigrated: false,
+						providerModelSelectionsMigrated: false,
 					} // Initialize with default values
 					isDirty = true
 				}
@@ -142,6 +145,12 @@ export class ProviderSettingsManager {
 				if (!providerProfiles.migrations.consecutiveMistakeLimitMigrated) {
 					await this.migrateConsecutiveMistakeLimit(providerProfiles)
 					providerProfiles.migrations.consecutiveMistakeLimitMigrated = true
+					isDirty = true
+				}
+
+				if (!providerProfiles.migrations.providerModelSelectionsMigrated) {
+					await this.migrateProviderModelSelections(providerProfiles)
+					providerProfiles.migrations.providerModelSelectionsMigrated = true
 					isDirty = true
 				}
 
@@ -247,6 +256,27 @@ export class ProviderSettingsManager {
 			}
 		} catch (error) {
 			console.error(`[MigrateConsecutiveMistakeLimit] Failed to migrate consecutive mistake limit:`, error)
+		}
+	}
+
+	private async migrateProviderModelSelections(providerProfiles: ProviderProfiles) {
+		try {
+			for (const [_name, apiConfig] of Object.entries(providerProfiles.apiConfigs)) {
+				if (!apiConfig.providerModelSelections) {
+					apiConfig.providerModelSelections = {}
+				}
+
+				// Migrate from the old, shared fields to the new per-provider selection map
+				if (apiConfig.apiModelId && apiConfig.apiProvider) {
+					const provider = apiConfig.apiProvider
+					if (!apiConfig.providerModelSelections[provider]) {
+						apiConfig.providerModelSelections[provider] = apiConfig.apiModelId
+					}
+				}
+				// Add other legacy model ID fields here if necessary
+			}
+		} catch (error) {
+			console.error(`[MigrateProviderModelSelections] Failed to migrate provider model selections:`, error)
 		}
 	}
 

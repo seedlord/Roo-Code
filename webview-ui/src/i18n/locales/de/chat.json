@@ -325,5 +325,25 @@
 	},
 	"editMessage": {
 		"placeholder": "Bearbeite deine Nachricht..."
+	},
+	"profile": {
+		"provider": "Anbieter",
+		"model": "Modell",
+		"tokens": "Token",
+		"maxOutput": "Max. Ausgabe",
+		"maxOutputTokens": "Maximale Ausgabe-Token",
+		"contextSize": "Kontextgröße",
+		"contextWindowTokens": "Kontextfenster-Token",
+		"thinkingBudget": "Denkbudget",
+		"thinkingBudgetTokens": "Denkbudget-Token",
+		"inputPricePer1M": "Eingabepreis\u00A0pro\u00A01M\u00A0Token",
+		"outputPricePer1M": "Ausgabepreis\u00A0pro\u00A01M\u00A0Token",
+		"cacheWritePricePer1M": "Cache-Schreibpreis\u00A0pro\u00A01M\u00A0Token",
+		"cacheReadPricePer1M": "Cache-Lesepreis\u00A0pro\u00A01M\u00A0Token",
+		"expandInfobar": "Infobar aufklappen",
+		"collapseInfobar": "Infobar zuklappen",
+		"output": "Ausgabe",
+		"context": "Kontext",
+		"budget": "Budget"
 	}
 }

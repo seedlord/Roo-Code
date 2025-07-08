@@ -107,8 +107,10 @@ export interface ExtensionMessage {
 		| "codeIndexSecretStatus"
 		| "showDeleteMessageDialog"
 		| "showEditMessageDialog"
+		| "streaming"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	streaming?: boolean
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"

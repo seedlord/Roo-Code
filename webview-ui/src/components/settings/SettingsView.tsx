@@ -214,20 +214,51 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const setApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
 			setCachedState((prevState) => {
-				if (prevState.apiConfiguration?.[field] === value) {
-					return prevState
-				}
+				const modelId = prevState.apiConfiguration?.apiModelId
+				const modelSpecificFields: (keyof ProviderSettings)[] = [
+					"modelMaxTokens",
+					"modelMaxThinkingTokens",
+					"enableReasoningEffort",
+				]
 
-				const previousValue = prevState.apiConfiguration?.[field]
+				if (modelId && modelSpecificFields.includes(field)) {
+					const existingSettings = prevState.apiConfiguration?.modelSettings?.[modelId] ?? {}
+					const updatedModelSettings = {
+						...prevState.apiConfiguration?.modelSettings,
+						[modelId]: {
+							...existingSettings,
+							[field]: value,
+						},
+					}
 
-				// Don't treat initial sync from undefined to a defined value as a user change
-				// This prevents the dirty state when the component initializes and auto-syncs the model ID
-				const isInitialSync = previousValue === undefined && value !== undefined
+					if (
+						JSON.stringify(prevState.apiConfiguration?.modelSettings?.[modelId]) ===
+						JSON.stringify(updatedModelSettings[modelId])
+					) {
+						return prevState
+					}
 
-				if (!isInitialSync) {
 					setChangeDetected(true)
+					return {
+						...prevState,
+						apiConfiguration: { ...prevState.apiConfiguration, modelSettings: updatedModelSettings },
+					}
+				} else {
+					if (prevState.apiConfiguration?.[field] === value) {
+						return prevState
+					}
+
+					const previousValue = prevState.apiConfiguration?.[field]
+
+					// Don't treat initial sync from undefined to a defined value as a user change
+					// This prevents the dirty state when the component initializes and auto-syncs the model ID
+					const isInitialSync = previousValue === undefined && value !== undefined
+
+					if (!isInitialSync) {
+						setChangeDetected(true)
+					}
+					return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
 				}
-				return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
 			})
 		},
 		[],

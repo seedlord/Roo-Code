@@ -27,6 +27,7 @@ import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 import { VolumeX, Pin, Check, Image, WandSparkles, SendHorizontal } from "lucide-react"
 import { IndexingStatusBadge } from "./IndexingStatusBadge"
+import { ProfileInfoBar } from "./ProfileInfoBar"
 import { cn } from "@/lib/utils"
 import { usePromptHistory } from "./hooks/usePromptHistory"
 import { EditModeControls } from "./EditModeControls"
@@ -960,6 +961,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							renderItem={renderApiConfigItem}
 						/>
 					</div>
+					<div className={cn("shrink-0", "overflow-hidden")}>
+						<ProfileInfoBar />
+					</div>
 				</div>
 
 				<div className={cn("flex", "items-center", "gap-0.5", "shrink-0")}>
@@ -1088,7 +1092,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
 							: isDraggingOver
 								? "border-2 border-dashed border-vscode-focusBorder"
-								: "border border-transparent",
+								: "border border-vscode-border",
 						isDraggingOver
 							? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
 							: "bg-vscode-input-background",

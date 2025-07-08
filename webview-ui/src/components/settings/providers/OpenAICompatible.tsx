@@ -41,7 +41,7 @@ export const OpenAICompatible = ({
 	const [azureApiVersionSelected, setAzureApiVersionSelected] = useState(!!apiConfiguration?.azureApiVersion)
 	const [openAiLegacyFormatSelected, setOpenAiLegacyFormatSelected] = useState(!!apiConfiguration?.openAiLegacyFormat)
 
-	const [openAiModels, setOpenAiModels] = useState<Record<string, ModelInfo> | null>(null)
+	const [openAiModels, setOpenAiModels] = useState<Record<string, ModelInfo>>({})
 
 	const [customHeaders, setCustomHeaders] = useState<[string, string][]>(() => {
 		const headers = apiConfiguration?.openAiHeaders || {}

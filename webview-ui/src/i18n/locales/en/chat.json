@@ -324,5 +324,26 @@
 	},
 	"versionIndicator": {
 		"ariaLabel": "Version {{version}} - Click to view release notes"
+	},
+	"profile": {
+		"provider": "Provider",
+		"model": "Model",
+		"tokens": "Tokens",
+		"maxOutput": "Max Output",
+		"maxOutputTokens": "Max Output Tokens",
+		"contextSize": "Context Size",
+		"contextWindowTokens": "Context Window Tokens",
+		"thinkingBudget": "Thinking Budget",
+		"thinkingBudgetTokens": "Thinking Budget Tokens",
+		"inputPricePer1M": "Input\u00A0Price\u00A0per\u00A01M\u00A0tokens",
+		"outputPricePer1M": "Output\u00A0Price\u00A0per\u00A01M\u00A0tokens",
+		"cacheWritePricePer1M": "Cache\u00A0Write\u00A0Price\u00A0per\u00A01M\u00A0tokens",
+		"cacheReadPricePer1M": "Cache\u00A0Read\u00A0Price\u00A0per\u00A01M\u00A0tokens",
+		"expandInfobar": "Expand Infobar",
+		"collapseInfobar": "Collapse Infobar",
+		"output": "Output",
+		"context": "Context",
+		"budget": "Budget",
+		"enableReasoning": "Enable Reasoning"
 	}
 }

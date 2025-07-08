@@ -479,3 +479,48 @@ input[cmdk-input]:focus {
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
 }
+
+/* Marquee effect for overflowing text - continuous right-to-left */
+@keyframes marquee-scroll-effect {
+	/* Only defines the scroll part */
+	from {
+		transform: translateX(0%);
+	}
+	to {
+		transform: translateX(var(--marquee-scroll-amount, -100%)); /* Fallback if var not set */
+	}
+}
+
+.marquee-container {
+	overflow: hidden; /* Essential for clipping */
+	position: relative; /* Can be useful, keeping it */
+}
+
+.marquee-text {
+	display: inline-block; /* Allows transform and respects content width */
+	white-space: nowrap; /* Prevents the text itself from wrapping */
+	/* Animation will be applied conditionally by .marquee-text-animate */
+}
+
+.marquee-text-animate {
+	/* animation-duration, iteration-count, etc., will be controlled by JS */
+	/* This class is added/removed by JS to trigger the animation */
+	animation-name: marquee-scroll-effect;
+	animation-timing-function: linear;
+	animation-fill-mode: forwards; /* Stay at the end of the animation */
+	will-change: transform;
+}
+
+.marquee-text {
+	/* Ensure it starts at 0% translation if no animation is active */
+	display: inline-block;
+	white-space: nowrap;
+	transform: translateX(0%);
+}
+
+/*
+   The MarqueeText React component handles conditional application of .marquee-text-animate.
+   The animation makes the text scroll from right to left continuously.
+   - translateX(100%) positions the left edge of the text at the right edge of its container.
+   - translateX(-100%) positions the right edge of the text at the left edge of its container.
+*/
