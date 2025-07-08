@@ -25,11 +25,14 @@ export abstract class BaseProvider implements ApiHandler {
 	 * @param content The content to count tokens for
 	 * @returns A promise resolving to the token count
 	 */
-	async countTokens(content: Anthropic.Messages.ContentBlockParam[]): Promise<number> {
+	async countTokens(
+		content: Anthropic.Messages.ContentBlockParam[],
+		applyFudgeFactor: boolean = true,
+	): Promise<number> {
 		if (content.length === 0) {
 			return 0
 		}
 
-		return countTokens(content, { useWorker: true })
+		return countTokens(content, { useWorker: true, applyFudgeFactor })
 	}
 }

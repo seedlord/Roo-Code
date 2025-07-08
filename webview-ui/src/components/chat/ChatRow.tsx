@@ -54,6 +54,7 @@ interface ChatRowProps {
 	onBatchFileResponse?: (response: { [key: string]: boolean }) => void
 	onFollowUpUnmount?: () => void
 	editable?: boolean
+	modelMaxThinkingTokens?: number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -105,6 +106,7 @@ export const ChatRowContent = ({
 	onFollowUpUnmount,
 	onBatchFileResponse,
 	editable,
+	modelMaxThinkingTokens,
 }: ChatRowContentProps) => {
 	const { t } = useTranslation()
 	const { mcpServers, alwaysAllowMcp, currentCheckpoint } = useExtensionState()
@@ -922,9 +924,13 @@ export const ChatRowContent = ({
 					return (
 						<ReasoningBlock
 							content={message.text || ""}
-							elapsed={isLast && isStreaming ? Date.now() - message.ts : undefined}
+							durationMs={message.thinkingDurationMs}
+							startTimeTs={isLast && isStreaming && message.partial ? message.ts : undefined}
 							isCollapsed={reasoningCollapsed}
 							onToggleCollapse={() => setReasoningCollapsed(!reasoningCollapsed)}
+							modelMaxThinkingTokens={message.modelMaxThinkingTokens ?? modelMaxThinkingTokens}
+							thinkingUsedTokens={message.thinkingUsedTokens}
+							thinkingTokensPerSecond={message.thinkingTokensPerSecond}
 						/>
 					)
 				case "api_req_started":
