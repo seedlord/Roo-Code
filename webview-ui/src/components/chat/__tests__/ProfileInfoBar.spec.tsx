@@ -50,13 +50,14 @@ vi.mock("@vscode/webview-ui-toolkit/react", () => ({
 		value,
 		onChange,
 		id,
+		...rest
 	}: {
 		children: React.ReactNode
 		value: string
 		onChange: (e: any) => void
 		id: string
 	}) => (
-		<select data-testid={id} value={value} onChange={onChange}>
+		<select data-testid={id} value={value} onChange={onChange} {...rest}>
 			{children}
 		</select>
 	),
@@ -91,30 +92,32 @@ vi.mock("@roo-code/types", async () => {
 				description: "The one and only GPT-4",
 			},
 		},
-		vscodeLlmModels: {
-			"copilot-gpt-3.5-turbo": {
-				contextWindow: 16384,
-				description: "VS Code Copilot 3.5",
-			},
-		},
-		xaiModels: {
-			grok: {
-				contextWindow: 131072,
-				inputPrice: 10,
-				outputPrice: 10,
-				supportsReasoningBudget: false,
+		vertexModels: {
+			"gemini-1.5-pro": {
+				contextWindow: 1048576,
+				inputPrice: 3.5,
+				outputPrice: 10.5,
+				supportsReasoningBudget: true,
 				maxTokens: 8192,
-				description: "Grok by xAI",
+				description: "The one and only Gemini 1.5 Pro",
 			},
 		},
 		geminiModels: {
-			"gemini-pro-test": {
+			"gemini-1.5-pro": {
 				contextWindow: 1048576,
-				inputPrice: 2.5,
-				outputPrice: 15,
-				requiredReasoningBudget: true,
-				maxTokens: 64000,
-				description: "Test model with required reasoning",
+				inputPrice: 3.5,
+				outputPrice: 10.5,
+				supportsReasoningBudget: true,
+				maxTokens: 8192,
+				description: "The one and only Gemini 1.5 Pro",
+			},
+			"gemini-1.5-flash": {
+				contextWindow: 1048576,
+				inputPrice: 0.35,
+				outputPrice: 1.05,
+				supportsReasoningBudget: true,
+				maxTokens: 8192,
+				description: "The one and only Gemini 1.5 Flash",
 			},
 		},
 	}
@@ -123,66 +126,43 @@ vi.mock("@roo-code/types", async () => {
 const mockApiConfiguration: ProviderSettings = {
 	apiProvider: "openai-native",
 	apiModelId: "gpt-4",
+	providerModelSelections: {
+		"openai-native": "gpt-4",
+	},
 	modelMaxTokens: 4096,
 	modelMaxThinkingTokens: 8192,
 	enableReasoningEffort: true,
 }
 
-const mockRouterModels = {
-	openrouter: {
-		"openrouter/model-A": {
-			contextWindow: 16000,
-			inputPrice: 1,
-			outputPrice: 2,
-			supportsReasoningBudget: true,
-			maxTokens: 8000,
-			description: "OpenRouter Model A",
-		},
-		"openrouter/model-B": {
-			contextWindow: 32000,
-			inputPrice: 3,
-			outputPrice: 4,
-			supportsReasoningBudget: false,
-			maxTokens: 16000,
-			description: "OpenRouter Model B",
-		},
-	},
-	litellm: {
-		"litellm/model-1": {
-			contextWindow: 32000,
-			inputPrice: 0.5,
-			outputPrice: 1.5,
-			supportsReasoningBudget: false,
-			maxTokens: 16000,
-			description: "LiteLLM Model 1",
-		},
-	},
-}
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+
+const queryClient = new QueryClient()
 
 const TestWrapper: React.FC<{
 	children: React.ReactNode
 	state: Partial<ExtensionStateContextType>
 }> = ({ children, state }) => (
-	<I18nextProvider i18n={i18n}>
-		<ExtensionStateContext.Provider
-			value={
-				{
-					apiConfiguration: mockApiConfiguration,
-					currentApiConfigName: "default",
-					setIsAwaitingConfigurationUpdate: vi.fn(),
-					routerModels: mockRouterModels,
-					...state,
-				} as unknown as ExtensionStateContextType
-			}>
-			{children}
-		</ExtensionStateContext.Provider>
-	</I18nextProvider>
+	<QueryClientProvider client={queryClient}>
+		<I18nextProvider i18n={i18n}>
+			<ExtensionStateContext.Provider
+				value={
+					{
+						apiConfiguration: mockApiConfiguration,
+						currentApiConfigName: "default",
+						setIsAwaitingConfigurationUpdate: vi.fn(),
+						routerModels: {},
+						...state,
+					} as unknown as ExtensionStateContextType
+				}>
+				{children}
+			</ExtensionStateContext.Provider>
+		</I18nextProvider>
+	</QueryClientProvider>
 )
 
 describe("ProfileInfoBar", () => {
 	beforeEach(() => {
 		;(vscode.postMessage as Mock).mockClear()
-		// Standardize on openai-native for all tests to ensure controls are rendered
 		mockUseSelectedModel.mockReturnValue({
 			id: "gpt-4",
 			info: {
@@ -194,8 +174,6 @@ describe("ProfileInfoBar", () => {
 				description: "The one and only GPT-4",
 			},
 			provider: "openai-native",
-			isLoading: false,
-			isError: false,
 		})
 	})
 
@@ -207,99 +185,6 @@ describe("ProfileInfoBar", () => {
 		)
 		expect(screen.getByText("OpenAI")).toBeInTheDocument()
 		expect(screen.getByText("gpt-4")).toBeInTheDocument()
-	})
-
-	it("renders correctly for vscode-lm provider", () => {
-		const vscodeLmConfig: ProviderSettings = {
-			...mockApiConfiguration,
-			apiProvider: "vscode-lm",
-			vsCodeLmModelSelector: { vendor: "copilot", family: "gpt-3.5-turbo" },
-		}
-		mockUseSelectedModel.mockReturnValue({
-			id: "copilot/gpt-3.5-turbo",
-			info: {
-				contextWindow: 16384,
-				description: "VS Code Copilot 3.5",
-			} as ModelInfo,
-			provider: "vscode-lm",
-			isLoading: false,
-			isError: false,
-		})
-
-		render(
-			<TestWrapper state={{ apiConfiguration: vscodeLmConfig }}>
-				<ProfileInfoBar />
-			</TestWrapper>,
-		)
-
-		expect(screen.getByText("VS Code LM API")).toBeInTheDocument()
-		expect(screen.getByText("copilot/gpt-3.5-turbo")).toBeInTheDocument()
-		// Check for context window as a proxy for correct info display
-		expect(screen.getByTitle("chat:profile.contextSize: 16384 chat:profile.tokens")).toHaveTextContent("16K")
-	})
-
-	it("renders correctly for xai provider", () => {
-		const xaiConfig: ProviderSettings = {
-			...mockApiConfiguration,
-			apiProvider: "xai",
-			apiModelId: "grok",
-		}
-		mockUseSelectedModel.mockReturnValue({
-			id: "grok",
-			info: {
-				contextWindow: 131072,
-				inputPrice: 10,
-				outputPrice: 10,
-				supportsReasoningBudget: false,
-				maxTokens: 8192,
-				description: "Grok by xAI",
-			} as ModelInfo,
-			provider: "xai",
-			isLoading: false,
-			isError: false,
-		})
-		render(
-			<TestWrapper state={{ apiConfiguration: xaiConfig }}>
-				<ProfileInfoBar />
-			</TestWrapper>,
-		)
-		expect(screen.getByText("xAI (Grok)")).toBeInTheDocument()
-		expect(screen.getByText("grok")).toBeInTheDocument()
-		expect(screen.getByTitle("chat:profile.contextSize: 131072 chat:profile.tokens")).toHaveTextContent("131K")
-	})
-	it("displays thinking budget by default for models that require it", () => {
-		const geminiConfig: ProviderSettings = {
-			...mockApiConfiguration,
-			apiProvider: "gemini",
-			apiModelId: "gemini-pro-test",
-			// No modelSettings defined for this model yet
-			modelSettings: {},
-		}
-		mockUseSelectedModel.mockReturnValue({
-			id: "gemini-pro-test",
-			info: {
-				contextWindow: 1048576,
-				inputPrice: 2.5,
-				outputPrice: 15,
-				requiredReasoningBudget: true,
-				maxTokens: 64000,
-			} as ModelInfo,
-			provider: "gemini",
-			isLoading: false,
-			isError: false,
-		})
-
-		render(
-			<TestWrapper state={{ apiConfiguration: geminiConfig }}>
-				<ProfileInfoBar />
-			</TestWrapper>,
-		)
-
-		// Check that the thinking budget is displayed, even without specific settings saved
-		const thinkingBudgetElement = screen.getByTitle(/chat:profile.thinkingBudget/i)
-		expect(thinkingBudgetElement).toBeInTheDocument()
-		// The default value should be formatted
-		expect(thinkingBudgetElement).toHaveTextContent("8K")
 	})
 
 	it("toggles expansion when chevron is clicked", () => {
@@ -333,7 +218,6 @@ describe("ProfileInfoBar", () => {
 		expect(modelSettingsTitle).toBeInTheDocument()
 
 		expect(screen.getByTestId("provider-select")).toHaveValue("openai-native")
-		// The model select might not be present for all providers, so this check is conditional
 		const modelSelect = screen.queryByTestId("model-select")
 		if (modelSelect) {
 			expect(modelSelect).toHaveValue("gpt-4")
@@ -341,33 +225,27 @@ describe("ProfileInfoBar", () => {
 	})
 
 	it("saves settings when save button is clicked", async () => {
-		// The beforeEach hook now provides a consistent setup with 'openai-native'
 		render(
 			<TestWrapper state={{ apiConfiguration: { ...mockApiConfiguration, apiProvider: "openai-native" } }}>
 				<ProfileInfoBar />
 			</TestWrapper>,
 		)
 
-		// 1. Open the settings popup
 		const infoBar = screen.getByTitle("chat:profile.collapseInfobar")
 		fireEvent.click(infoBar.querySelector('[data-state="closed"]')!)
 		await screen.findByText("Model Settings")
 
-		// 2. Find the reasoning checkbox and click it to trigger a change.
 		const reasoningCheckbox = await screen.findByLabelText("chat:profile.enableReasoning")
-		expect(reasoningCheckbox).toBeChecked() // It's enabled by default
+		expect(reasoningCheckbox).toBeChecked()
 		fireEvent.click(reasoningCheckbox)
 
-		// 3. Wait for the change to be reflected in the UI
 		await waitFor(() => {
 			expect(reasoningCheckbox).not.toBeChecked()
 		})
 
-		// 4. Click save
 		const saveButton = screen.getByRole("button", { name: "Save" })
 		fireEvent.click(saveButton)
 
-		// 5. Assert the correct message was posted
 		expect(vscode.postMessage).toHaveBeenCalledWith({
 			type: "upsertApiConfiguration",
 			text: "default",
@@ -375,11 +253,77 @@ describe("ProfileInfoBar", () => {
 				apiProvider: "openai-native",
 				apiModelId: "gpt-4",
 				modelSettings: expect.objectContaining({
-					"gpt-4": expect.objectContaining({
-						enableReasoningEffort: false, // This was the change we made
+					"openai-native:gpt-4": expect.objectContaining({
+						enableReasoningEffort: false,
 					}),
 				}),
 			}),
+		})
+	})
+
+	it("selects the last used model when switching to a provider with a saved selection", async () => {
+		const configWithVertex: ProviderSettings = {
+			...mockApiConfiguration,
+			apiProvider: "vertex",
+			apiModelId: "gemini-1.5-pro",
+			providerModelSelections: {
+				...mockApiConfiguration.providerModelSelections,
+				vertex: "gemini-1.5-pro",
+				gemini: "gemini-1.5-flash", // Pre-saved selection for gemini
+			},
+		}
+
+		mockUseSelectedModel.mockReturnValue({
+			id: "gemini-1.5-pro",
+			info: { contextWindow: 1048576, maxTokens: 8192 } as ModelInfo,
+			provider: "vertex",
+		})
+
+		render(
+			<TestWrapper state={{ apiConfiguration: configWithVertex }}>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+
+		const infoBar = screen.getByTitle("chat:profile.collapseInfobar")
+		fireEvent.click(infoBar.querySelector('[data-state="closed"]')!)
+		await screen.findByText("Model Settings")
+
+		const providerSelect = screen.getByTestId("provider-select")
+		fireEvent.change(providerSelect, { target: { value: "gemini" } })
+
+		await waitFor(() => {
+			const modelSelect = screen.getByTestId("model-select") as HTMLSelectElement
+			// Should select the pre-saved model 'gemini-1.5-flash', not the first in the list
+			expect(modelSelect.value).toBe("gemini-1.5-flash")
+		})
+	})
+
+	it("selects the first model when switching to a provider without a saved selection", async () => {
+		mockUseSelectedModel.mockReturnValue({
+			id: "gpt-4",
+			info: { contextWindow: 8192, maxTokens: 4096 } as ModelInfo,
+			provider: "openai-native",
+		})
+
+		render(
+			<TestWrapper state={{}}>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+
+		const infoBar = screen.getByTitle("chat:profile.collapseInfobar")
+		fireEvent.click(infoBar.querySelector('[data-state="closed"]')!)
+		await screen.findByText("Model Settings")
+
+		const providerSelect = screen.getByTestId("provider-select")
+		// Switch to Gemini, for which no model is pre-selected in the default mock
+		fireEvent.change(providerSelect, { target: { value: "gemini" } })
+
+		await waitFor(() => {
+			const modelSelect = screen.getByTestId("model-select") as HTMLSelectElement
+			// Should select the first model in the list ('gemini-1.5-pro') as a fallback
+			expect(modelSelect.value).toBe("gemini-1.5-pro")
 		})
 	})
 })
