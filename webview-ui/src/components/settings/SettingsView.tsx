@@ -213,12 +213,43 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const setApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
 			setCachedState((prevState) => {
-				if (prevState.apiConfiguration?.[field] === value) {
-					return prevState
-				}
+				const modelId = prevState.apiConfiguration?.apiModelId
+				const modelSpecificFields: (keyof ProviderSettings)[] = [
+					"modelMaxTokens",
+					"modelMaxThinkingTokens",
+					"enableReasoningEffort",
+				]
 
-				setChangeDetected(true)
-				return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
+				if (modelId && modelSpecificFields.includes(field)) {
+					const existingSettings = prevState.apiConfiguration?.modelSettings?.[modelId] ?? {}
+					const updatedModelSettings = {
+						...prevState.apiConfiguration?.modelSettings,
+						[modelId]: {
+							...existingSettings,
+							[field]: value,
+						},
+					}
+
+					if (
+						JSON.stringify(prevState.apiConfiguration?.modelSettings?.[modelId]) ===
+						JSON.stringify(updatedModelSettings[modelId])
+					) {
+						return prevState
+					}
+
+					setChangeDetected(true)
+					return {
+						...prevState,
+						apiConfiguration: { ...prevState.apiConfiguration, modelSettings: updatedModelSettings },
+					}
+				} else {
+					if (prevState.apiConfiguration?.[field] === value) {
+						return prevState
+					}
+
+					setChangeDetected(true)
+					return { ...prevState, apiConfiguration: { ...prevState.apiConfiguration, [field]: value } }
+				}
 			})
 		},
 		[],

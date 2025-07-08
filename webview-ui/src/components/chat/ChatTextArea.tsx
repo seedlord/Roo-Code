@@ -28,6 +28,7 @@ import ContextMenu from "./ContextMenu"
 import { VolumeX, Pin, Check } from "lucide-react"
 import { IconButton } from "./IconButton"
 import { IndexingStatusDot } from "./IndexingStatusBadge"
+import { ProfileInfoBar } from "./ProfileInfoBar"
 import { cn } from "@/lib/utils"
 import { usePromptHistory } from "./hooks/usePromptHistory"
 
@@ -931,7 +932,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 										? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
 										: isDraggingOver
 											? "border-2 border-dashed border-vscode-focusBorder"
-											: "border border-transparent",
+											: "border border-vscode-border",
 									isDraggingOver
 										? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
 										: "bg-vscode-input-background",
@@ -1142,6 +1143,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									)
 								}}
 							/>
+						</div>
+						<div className={cn("shrink-0", "overflow-hidden")}>
+							<ProfileInfoBar />
 						</div>
 					</div>
 

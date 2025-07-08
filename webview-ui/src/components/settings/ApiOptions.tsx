@@ -139,6 +139,11 @@ const ApiOptions = ({
 
 	const { data: routerModels, refetch: refetchRouterModels } = useRouterModels()
 
+	// Request router models when the component mounts
+	useEffect(() => {
+		vscode.postMessage({ type: "requestRouterModels" })
+	}, [])
+
 	// Update `apiModelId` whenever `selectedModelId` changes.
 	useEffect(() => {
 		if (selectedModelId) {
@@ -169,8 +174,6 @@ const ApiOptions = ({
 				vscode.postMessage({ type: "requestLmStudioModels" })
 			} else if (selectedProvider === "vscode-lm") {
 				vscode.postMessage({ type: "requestVsCodeLmModels" })
-			} else if (selectedProvider === "litellm") {
-				vscode.postMessage({ type: "requestRouterModels" })
 			}
 		},
 		250,
@@ -181,8 +184,6 @@ const ApiOptions = ({
 			apiConfiguration?.openAiApiKey,
 			apiConfiguration?.ollamaBaseUrl,
 			apiConfiguration?.lmStudioBaseUrl,
-			apiConfiguration?.litellmBaseUrl,
-			apiConfiguration?.litellmApiKey,
 			customHeaders,
 		],
 	)

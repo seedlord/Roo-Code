@@ -22,9 +22,9 @@ export const filterModels = (
 	models: Record<string, ModelInfo> | null,
 	providerId?: ProviderName,
 	organizationAllowList?: OrganizationAllowList,
-): Record<string, ModelInfo> | null => {
+): Record<string, ModelInfo> => {
 	if (!models || !organizationAllowList || organizationAllowList.allowAll) {
-		return models
+		return models ?? {}
 	}
 
 	if (!providerId) {

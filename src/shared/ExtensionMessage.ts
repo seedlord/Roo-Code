@@ -105,8 +105,10 @@ export interface ExtensionMessage {
 		| "shareTaskSuccess"
 		| "codeIndexSettingsSaved"
 		| "codeIndexSecretStatus"
+		| "streaming"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
+	streaming?: boolean
 	action?:
 		| "chatButtonClicked"
 		| "mcpButtonClicked"
