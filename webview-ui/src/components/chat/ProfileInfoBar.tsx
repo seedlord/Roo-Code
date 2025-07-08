@@ -78,6 +78,10 @@ export const ProfileInfoBar: React.FC = () => {
 		id: selectedModelId,
 		info: selectedModelInfo,
 		provider: selectedProvider,
+	}: {
+		id: string | undefined
+		info: ModelInfo | undefined
+		provider: ProviderName | RouterName
 	} = useSelectedModel(apiConfiguration)
 
 	const profileInfoBarRef = useRef<HTMLDivElement>(null)
@@ -827,6 +831,7 @@ export const ProfileInfoBar: React.FC = () => {
 													{t("settings:providers.model")}
 												</label>
 												<VSCodeDropdown
+													key={localApiProvider}
 													id="model-select"
 													value={localSelectedModelId ?? ""}
 													onChange={(e) => {
