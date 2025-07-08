@@ -6,7 +6,10 @@ const TOKEN_FUDGE_FACTOR = 1.5
 
 let encoder: Tiktoken | null = null
 
-export async function tiktoken(content: Anthropic.Messages.ContentBlockParam[]): Promise<number> {
+export async function tiktoken(
+	content: Anthropic.Messages.ContentBlockParam[],
+	applyFudgeFactor: boolean = true,
+): Promise<number> {
 	if (content.length === 0) {
 		return 0
 	}
@@ -42,5 +45,8 @@ export async function tiktoken(content: Anthropic.Messages.ContentBlockParam[]):
 
 	// Add a fudge factor to account for the fact that tiktoken is not always
 	// accurate.
-	return Math.ceil(totalTokens * TOKEN_FUDGE_FACTOR)
+	if (applyFudgeFactor) {
+		return Math.ceil(totalTokens * TOKEN_FUDGE_FACTOR)
+	}
+	return totalTokens
 }

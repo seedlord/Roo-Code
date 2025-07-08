@@ -1416,6 +1416,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							return tool.tool === "updateTodoList" && enableButtons && !!primaryButtonText
 						})()
 					}
+					modelMaxThinkingTokens={apiConfiguration?.modelMaxThinkingTokens}
 				/>
 			)
 		},
@@ -1433,6 +1434,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 			alwaysAllowUpdateTodoList,
 			enableButtons,
 			primaryButtonText,
+			apiConfiguration?.modelMaxThinkingTokens,
 		],
 	)
 

@@ -156,6 +156,10 @@ export const clineMessageSchema = z.object({
 	contextCondense: contextCondenseSchema.optional(),
 	isProtected: z.boolean().optional(),
 	apiProtocol: z.union([z.literal("openai"), z.literal("anthropic")]).optional(),
+	thinkingDurationMs: z.number().optional(),
+	thinkingTokensPerSecond: z.number().optional(),
+	thinkingUsedTokens: z.number().optional(),
+	modelMaxThinkingTokens: z.number().optional(),
 })
 
 export type ClineMessage = z.infer<typeof clineMessageSchema>

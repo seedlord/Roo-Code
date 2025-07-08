@@ -56,7 +56,7 @@ export interface ApiHandler {
 	 * @param content The content to count tokens for
 	 * @returns A promise resolving to the token count
 	 */
-	countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number>
+	countTokens(content: Array<Anthropic.Messages.ContentBlockParam>, applyFudgeFactor?: boolean): Promise<number>
 }
 
 export function buildApiHandler(configuration: ProviderSettings): ApiHandler {

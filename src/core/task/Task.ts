@@ -65,6 +65,7 @@ import { getWorkspacePath } from "../../utils/path"
 // prompts
 import { formatResponse } from "../prompts/responses"
 import { SYSTEM_PROMPT } from "../prompts/system"
+import { countTokens } from "../../utils/countTokens"
 
 // core modules
 import { ToolRepetitionDetector } from "../tools/ToolRepetitionDetector"
@@ -629,34 +630,38 @@ export class Task extends EventEmitter<ClineEvents> {
 			isNonInteractive?: boolean
 		} = {},
 		contextCondense?: ContextCondense,
+		reasoningTokens?: number,
 	): Promise<undefined> {
 		if (this.abort) {
 			throw new Error(`[RooCode#say] task ${this.taskId}.${this.instanceId} aborted`)
 		}
 
 		if (partial !== undefined) {
-			const lastMessage = this.clineMessages.at(-1)
-
-			const isUpdatingPreviousPartial =
-				lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
+			const partialMessageIndex = findLastIndex(
+				this.clineMessages,
+				(m) => m.partial === true && m.type === "say" && m.say === type,
+			)
+			const isUpdatingPreviousPartial = partialMessageIndex !== -1
+			const lastMessageToUpdate = isUpdatingPreviousPartial ? this.clineMessages[partialMessageIndex] : undefined
 
 			if (partial) {
-				if (isUpdatingPreviousPartial) {
-					// Existing partial message, so update it.
-					lastMessage.text = text
-					lastMessage.images = images
-					lastMessage.partial = partial
-					lastMessage.progressStatus = progressStatus
-					this.updateClineMessage(lastMessage)
+				// This is a partial message (streaming)
+				if (lastMessageToUpdate) {
+					// Update existing partial message
+					lastMessageToUpdate.text = text
+					lastMessageToUpdate.images = images
+					lastMessageToUpdate.progressStatus = progressStatus
+					if (type === "reasoning") {
+						await this._updateReasoningMetrics(lastMessageToUpdate, false)
+					}
+					this.updateClineMessage(lastMessageToUpdate)
 				} else {
-					// This is a new partial message, so add it with partial state.
+					// Create new partial message
 					const sayTs = Date.now()
-
 					if (!options.isNonInteractive) {
 						this.lastMessageTs = sayTs
 					}
-
-					await this.addToClineMessages({
+					const newMessage: ClineMessage = {
 						ts: sayTs,
 						type: "say",
 						say: type,
@@ -664,36 +669,38 @@ export class Task extends EventEmitter<ClineEvents> {
 						images,
 						partial,
 						contextCondense,
-					})
+					}
+					if (type === "reasoning") {
+						const state = await this.providerRef.deref()?.getState()
+						newMessage.modelMaxThinkingTokens = state?.apiConfiguration?.modelMaxThinkingTokens
+					}
+					await this.addToClineMessages(newMessage)
 				}
 			} else {
-				// New now have a complete version of a previously partial message.
-				// This is the complete version of a previously partial
-				// message, so replace the partial with the complete version.
-				if (isUpdatingPreviousPartial) {
+				// This is the final message of a stream
+				if (lastMessageToUpdate) {
+					// Finalize the partial message
 					if (!options.isNonInteractive) {
-						this.lastMessageTs = lastMessage.ts
+						this.lastMessageTs = lastMessageToUpdate.ts
 					}
 
-					lastMessage.text = text
-					lastMessage.images = images
-					lastMessage.partial = false
-					lastMessage.progressStatus = progressStatus
+					lastMessageToUpdate.text = text
+					lastMessageToUpdate.images = images
+					lastMessageToUpdate.partial = false
+					lastMessageToUpdate.progressStatus = progressStatus
 
-					// Instead of streaming partialMessage events, we do a save
-					// and post like normal to persist to disk.
+					if (type === "reasoning") {
+						await this._updateReasoningMetrics(lastMessageToUpdate, true)
+					}
+
 					await this.saveClineMessages()
-
-					// More performant than an entire `postStateToWebview`.
-					this.updateClineMessage(lastMessage)
+					this.updateClineMessage(lastMessageToUpdate)
 				} else {
-					// This is a new and complete message, so add it like normal.
+					// Create a new, complete message (this case shouldn't happen often for streams, but is a fallback)
 					const sayTs = Date.now()
-
 					if (!options.isNonInteractive) {
 						this.lastMessageTs = sayTs
 					}
-
 					await this.addToClineMessages({ ts: sayTs, type: "say", say: type, text, images, contextCondense })
 				}
 			}
@@ -1358,6 +1365,8 @@ export class Task extends EventEmitter<ClineEvents> {
 			let assistantMessage = ""
 			let reasoningMessage = ""
 			this.isStreaming = true
+			let hasFinalizedReasoning = false
+			let lastApiReasoningTokens: number | undefined
 
 			try {
 				for await (const chunk of stream) {
@@ -1370,16 +1379,38 @@ export class Task extends EventEmitter<ClineEvents> {
 					switch (chunk.type) {
 						case "reasoning":
 							reasoningMessage += chunk.text
-							await this.say("reasoning", reasoningMessage, undefined, true)
+							await this.say("reasoning", reasoningMessage, undefined, true, undefined, undefined, {
+								isNonInteractive: true,
+							})
 							break
-						case "usage":
+						case "usage": {
 							inputTokens += chunk.inputTokens
 							outputTokens += chunk.outputTokens
 							cacheWriteTokens += chunk.cacheWriteTokens ?? 0
 							cacheReadTokens += chunk.cacheReadTokens ?? 0
+							lastApiReasoningTokens = chunk.reasoningTokens
 							totalCost = chunk.totalCost
+							// We no longer update the individual reasoning blocks with the total count.
+							// The total is used for overall accounting.
 							break
+						}
 						case "text": {
+							if (reasoningMessage && !hasFinalizedReasoning) {
+								await this.say(
+									"reasoning",
+									reasoningMessage,
+									undefined,
+									false,
+									undefined,
+									undefined,
+									{
+										isNonInteractive: true,
+									},
+									undefined,
+									lastApiReasoningTokens,
+								)
+								hasFinalizedReasoning = true
+							}
 							assistantMessage += chunk.text
 
 							// Parse raw assistant message into content blocks.
@@ -1462,6 +1493,22 @@ export class Task extends EventEmitter<ClineEvents> {
 				}
 			} finally {
 				this.isStreaming = false
+			}
+
+			if (reasoningMessage && !hasFinalizedReasoning) {
+				await this.say(
+					"reasoning",
+					reasoningMessage,
+					undefined,
+					false,
+					undefined,
+					undefined,
+					{
+						isNonInteractive: true,
+					},
+					undefined,
+					lastApiReasoningTokens,
+				)
 			}
 
 			if (inputTokens > 0 || outputTokens > 0 || cacheWriteTokens > 0 || cacheReadTokens > 0) {
@@ -1941,5 +1988,33 @@ export class Task extends EventEmitter<ClineEvents> {
 
 	public get cwd() {
 		return this.workspacePath
+	}
+
+	private async _updateReasoningMetrics(message: ClineMessage, isFinal: boolean): Promise<void> {
+		const thinkingDurationMs = Date.now() - message.ts
+		message.thinkingDurationMs = thinkingDurationMs
+
+		// Always get the latest state to reflect any user changes to the budget.
+		const state = await this.providerRef.deref()?.getState()
+		message.modelMaxThinkingTokens = state?.apiConfiguration?.modelMaxThinkingTokens
+
+		if (thinkingDurationMs > 0 && message.text) {
+			if (isFinal) {
+				// For the final calculation, use the more accurate provider-specific method.
+				const isGemini = this.apiConfiguration.apiProvider === "gemini"
+				message.thinkingUsedTokens = await this.api.countTokens(
+					[{ type: "text", text: message.text }],
+					!isGemini, // applyFudgeFactor if not Gemini
+				)
+			} else {
+				// For streaming, use the faster, local tiktoken count.
+				message.thinkingUsedTokens = await countTokens([{ type: "text", text: message.text }])
+			}
+
+			// Calculate tokens per second.
+			if (message.thinkingUsedTokens && message.thinkingUsedTokens > 0) {
+				message.thinkingTokensPerSecond = message.thinkingUsedTokens / (thinkingDurationMs / 1000)
+			}
+		}
 	}
 }

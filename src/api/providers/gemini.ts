@@ -178,13 +178,13 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 
 			if (response.totalTokens === undefined) {
 				console.warn("Gemini token counting returned undefined, using fallback")
-				return super.countTokens(content)
+				return super.countTokens(content, false)
 			}
 
 			return response.totalTokens
 		} catch (error) {
 			console.warn("Gemini token counting failed, using fallback", error)
-			return super.countTokens(content)
+			return super.countTokens(content, false)
 		}
 	}
 
