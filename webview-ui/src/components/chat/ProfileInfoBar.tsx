@@ -309,10 +309,10 @@ export const ProfileInfoBar: React.FC = () => {
 		<div
 			ref={profileInfoBarRef}
 			aria-expanded={isExpanded}
-			title={isExpanded ? t("chat:profile.collapseInfobar") : t("chat:profile.expandInfobar")}
+			title={isExpanded ? "chat:profile.collapseInfobar" : "chat:profile.expandInfobar"}
 			className={`
-        flex items-center px-1 py-0 text-xs h-6
-        bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
+			     flex items-center px-1 py-0 text-xs h-6
+			     bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
         transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
         hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]
         ${isExpanded ? "w-full" : "w-auto max-w-xs"}
