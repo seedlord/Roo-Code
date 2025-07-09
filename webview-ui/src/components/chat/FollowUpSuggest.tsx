@@ -76,11 +76,12 @@ export const FollowUpSuggest = ({
 	}, [
 		autoApprovalEnabled,
 		alwaysAllowFollowupQuestions,
-		normalizedSuggestions,
+		suggestions.length,
 		followupAutoApproveTimeoutMs,
 		suggestionSelected,
 		onCancelAutoApproval,
 		isAnswered,
+		normalizedSuggestions.length,
 	])
 	const handleSuggestionClick = useCallback(
 		(suggestion: SuggestionItem, event: React.MouseEvent) => {
