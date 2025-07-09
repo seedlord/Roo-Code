@@ -107,6 +107,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
+	const [isInitialized, setIsInitialized] = useState(false)
 	const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
 	const [activeTab, setActiveTab] = useState<SectionName>(
 		targetSection && sectionNames.includes(targetSection as SectionName)
@@ -189,27 +190,40 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 		setCachedState((prevCachedState) => ({ ...prevCachedState, ...extensionState }))
 		prevApiConfigName.current = currentApiConfigName
-		setChangeDetected(false)
-	}, [currentApiConfigName, extensionState, isChangeDetected])
+		if (isInitialized) {
+			setChangeDetected(false)
+		}
+	}, [currentApiConfigName, extensionState, isInitialized])
 
 	// Bust the cache when settings are imported.
 	useEffect(() => {
 		if (settingsImportedAt) {
 			setCachedState((prevCachedState) => ({ ...prevCachedState, ...extensionState }))
-			setChangeDetected(false)
-		}
-	}, [settingsImportedAt, extensionState])
-
-	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback((field, value) => {
-		setCachedState((prevState) => {
-			if (prevState[field] === value) {
-				return prevState
+			if (isInitialized) {
+				setChangeDetected(false)
 			}
+		}
+	}, [settingsImportedAt, extensionState, isInitialized])
 
-			setChangeDetected(true)
-			return { ...prevState, [field]: value }
-		})
+	useEffect(() => {
+		setIsInitialized(true)
 	}, [])
+
+	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback(
+		(field, value) => {
+			setCachedState((prevState) => {
+				if (prevState[field] === value) {
+					return prevState
+				}
+
+				if (isInitialized) {
+					setChangeDetected(true)
+				}
+				return { ...prevState, [field]: value }
+			})
+		},
+		[isInitialized],
+	)
 
 	const setApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
@@ -238,7 +252,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						return prevState
 					}
 
-					setChangeDetected(true)
+					if (isInitialized) {
+						setChangeDetected(true)
+					}
 					return {
 						...prevState,
 						apiConfiguration: { ...prevState.apiConfiguration, modelSettings: updatedModelSettings },
@@ -261,41 +277,56 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				}
 			})
 		},
-		[],
+		[isInitialized],
 	)
 
-	const setExperimentEnabled: SetExperimentEnabled = useCallback((id: ExperimentId, enabled: boolean) => {
-		setCachedState((prevState) => {
-			if (prevState.experiments?.[id] === enabled) {
-				return prevState
-			}
+	const setExperimentEnabled: SetExperimentEnabled = useCallback(
+		(id: ExperimentId, enabled: boolean) => {
+			setCachedState((prevState) => {
+				if (prevState.experiments?.[id] === enabled) {
+					return prevState
+				}
 
-			setChangeDetected(true)
-			return { ...prevState, experiments: { ...prevState.experiments, [id]: enabled } }
-		})
-	}, [])
+				if (isInitialized) {
+					setChangeDetected(true)
+				}
+				return { ...prevState, experiments: { ...prevState.experiments, [id]: enabled } }
+			})
+		},
+		[isInitialized],
+	)
 
-	const setTelemetrySetting = useCallback((setting: TelemetrySetting) => {
-		setCachedState((prevState) => {
-			if (prevState.telemetrySetting === setting) {
-				return prevState
-			}
+	const setTelemetrySetting = useCallback(
+		(setting: TelemetrySetting) => {
+			setCachedState((prevState) => {
+				if (prevState.telemetrySetting === setting) {
+					return prevState
+				}
 
-			setChangeDetected(true)
-			return { ...prevState, telemetrySetting: setting }
-		})
-	}, [])
+				if (isInitialized) {
+					setChangeDetected(true)
+				}
+				return { ...prevState, telemetrySetting: setting }
+			})
+		},
+		[isInitialized],
+	)
 
-	const setCustomSupportPromptsField = useCallback((prompts: Record<string, string | undefined>) => {
-		setCachedState((prevState) => {
-			if (JSON.stringify(prevState.customSupportPrompts) === JSON.stringify(prompts)) {
-				return prevState
-			}
+	const setCustomSupportPromptsField = useCallback(
+		(prompts: Record<string, string | undefined>) => {
+			setCachedState((prevState) => {
+				if (JSON.stringify(prevState.customSupportPrompts) === JSON.stringify(prompts)) {
+					return prevState
+				}
 
-			setChangeDetected(true)
-			return { ...prevState, customSupportPrompts: prompts }
-		})
-	}, [])
+				if (isInitialized) {
+					setChangeDetected(true)
+				}
+				return { ...prevState, customSupportPrompts: prompts }
+			})
+		},
+		[isInitialized],
+	)
 
 	const isSettingValid = !errorMessage
 

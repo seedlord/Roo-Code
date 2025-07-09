@@ -56,6 +56,8 @@ export const modelSpecificSettingsSchema = z.object({
 	modelMaxTokens: z.number().optional(),
 	modelMaxThinkingTokens: z.number().optional(),
 	enableReasoningEffort: z.boolean().optional(),
+	modelTemperature: z.number().nullish(),
+	enableModelTemperature: z.boolean().optional(),
 })
 
 /**
