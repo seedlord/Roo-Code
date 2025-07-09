@@ -110,4 +110,71 @@ describe("ProfileInfoBar", () => {
 		fireEvent.click(screen.getByText("Close"))
 		expect(screen.queryByText("Model Settings")).not.toBeInTheDocument()
 	})
+
+	it("renders correctly for new profiles with no model selected", () => {
+		mockUseSelectedModel.mockReturnValue({
+			id: undefined,
+			info: undefined,
+			provider: "openai-native",
+		})
+
+		render(
+			<TestWrapper>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+		expect(screen.getByText("Profilinformationen nicht verfügbar (keine Modell-ID)")).toBeInTheDocument()
+	})
+
+	it("renders correctly when model info is not found for a standard provider", () => {
+		mockUseSelectedModel.mockReturnValue({
+			id: "unknown-model",
+			info: undefined,
+			provider: "openai-native",
+		})
+
+		render(
+			<TestWrapper>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+		expect(screen.getByText("Profilinformationen für dieses Modell nicht gefunden.")).toBeInTheDocument()
+	})
+
+	it("renders correctly when model info is not found for a compatible provider", () => {
+		mockUseSelectedModel.mockReturnValue({
+			id: "some-custom-model",
+			info: undefined,
+			provider: "openrouter",
+		})
+
+		render(
+			<TestWrapper>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+		expect(screen.getByText("Weitere Profilinformationen nicht verfügbar.")).toBeInTheDocument()
+		expect(screen.getByText("OpenRouter")).toBeInTheDocument() // Provider name should still be visible
+	})
+
+	it("displays thinking budget for models with requiredReasoningBudget", () => {
+		mockUseSelectedModel.mockReturnValue({
+			id: "some-reasoning-model",
+			info: {
+				contextWindow: 8000,
+				requiredReasoningBudget: true,
+			},
+			provider: "openai-native",
+		})
+
+		render(
+			<TestWrapper>
+				<ProfileInfoBar />
+			</TestWrapper>,
+		)
+
+		// Check for the title of the editable value, which contains the label.
+		const thinkingBudgetElement = screen.getByTitle(/profile.thinkingBudget/i)
+		expect(thinkingBudgetElement).toBeInTheDocument()
+	})
 })
