@@ -61,6 +61,8 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({})
 	const [timelineData, setTimelineData] = useState<Record<string, ClineMessage[]>>({})
 	const requestedDetailsRef = useRef(new Set<string>())
+	const timelineDataBuffer = useRef<Record<string, ClineMessage[]>>({})
+	const timelineUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
 	const filteredTasks = useMemo(() => {
 		if (!hideTasksWithoutFilteredTypes) {
@@ -86,7 +88,12 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (allTaskIds.length > 0) {
 				const cachedData = await getMultipleCachedTimelines(allTaskIds)
 				if (Object.keys(cachedData).length > 0) {
-					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+					Object.assign(timelineDataBuffer.current, cachedData)
+					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
+					timelineUpdateTimeoutRef.current = setTimeout(() => {
+						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
+						timelineDataBuffer.current = {}
+					}, 50)
 				}
 			}
 		}
@@ -124,7 +131,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				if (potentialIdsToFetch.length > 0) {
 					const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
 					if (Object.keys(cachedData).length > 0) {
-						setTimelineData((prev) => ({ ...prev, ...cachedData }))
+						Object.assign(timelineDataBuffer.current, cachedData)
 					}
 
 					const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
@@ -154,7 +161,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (potentialIdsToFetch.length > 0) {
 				const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
 				if (Object.keys(cachedData).length > 0) {
-					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+					Object.assign(timelineDataBuffer.current, cachedData)
 				}
 
 				const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
@@ -181,34 +188,46 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
 			const message = event.data
+			let dataToProcess: Record<string, { history: ClineMessage[] }> | null = null
+
 			if (message.type === "taskDetails" && message.payload?.taskId) {
 				const { taskId, history } = message.payload
-				setTimelineData((prev) => ({
-					...prev,
-					[taskId]: history,
-				}))
+				dataToProcess = { [taskId]: { history } }
 				setCachedTimeline(taskId, history)
 			} else if (message.type === "taskDetailsBatch" && message.payload) {
-				const newTimelineData = { ...timelineData }
+				dataToProcess = message.payload
+				setMultipleCachedTimelines(message.payload)
+			}
+
+			if (dataToProcess) {
 				let updated = false
-				for (const taskId in message.payload) {
-					if (Object.prototype.hasOwnProperty.call(message.payload, taskId)) {
-						newTimelineData[taskId] = message.payload[taskId].history
+				for (const taskId in dataToProcess) {
+					if (Object.prototype.hasOwnProperty.call(dataToProcess, taskId)) {
+						timelineDataBuffer.current[taskId] = dataToProcess[taskId].history
 						updated = true
 					}
 				}
+
 				if (updated) {
-					setTimelineData(newTimelineData)
-					setMultipleCachedTimelines(message.payload)
+					if (timelineUpdateTimeoutRef.current) {
+						clearTimeout(timelineUpdateTimeoutRef.current)
+					}
+					timelineUpdateTimeoutRef.current = setTimeout(() => {
+						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
+						timelineDataBuffer.current = {}
+					}, 50) // Debounce updates
 				}
 			}
 		}
 
 		window.addEventListener("message", handleMessage)
 		return () => {
+			if (timelineUpdateTimeoutRef.current) {
+				clearTimeout(timelineUpdateTimeoutRef.current)
+			}
 			window.removeEventListener("message", handleMessage)
 		}
-	}, [setTimelineData, timelineData])
+	}, [setTimelineData])
 
 	const toggleTaskExpansion = useCallback(
 		async (taskId: string) => {
@@ -221,7 +240,12 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (isExpanding && !timelineData[taskId]) {
 				const cached = await getCachedTimeline(taskId)
 				if (cached) {
-					setTimelineData((prev) => ({ ...prev, [taskId]: cached }))
+					timelineDataBuffer.current[taskId] = cached
+					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
+					timelineUpdateTimeoutRef.current = setTimeout(() => {
+						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
+						timelineDataBuffer.current = {}
+					}, 50)
 				} else {
 					vscode.postMessage({ type: "getTaskDetails", text: taskId })
 				}
@@ -245,7 +269,12 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 
 				const cachedData = await getMultipleCachedTimelines(idsToFetch)
 				if (Object.keys(cachedData).length > 0) {
-					setTimelineData((prev) => ({ ...prev, ...cachedData }))
+					Object.assign(timelineDataBuffer.current, cachedData)
+					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
+					timelineUpdateTimeoutRef.current = setTimeout(() => {
+						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
+						timelineDataBuffer.current = {}
+					}, 50)
 				}
 
 				const remainingIds = idsToFetch.filter((id) => !cachedData[id])
