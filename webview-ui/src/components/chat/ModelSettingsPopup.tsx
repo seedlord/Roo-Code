@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { ModelInfo, ProviderName, ProviderSettings } from "@roo-code/types"
 import {
 	DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS,
@@ -25,6 +25,7 @@ interface ModelSettingsPopupProps {
 export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose, setHasChanges }) => {
 	const { t } = useTranslation()
 	const { apiConfiguration } = useExtensionState()
+	const [isTooltipActive, setIsTooltipActive] = useState(false)
 	const {
 		localApiConfiguration,
 		localApiProvider,
@@ -66,13 +67,14 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 	}
 
 	return (
-		<div className="flex flex-col gap-1">
+		<div className="flex flex-col gap-1" onPointerEnter={() => setIsTooltipActive(true)}>
 			<div className="flex justify-between items-center">
 				<h3 className="text-sm font-semibold mt-0 mb-0">Model Settings</h3>
 				<IconButton
 					iconClass="codicon-settings-gear"
 					onClick={handleAdvancedSettingsClick}
 					title={t("settings:header.title")}
+					tooltipDisabled={!isTooltipActive}
 				/>
 			</div>
 

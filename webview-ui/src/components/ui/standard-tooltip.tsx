@@ -20,6 +20,7 @@ interface StandardTooltipProps {
 	asChild?: boolean
 	/** Maximum width of the tooltip content */
 	maxWidth?: number | string
+	disabled?: boolean
 }
 
 /**
@@ -50,9 +51,10 @@ export function StandardTooltip({
 	className,
 	asChild = true,
 	maxWidth,
+	disabled,
 }: StandardTooltipProps) {
 	// Don't render tooltip if content is empty or only whitespace
-	if (!content || (typeof content === "string" && !content.trim())) {
+	if (disabled || !content || (typeof content === "string" && !content.trim())) {
 		return <>{children}</>
 	}
 
