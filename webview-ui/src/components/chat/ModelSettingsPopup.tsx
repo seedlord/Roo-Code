@@ -14,6 +14,8 @@ import { PROVIDERS } from "../settings/constants"
 import { modelSources, useModelSettings } from "./hooks/useModelSettings"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { TemperatureControl } from "../settings/TemperatureControl"
+import { vscode } from "@/utils/vscode"
+import { IconButton } from "./IconButton"
 
 interface ModelSettingsPopupProps {
 	onClose: () => void
@@ -44,6 +46,11 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 		handleCustomTemperatureChange,
 	} = useModelSettings(true)
 
+	const handleAdvancedSettingsClick = () => {
+		vscode.postMessage({ type: "switchTab", tab: "settings" })
+		onClose()
+	}
+
 	const handleClose = () => {
 		resetState()
 		onClose()
@@ -60,7 +67,14 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 
 	return (
 		<div className="flex flex-col gap-1">
-			<h3 className="text-sm font-semibold mt-0 mb-0">Model Settings</h3>
+			<div className="flex justify-between items-center">
+				<h3 className="text-sm font-semibold mt-0 mb-0">Model Settings</h3>
+				<IconButton
+					iconClass="codicon-settings-gear"
+					onClick={handleAdvancedSettingsClick}
+					title={t("settings:header.title")}
+				/>
+			</div>
 
 			<div className="flex flex-col gap-1">
 				<label htmlFor="provider-select" className="text-xs font-medium">
@@ -281,7 +295,7 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 					</>
 				)
 			})()}
-			<div className="flex justify-end gap-2 mt-1">
+			<div className="flex justify-end gap-2">
 				<Button onClick={handleClose} className="bg-transparent hover:bg-vscode-list-hoverBackground">
 					Close
 				</Button>

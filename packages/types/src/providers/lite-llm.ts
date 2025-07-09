@@ -1,6 +1,7 @@
 import type { ModelInfo } from "../model.js"
 
 // https://docs.litellm.ai/
+export const litellmModels: Record<string, ModelInfo> = {}
 export const litellmDefaultModelId = "claude-3-7-sonnet-20250219"
 
 export const litellmDefaultModelInfo: ModelInfo = {
