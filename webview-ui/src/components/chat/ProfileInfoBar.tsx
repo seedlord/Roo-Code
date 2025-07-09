@@ -336,7 +336,7 @@ export const ProfileInfoBar: React.FC = () => {
 						{isExpanded && <ExpandedContent />}
 					</div>
 				</PopoverTrigger>
-				<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1" preventAutoFocus={true}>
+				<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
 					<ModelSettingsPopup
 						onClose={() => setIsSettingsPopupOpen(false)}
 						setHasChanges={() => {

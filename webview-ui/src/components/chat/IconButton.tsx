@@ -7,6 +7,7 @@ interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
 	disabled?: boolean
 	isLoading?: boolean
 	style?: React.CSSProperties
+	tooltipDisabled?: boolean
 }
 
 export const IconButton: React.FC<IconButtonProps> = ({
@@ -17,6 +18,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
 	isLoading,
 	onClick,
 	style,
+	tooltipDisabled,
 	...props
 }) => {
 	const buttonClasses = cn(
@@ -48,5 +50,9 @@ export const IconButton: React.FC<IconButtonProps> = ({
 		</button>
 	)
 
-	return <StandardTooltip content={title}>{button}</StandardTooltip>
+	return (
+		<StandardTooltip content={title} disabled={tooltipDisabled}>
+			{button}
+		</StandardTooltip>
+	)
 }
