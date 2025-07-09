@@ -57,7 +57,6 @@ import {
 } from "./providers"
 
 import { MODELS_BY_PROVIDER, PROVIDERS } from "./constants"
-import { inputEventTransform, noTransform } from "./transforms"
 import { ModelInfoView } from "./ModelInfoView"
 import { ApiErrorMessage } from "./ApiErrorMessage"
 import { ThinkingBudget } from "./ThinkingBudget"
@@ -119,17 +118,6 @@ const ApiOptions = ({
 	)
 
 	const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
-
-	const handleInputChange = useCallback(
-		<K extends keyof ProviderSettings, E>(
-			field: K,
-			transform: (event: E) => ProviderSettings[K] = inputEventTransform,
-		) =>
-			(event: E | Event) => {
-				setApiConfigurationField(field, transform(event as E))
-			},
-		[setApiConfigurationField],
-	)
 
 	const {
 		provider: selectedProvider,
@@ -540,8 +528,42 @@ const ApiOptions = ({
 						onChange={(field, value) => setApiConfigurationField(field, value)}
 					/>
 					<TemperatureControl
-						value={apiConfiguration.modelTemperature}
-						onChange={handleInputChange("modelTemperature", noTransform)}
+						value={
+							apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]
+								?.modelTemperature ??
+							apiConfiguration.modelTemperature ??
+							1
+						}
+						isCustomEnabled={
+							apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]
+								?.enableModelTemperature
+						}
+						onCustomEnabledChange={(enabled) => {
+							if (selectedProvider && selectedModelId) {
+								const modelSettingsKey = `${selectedProvider}:${selectedModelId}`
+								const newModelSettings = {
+									...(apiConfiguration.modelSettings ?? {}),
+									[modelSettingsKey]: {
+										...(apiConfiguration.modelSettings?.[modelSettingsKey] ?? {}),
+										enableModelTemperature: enabled,
+									},
+								}
+								setApiConfigurationField("modelSettings", newModelSettings)
+							}
+						}}
+						onChange={(value) => {
+							if (selectedProvider && selectedModelId) {
+								const modelSettingsKey = `${selectedProvider}:${selectedModelId}`
+								const newModelSettings = {
+									...(apiConfiguration.modelSettings ?? {}),
+									[modelSettingsKey]: {
+										...(apiConfiguration.modelSettings?.[modelSettingsKey] ?? {}),
+										modelTemperature: value,
+									},
+								}
+								setApiConfigurationField("modelSettings", newModelSettings)
+							}
+						}}
 						maxValue={2}
 					/>
 					<RateLimitSecondsControl

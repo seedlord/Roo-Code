@@ -335,6 +335,7 @@
 		"output": "Output",
 		"context": "Context",
 		"budget": "Budget",
-		"enableReasoning": "Enable Reasoning"
+		"enableReasoning": "Enable Reasoning",
+		"temperature": "Temperature"
 	}
 }

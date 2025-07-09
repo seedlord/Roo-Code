@@ -335,6 +335,7 @@
 		"collapseInfobar": "Infobar zuklappen",
 		"output": "Ausgabe",
 		"context": "Kontext",
-		"budget": "Budget"
+		"budget": "Budget",
+		"temperature": "Temperatur"
 	}
 }
