@@ -105,10 +105,6 @@ export function processChatHistory(
 				return false
 		}
 		switch (message.say) {
-			case "api_req_started": {
-				const info = safeJsonParse<{ streamingFailedMessage?: string }>(message.text)
-				return !!info?.streamingFailedMessage
-			}
 			case "api_req_finished":
 			case "api_req_retried":
 			case "api_req_deleted":
