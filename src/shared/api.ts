@@ -2,7 +2,7 @@ import { type ModelInfo, type ProviderSettings, ANTHROPIC_DEFAULT_MAX_TOKENS } f
 
 // ApiHandlerOptions
 
-export type ApiHandlerOptions = Omit<ProviderSettings, "apiProvider">
+export type ApiHandlerOptions = ProviderSettings
 
 // RouterName
 

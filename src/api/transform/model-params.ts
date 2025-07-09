@@ -72,9 +72,10 @@ export function getModelParams({
 	const {
 		modelMaxTokens: customMaxTokens,
 		modelMaxThinkingTokens: customMaxThinkingTokens,
-		modelTemperature: customTemperature,
 		reasoningEffort: customReasoningEffort,
 	} = settings
+
+	const customTemperature = settings.modelSettings?.[`${settings.apiProvider}:${modelId}`]?.modelTemperature
 
 	let maxTokens = model.maxTokens ?? undefined
 	let temperature = customTemperature ?? defaultTemperature

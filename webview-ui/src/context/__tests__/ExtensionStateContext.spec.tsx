@@ -36,7 +36,11 @@ const ApiConfigTestComponent = () => {
 				onClick={() => setApiConfiguration({ apiModelId: "new-model", apiProvider: "anthropic" })}>
 				Update API Config
 			</button>
-			<button data-testid="partial-update-button" onClick={() => setApiConfiguration({ modelTemperature: 0.7 })}>
+			<button
+				data-testid="partial-update-button"
+				onClick={() =>
+					setApiConfiguration({ modelSettings: { "anthropic:new-model": { modelTemperature: 0.7 } } })
+				}>
 				Partial Update
 			</button>
 		</div>
@@ -173,7 +177,7 @@ describe("ExtensionStateContext", () => {
 			expect.objectContaining({
 				apiModelId: "new-model", // Should retain this from previous update
 				apiProvider: "anthropic", // Should retain this from previous update
-				modelTemperature: 0.7, // Should add this from partial update
+				modelSettings: { "anthropic:new-model": { modelTemperature: 0.7 } }, // Should add this from partial update
 			}),
 		)
 	})
@@ -219,7 +223,10 @@ describe("mergeExtensionState", () => {
 
 		const newState: ExtensionState = {
 			...baseState,
-			apiConfiguration: { modelMaxThinkingTokens: 456, modelTemperature: 0.3 },
+			apiConfiguration: {
+				modelMaxThinkingTokens: 456,
+				modelSettings: { "openrouter:default": { modelTemperature: 0.3 } },
+			},
 			experiments: {
 				powerSteering: true,
 				marketplace: false,
@@ -233,7 +240,7 @@ describe("mergeExtensionState", () => {
 
 		expect(result.apiConfiguration).toEqual({
 			modelMaxThinkingTokens: 456,
-			modelTemperature: 0.3,
+			modelSettings: { "openrouter:default": { modelTemperature: 0.3 } },
 		})
 
 		expect(result.experiments).toEqual({

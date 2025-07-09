@@ -209,8 +209,15 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 			if (this.arnInfo.awsUseCrossRegionInference) this.options.awsUseCrossRegionInference = true
 		}
 
-		if (!this.options.modelTemperature) {
-			this.options.modelTemperature = BEDROCK_DEFAULT_TEMPERATURE
+		if (!this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]?.modelTemperature) {
+			if (!this.options.modelSettings) {
+				this.options.modelSettings = {}
+			}
+			if (!this.options.modelSettings[`${this.options.apiProvider}:${this.options.apiModelId}`]) {
+				this.options.modelSettings[`${this.options.apiProvider}:${this.options.apiModelId}`] = {}
+			}
+			this.options.modelSettings[`${this.options.apiProvider}:${this.options.apiModelId}`]!.modelTemperature =
+				BEDROCK_DEFAULT_TEMPERATURE
 		}
 
 		this.costModelConfig = this.getModel()
@@ -359,7 +366,10 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 
 		const inferenceConfig: BedrockInferenceConfig = {
 			maxTokens: modelConfig.maxTokens || (modelConfig.info.maxTokens as number),
-			temperature: modelConfig.temperature ?? (this.options.modelTemperature as number),
+			temperature:
+				modelConfig.temperature ??
+				(this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]
+					?.modelTemperature as number),
 		}
 
 		if (!thinkingEnabled) {
@@ -621,7 +631,10 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 
 			const inferenceConfig: BedrockInferenceConfig = {
 				maxTokens: modelConfig.maxTokens || (modelConfig.info.maxTokens as number),
-				temperature: modelConfig.temperature ?? (this.options.modelTemperature as number),
+				temperature:
+					modelConfig.temperature ??
+					(this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]
+						?.modelTemperature as number),
 				...(thinkingEnabled ? {} : { topP: 0.1 }), // Only set topP when thinking is NOT enabled
 			}
 

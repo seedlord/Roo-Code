@@ -11,6 +11,7 @@ interface TemperatureControlProps {
 	maxValue?: number
 	isCustomEnabled?: boolean
 	onCustomEnabledChange?: (enabled: boolean) => void
+	disabled?: boolean
 }
 
 export const TemperatureControl = ({
@@ -19,6 +20,7 @@ export const TemperatureControl = ({
 	maxValue = 1,
 	isCustomEnabled,
 	onCustomEnabledChange,
+	disabled,
 }: TemperatureControlProps) => {
 	const { t } = useAppTranslation()
 	const [isCustomTemperature, setIsCustomTemperature] = useState(isCustomEnabled ?? value !== undefined)
@@ -65,7 +67,7 @@ export const TemperatureControl = ({
 	return (
 		<>
 			<div>
-				<VSCodeCheckbox checked={isCustomTemperature} onChange={handleCheckedChange}>
+				<VSCodeCheckbox checked={isCustomTemperature} onChange={handleCheckedChange} disabled={disabled}>
 					<label className="block font-medium mb-1">{t("settings:temperature.useCustom")}</label>
 				</VSCodeCheckbox>
 				<div className="text-sm text-vscode-descriptionForeground mt-1">
@@ -83,6 +85,7 @@ export const TemperatureControl = ({
 								step={0.01}
 								value={[inputValue ?? 0]}
 								onValueChange={handleSliderChange}
+								disabled={disabled}
 							/>
 							<span className="w-10">{inputValue}</span>
 						</div>

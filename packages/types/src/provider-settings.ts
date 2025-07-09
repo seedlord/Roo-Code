@@ -64,7 +64,6 @@ const baseProviderSettingsSchema = z.object({
 	includeMaxTokens: z.boolean().optional(),
 	diffEnabled: z.boolean().optional(),
 	fuzzyMatchThreshold: z.number().optional(),
-	modelTemperature: z.number().nullish(),
 	rateLimitSeconds: z.number().optional(),
 
 	// Model reasoning.

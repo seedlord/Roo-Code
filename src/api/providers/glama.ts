@@ -64,7 +64,9 @@ export class GlamaHandler extends RouterProvider implements SingleCompletionHand
 		}
 
 		if (this.supportsTemperature(modelId)) {
-			requestOptions.temperature = this.options.modelTemperature ?? GLAMA_DEFAULT_TEMPERATURE
+			requestOptions.temperature =
+				this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.glamaModelId}`]
+					?.modelTemperature ?? GLAMA_DEFAULT_TEMPERATURE
 		}
 
 		const { data: completion, response } = await this.client.chat.completions
@@ -126,7 +128,9 @@ export class GlamaHandler extends RouterProvider implements SingleCompletionHand
 			}
 
 			if (this.supportsTemperature(modelId)) {
-				requestOptions.temperature = this.options.modelTemperature ?? GLAMA_DEFAULT_TEMPERATURE
+				requestOptions.temperature =
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.glamaModelId}`]
+						?.modelTemperature ?? GLAMA_DEFAULT_TEMPERATURE
 			}
 
 			if (modelId.startsWith("anthropic/")) {
