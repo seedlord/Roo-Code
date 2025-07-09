@@ -67,6 +67,7 @@ describe("ProviderSettingsManager", () => {
 						diffSettingsMigrated: true,
 						openAiHeadersMigrated: true,
 						consecutiveMistakeLimitMigrated: true,
+						providerModelSelectionsMigrated: true,
 					},
 				}),
 			)

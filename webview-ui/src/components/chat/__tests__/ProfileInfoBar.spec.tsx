@@ -101,8 +101,9 @@ describe("ProfileInfoBar", () => {
 				<ProfileInfoBar />
 			</TestWrapper>,
 		)
-		const trigger = screen.getByTitle("chat:profile.collapseInfobar").querySelector('[role="button"]')
-		fireEvent.click(trigger!)
+		const trigger = screen.getByTitle("chat:profile.collapseInfobar")
+		const clickable = trigger.parentElement?.querySelector('[data-state="closed"]') as HTMLElement
+		fireEvent.click(clickable)
 
 		expect(await screen.findByText("Model Settings")).toBeInTheDocument()
 
