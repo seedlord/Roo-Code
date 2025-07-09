@@ -79,7 +79,9 @@ export class MistralHandler extends BaseProvider implements SingleCompletionHand
 
 		// @TODO: Move this to the `getModelParams` function.
 		const maxTokens = this.options.includeMaxTokens ? info.maxTokens : undefined
-		const temperature = this.options.modelTemperature ?? MISTRAL_DEFAULT_TEMPERATURE
+		const temperature =
+			this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]?.modelTemperature ??
+			MISTRAL_DEFAULT_TEMPERATURE
 
 		return { id, info, maxTokens, temperature }
 	}

@@ -44,7 +44,9 @@ export class OllamaHandler extends BaseProvider implements SingleCompletionHandl
 		const stream = await this.client.chat.completions.create({
 			model: this.getModel().id,
 			messages: openAiMessages,
-			temperature: this.options.modelTemperature ?? 0,
+			temperature:
+				this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.ollamaModelId}`]
+					?.modelTemperature ?? 0,
 			stream: true,
 			stream_options: { include_usage: true },
 		})
@@ -98,7 +100,9 @@ export class OllamaHandler extends BaseProvider implements SingleCompletionHandl
 				messages: useR1Format
 					? convertToR1Format([{ role: "user", content: prompt }])
 					: [{ role: "user", content: prompt }],
-				temperature: this.options.modelTemperature ?? (useR1Format ? DEEP_SEEK_DEFAULT_TEMPERATURE : 0),
+				temperature:
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.ollamaModelId}`]
+						?.modelTemperature ?? (useR1Format ? DEEP_SEEK_DEFAULT_TEMPERATURE : 0),
 				stream: false,
 			})
 			return response.choices[0]?.message.content || ""

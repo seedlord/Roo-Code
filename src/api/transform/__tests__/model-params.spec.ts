@@ -61,7 +61,14 @@ describe("getModelParams", () => {
 		it("should use custom temperature from settings when provided", () => {
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { modelTemperature: 0.7 },
+				settings: {
+					apiProvider: "anthropic",
+					modelSettings: {
+						"anthropic:test": {
+							modelTemperature: 0.7,
+						},
+					},
+				},
 				model: baseModel,
 				defaultTemperature: 0.5,
 			})
@@ -79,7 +86,14 @@ describe("getModelParams", () => {
 		it("should handle null temperature in settings", () => {
 			const result = getModelParams({
 				...anthropicParams,
-				settings: { modelTemperature: null },
+				settings: {
+					apiProvider: "anthropic",
+					modelSettings: {
+						"anthropic:test": {
+							modelTemperature: null,
+						},
+					},
+				},
 				model: baseModel,
 				defaultTemperature: 0.5,
 			})
@@ -657,10 +671,15 @@ describe("getModelParams", () => {
 			const result = getModelParams({
 				...anthropicParams,
 				settings: {
+					apiProvider: "anthropic",
 					enableReasoningEffort: true,
 					modelMaxTokens: 20000,
 					modelMaxThinkingTokens: 10000,
-					modelTemperature: 0.8,
+					modelSettings: {
+						"anthropic:test": {
+							modelTemperature: 0.8,
+						},
+					},
 				},
 				model,
 			})

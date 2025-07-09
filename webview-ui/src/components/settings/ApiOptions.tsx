@@ -561,9 +561,7 @@ const ApiOptions = ({
 						<TemperatureControl
 						value={
 							apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]
-								?.modelTemperature ??
-							apiConfiguration.modelTemperature ??
-							1
+								?.modelTemperature ?? 1
 						}
 						isCustomEnabled={
 							apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]

@@ -4,7 +4,6 @@ import { PROVIDERS } from "../settings/constants"
 import { DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS, getModelMaxOutputTokens } from "@roo/api"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
 import { Trans, useTranslation } from "react-i18next"
-import { EditableValue } from "./EditableValue"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui"
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import { getModelSettingsKey } from "./hooks/useModelSettings"
@@ -39,6 +38,37 @@ export const ProfileInfoBar: React.FC = () => {
 		}
 		document.addEventListener("mousedown", handleClickOutside, true)
 		return () => document.removeEventListener("mousedown", handleClickOutside, true)
+	}, [isSettingsPopupOpen])
+
+	useEffect(() => {
+		if (!isSettingsPopupOpen) return
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "ArrowDown") {
+				const activeElement = document.activeElement as HTMLElement
+				if (activeElement) {
+					const role = activeElement.getAttribute("role")
+					const ariaHasPopup = activeElement.getAttribute("aria-haspopup")
+					const shouldPreventClose =
+						role === "slider" ||
+						role === "option" ||
+						role === "combobox" ||
+						ariaHasPopup === "true" ||
+						ariaHasPopup === "listbox" ||
+						activeElement.tagName === "INPUT" ||
+						activeElement.tagName === "SELECT" ||
+						activeElement.tagName === "TEXTAREA"
+
+					if (shouldPreventClose) {
+						return // Don't close the popup
+					}
+				}
+				event.preventDefault()
+				setIsSettingsPopupOpen(false)
+				profileInfoBarRef.current?.focus()
+			}
+		}
+		document.addEventListener("keydown", handleKeyDown)
+		return () => document.removeEventListener("keydown", handleKeyDown)
 	}, [isSettingsPopupOpen])
 
 	if (!apiConfiguration || !apiConfiguration.apiProvider) {
@@ -194,48 +224,43 @@ export const ProfileInfoBar: React.FC = () => {
 						{thinkingBudget !== undefined ? (
 							<>
 								<div className="flex flex-col gap-y-0">
-									<EditableValue
-										value={maxOutputTokens}
+									<span
 										title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
 											"chat:profile.tokens",
 										)}`}
-										onClick={() => setIsSettingsPopupOpen(true)}
-										formatValue={formatTokenCount}
-									/>
-									<EditableValue
-										value={thinkingBudget}
+										className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+										{formatTokenCount(maxOutputTokens)}
+									</span>
+									<span
 										title={`${t("chat:profile.thinkingBudget")}: ${thinkingBudget} ${t(
 											"chat:profile.tokens",
 										)}`}
-										onClick={() => setIsSettingsPopupOpen(true)}
-										formatValue={formatTokenCount}
-									/>
+										className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+										{formatTokenCount(thinkingBudget)}
+									</span>
 								</div>
 								<span
 									title={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
 										"chat:profile.tokens",
 									)}`}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-									onClick={() => setIsSettingsPopupOpen(true)}>
+									className="block whitespace-nowrap overflow-hidden text-ellipsis">
 									{formatTokenCount(modelInfo.contextWindow)}
 								</span>
 							</>
 						) : (
 							<>
-								<EditableValue
-									value={maxOutputTokens}
+								<span
 									title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
 										"chat:profile.tokens",
 									)}`}
-									onClick={() => setIsSettingsPopupOpen(true)}
-									formatValue={formatTokenCount}
-								/>
+									className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+									{formatTokenCount(maxOutputTokens)}
+								</span>
 								<span
 									title={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
 										"chat:profile.tokens",
 									)}`}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-									onClick={() => setIsSettingsPopupOpen(true)}>
+									className="block whitespace-nowrap overflow-hidden text-ellipsis">
 									{formatTokenCount(modelInfo.contextWindow)}
 								</span>
 							</>
@@ -247,8 +272,7 @@ export const ProfileInfoBar: React.FC = () => {
 						{modelInfo.inputPrice !== undefined ? (
 							<span
 								title={t("chat:profile.inputPricePer1M")}
-								className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-								onClick={() => setIsSettingsPopupOpen(true)}>
+								className="block whitespace-nowrap overflow-hidden text-ellipsis">
 								{formatPrice(modelInfo.inputPrice)}
 							</span>
 						) : (
@@ -257,8 +281,7 @@ export const ProfileInfoBar: React.FC = () => {
 						{modelInfo.outputPrice !== undefined ? (
 							<span
 								title={t("chat:profile.outputPricePer1M")}
-								className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-								onClick={() => setIsSettingsPopupOpen(true)}>
+								className="block whitespace-nowrap overflow-hidden text-ellipsis">
 								{formatPrice(modelInfo.outputPrice)}
 							</span>
 						) : (
@@ -272,8 +295,7 @@ export const ProfileInfoBar: React.FC = () => {
 							{modelInfo.cacheWritesPrice !== undefined ? (
 								<span
 									title={t("chat:profile.cacheWritePricePer1M")}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-									onClick={() => setIsSettingsPopupOpen(true)}>
+									className="block whitespace-nowrap overflow-hidden text-ellipsis">
 									{formatPrice(modelInfo.cacheWritesPrice)}
 								</span>
 							) : (
@@ -282,8 +304,7 @@ export const ProfileInfoBar: React.FC = () => {
 							{modelInfo.cacheReadsPrice !== undefined ? (
 								<span
 									title={t("chat:profile.cacheReadPricePer1M")}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
-									onClick={() => setIsSettingsPopupOpen(true)}>
+									className="block whitespace-nowrap overflow-hidden text-ellipsis">
 									{formatPrice(modelInfo.cacheReadsPrice)}
 								</span>
 							) : (
@@ -306,45 +327,69 @@ export const ProfileInfoBar: React.FC = () => {
 	}
 
 	return (
-		<div
-			ref={profileInfoBarRef}
-			aria-expanded={isExpanded}
-			title={isExpanded ? "chat:profile.collapseInfobar" : "chat:profile.expandInfobar"}
-			className={`
+		<Popover open={isSettingsPopupOpen} onOpenChange={setIsSettingsPopupOpen}>
+			<PopoverTrigger asChild>
+				<div
+					ref={profileInfoBarRef}
+					tabIndex={0}
+					role="button"
+					aria-expanded={isExpanded}
+					title={isExpanded ? t("chat:profile.collapseInfobar") : t("chat:profile.expandInfobar")}
+					onClick={() => {
+						if (isExpanded) {
+							setIsSettingsPopupOpen(true)
+						} else {
+							setIsExpanded(true)
+						}
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+							e.preventDefault()
+							setIsExpanded(!isExpanded)
+						} else if (e.key === "Enter" || e.key === " " || e.key === "ArrowUp") {
+							e.preventDefault()
+							if (isExpanded) {
+								setIsSettingsPopupOpen(true)
+							} else {
+								setIsExpanded(true)
+							}
+						}
+					}}
+					className={`
 			     flex items-center px-1 py-0 text-xs h-6
 			     bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
-        transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
-        hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]
-        ${isExpanded ? "w-full" : "w-auto max-w-xs"}
-      `}>
-			<span
-				onClick={() => setIsExpanded(!isExpanded)}
-				className={`chevron-button codicon ${
-					isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
-				} text-base flex-shrink-0 cursor-pointer`}
-			/>
-			<Popover open={isSettingsPopupOpen} onOpenChange={setIsSettingsPopupOpen}>
-				<PopoverTrigger asChild>
+	       transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
+	       hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]
+	       focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder cursor-pointer
+	       ${isExpanded ? "w-full" : "w-auto max-w-xs"}
+	     `}>
+					<span
+						onClick={(e) => {
+							e.stopPropagation()
+							setIsExpanded(!isExpanded)
+						}}
+						className={`chevron-button codicon ${
+							isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
+						} text-base flex-shrink-0`}
+					/>
 					<div
 						className={`
-              flex-grow overflow-hidden
-              transition-all duration-300 ease-in-out
-              ${isExpanded ? "ml-2 max-w-full opacity-100" : "ml-0 max-w-0 opacity-0"}
-              cursor-pointer
-            `}
-						onClick={() => setIsSettingsPopupOpen(true)}>
+	             flex-grow overflow-hidden
+	             transition-all duration-300 ease-in-out
+	             ${isExpanded ? "ml-2 max-w-full opacity-100" : "ml-0 max-w-0 opacity-0"}
+	           `}>
 						{isExpanded && <ExpandedContent />}
 					</div>
-				</PopoverTrigger>
-				<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
-					<ModelSettingsPopup
-						onClose={() => setIsSettingsPopupOpen(false)}
-						setHasChanges={() => {
-							/* This is a no-op because the parent component doesn't need to know about changes */
-						}}
-					/>
-				</PopoverContent>
-			</Popover>
-		</div>
+				</div>
+			</PopoverTrigger>
+			<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
+				<ModelSettingsPopup
+					onClose={() => setIsSettingsPopupOpen(false)}
+					setHasChanges={() => {
+						/* This is a no-op because the parent component doesn't need to know about changes */
+					}}
+				/>
+			</PopoverContent>
+		</Popover>
 	)
 }

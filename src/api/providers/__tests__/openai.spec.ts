@@ -572,7 +572,11 @@ describe("OpenAiHandler", () => {
 				...o3Options,
 				includeMaxTokens: true,
 				modelMaxTokens: 32000,
-				modelTemperature: 0.5,
+				modelSettings: {
+					"openai:o3-mini": {
+						modelTemperature: 0.5,
+					},
+				},
 			})
 			const systemPrompt = "You are a helpful assistant."
 			const messages: Anthropic.Messages.MessageParam[] = [
@@ -613,7 +617,11 @@ describe("OpenAiHandler", () => {
 			const o3Handler = new OpenAiHandler({
 				...o3Options,
 				includeMaxTokens: false,
-				modelTemperature: 0.7,
+				modelSettings: {
+					"openai:o3-mini": {
+						modelTemperature: 0.7,
+					},
+				},
 			})
 			const systemPrompt = "You are a helpful assistant."
 			const messages: Anthropic.Messages.MessageParam[] = [
@@ -657,7 +665,11 @@ describe("OpenAiHandler", () => {
 				...o3Options,
 				openAiStreamingEnabled: false,
 				includeMaxTokens: true,
-				modelTemperature: 0.3,
+				modelSettings: {
+					"openai:o3-mini": {
+						modelTemperature: 0.3,
+					},
+				},
 			})
 			const systemPrompt = "You are a helpful assistant."
 			const messages: Anthropic.Messages.MessageParam[] = [

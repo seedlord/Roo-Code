@@ -76,7 +76,9 @@ export class LmStudioHandler extends BaseProvider implements SingleCompletionHan
 			const params: OpenAI.Chat.ChatCompletionCreateParamsStreaming & { draft_model?: string } = {
 				model: this.getModel().id,
 				messages: openAiMessages,
-				temperature: this.options.modelTemperature ?? LMSTUDIO_DEFAULT_TEMPERATURE,
+				temperature:
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.lmStudioModelId}`]
+						?.modelTemperature ?? LMSTUDIO_DEFAULT_TEMPERATURE,
 				stream: true,
 			}
 
@@ -143,7 +145,9 @@ export class LmStudioHandler extends BaseProvider implements SingleCompletionHan
 			const params: any = {
 				model: this.getModel().id,
 				messages: [{ role: "user", content: prompt }],
-				temperature: this.options.modelTemperature ?? LMSTUDIO_DEFAULT_TEMPERATURE,
+				temperature:
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.lmStudioModelId}`]
+						?.modelTemperature ?? LMSTUDIO_DEFAULT_TEMPERATURE,
 				stream: false,
 			}
 

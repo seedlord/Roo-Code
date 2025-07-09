@@ -72,7 +72,9 @@ export abstract class BaseOpenAiCompatibleProvider<ModelName extends string>
 			info: { maxTokens: max_tokens },
 		} = this.getModel()
 
-		const temperature = this.options.modelTemperature ?? this.defaultTemperature
+		const temperature =
+			this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]?.modelTemperature ??
+			this.defaultTemperature
 
 		const params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
 			model,

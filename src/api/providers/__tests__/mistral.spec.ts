@@ -40,7 +40,11 @@ describe("MistralHandler", () => {
 			apiModelId: "codestral-latest", // Update to match the actual model ID
 			mistralApiKey: "test-api-key",
 			includeMaxTokens: true,
-			modelTemperature: 0,
+			modelSettings: {
+				"mistral:codestral-latest": {
+					modelTemperature: 0,
+				},
+			},
 		}
 		handler = new MistralHandler(mockOptions)
 		mockCreate.mockClear()

@@ -296,7 +296,7 @@ describe("ContextProxy", () => {
 			// Set up initial API configuration values
 			await proxy.updateGlobalState("apiModelId", "old-model")
 			await proxy.updateGlobalState("openAiBaseUrl", "https://old-url.com")
-			await proxy.updateGlobalState("modelTemperature", 0.7)
+			await proxy.updateGlobalState("modelSettings", { "test:test": { modelTemperature: 0.7 } })
 
 			// Spy on setValues
 			const setValuesSpy = vi.spyOn(proxy, "setValues")
@@ -316,7 +316,7 @@ describe("ContextProxy", () => {
 					apiModelId: "new-model",
 					apiProvider: "anthropic",
 					openAiBaseUrl: undefined,
-					modelTemperature: undefined,
+					modelSettings: undefined,
 				}),
 			)
 
@@ -324,7 +324,7 @@ describe("ContextProxy", () => {
 			expect(proxy.getGlobalState("apiModelId")).toBe("new-model")
 			expect(proxy.getGlobalState("apiProvider")).toBe("anthropic")
 			expect(proxy.getGlobalState("openAiBaseUrl")).toBeUndefined()
-			expect(proxy.getGlobalState("modelTemperature")).toBeUndefined()
+			expect(proxy.getGlobalState("modelSettings")).toBeUndefined()
 		})
 
 		it("should handle empty API configuration", async () => {

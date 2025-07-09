@@ -19,16 +19,12 @@ import { getModelParams } from "../transform/model-params"
 import type { SingleCompletionHandler, ApiHandlerCreateMessageMetadata } from "../index"
 import { BaseProvider } from "./base-provider"
 
-type GeminiHandlerOptions = ApiHandlerOptions & {
-	isVertex?: boolean
-}
-
 export class GeminiHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
 
 	private client: GoogleGenAI
 
-	constructor({ isVertex, ...options }: GeminiHandlerOptions) {
+	constructor(options: ApiHandlerOptions) {
 		super()
 
 		this.options = options
@@ -53,7 +49,7 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 						location,
 						googleAuthOptions: { keyFile: this.options.vertexKeyFile },
 					})
-				: isVertex
+				: options.apiProvider === "vertex"
 					? new GoogleGenAI({ vertexai: true, project, location })
 					: new GoogleGenAI({ apiKey })
 	}
@@ -72,7 +68,11 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 			httpOptions: this.options.googleGeminiBaseUrl ? { baseUrl: this.options.googleGeminiBaseUrl } : undefined,
 			thinkingConfig,
 			maxOutputTokens: this.options.modelMaxTokens ?? maxTokens ?? undefined,
-			temperature: this.options.modelTemperature ?? 0,
+			temperature:
+				this.getModel().temperature ??
+				this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]
+					?.modelTemperature ??
+				0,
 		}
 
 		const params: GenerateContentParameters = { model, contents, config }
@@ -153,7 +153,11 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 					httpOptions: this.options.googleGeminiBaseUrl
 						? { baseUrl: this.options.googleGeminiBaseUrl }
 						: undefined,
-					temperature: this.options.modelTemperature ?? 0,
+					temperature:
+						this.getModel().temperature ??
+						this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.apiModelId}`]
+							?.modelTemperature ??
+						0,
 				},
 			})
 

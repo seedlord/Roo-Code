@@ -73,10 +73,12 @@ export function getModelParams({
 	const {
 		modelMaxTokens: customMaxTokens,
 		modelMaxThinkingTokens: customMaxThinkingTokens,
-		modelTemperature: customTemperature,
 		reasoningEffort: customReasoningEffort,
 	} = settings
 
+	const customTemperature = settings.modelSettings?.[`${settings.apiProvider}:${modelId}`]?.modelTemperature
+
+	// let maxTokens = model.maxTokens ?? undefined
 	// Use the centralized logic for computing maxTokens
 	const maxTokens = getModelMaxOutputTokens({
 		modelId,
@@ -93,6 +95,7 @@ export function getModelParams({
 		// If `customMaxThinkingTokens` is not specified use the default.
 		reasoningBudget = customMaxThinkingTokens ?? DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
 
+		// if (reasoningBudget > Math.floor(maxTokens * 0.8)) {
 		// Reasoning cannot exceed 80% of the `maxTokens` value.
 		// maxTokens should always be defined for reasoning budget models, but add a guard just in case
 		if (maxTokens && reasoningBudget > Math.floor(maxTokens * 0.8)) {

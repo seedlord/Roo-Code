@@ -96,7 +96,9 @@ export class UnboundHandler extends RouterProvider implements SingleCompletionHa
 		}
 
 		if (this.supportsTemperature(modelId)) {
-			requestOptions.temperature = this.options.modelTemperature ?? 0
+			requestOptions.temperature =
+				this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.unboundModelId}`]
+					?.modelTemperature ?? 0
 		}
 
 		const { data: completion } = await this.client.chat.completions
@@ -145,7 +147,9 @@ export class UnboundHandler extends RouterProvider implements SingleCompletionHa
 			}
 
 			if (this.supportsTemperature(modelId)) {
-				requestOptions.temperature = this.options.modelTemperature ?? 0
+				requestOptions.temperature =
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.unboundModelId}`]
+						?.modelTemperature ?? 0
 			}
 
 			if (modelId.startsWith("anthropic/")) {

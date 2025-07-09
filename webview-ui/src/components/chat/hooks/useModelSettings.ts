@@ -73,8 +73,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 	const localThinkingBudget = localApiConfiguration?.modelMaxThinkingTokens
 	const localEnableReasoning = localApiConfiguration?.enableReasoningEffort
 	const localModelTemperature =
-		localApiConfiguration?.modelSettings?.[`${localApiProvider}:${localSelectedModelId}`]?.modelTemperature ??
-		localApiConfiguration?.modelTemperature
+		localApiConfiguration?.modelSettings?.[`${localApiProvider}:${localSelectedModelId}`]?.modelTemperature
 	const localEnableModelTemperature =
 		localApiConfiguration?.modelSettings?.[`${localApiProvider}:${localSelectedModelId}`]?.enableModelTemperature
 
@@ -114,8 +113,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 					(selectedModelInfo
 						? !!(selectedModelInfo.supportsReasoningBudget || selectedModelInfo.requiredReasoningBudget)
 						: false),
-				modelTemperature: modelSpecificSettings?.modelTemperature ?? 1,
-				enableModelTemperature: modelSpecificSettings?.enableModelTemperature ?? false,
+				modelTemperature: modelSpecificSettings?.modelTemperature,
+				enableModelTemperature: modelSpecificSettings?.enableModelTemperature,
 			}
 			setLocalApiConfiguration(initialLocalConfig)
 			setHasChanges(false)
@@ -147,8 +146,14 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			modelMaxTokens: localMaxOutputTokens,
 			modelMaxThinkingTokens: localThinkingBudget,
 			enableReasoningEffort: localEnableReasoning,
-			modelTemperature: localModelTemperature,
-			enableModelTemperature: localEnableModelTemperature,
+		}
+
+		if (localEnableModelTemperature) {
+			newModelSettings.modelTemperature = localModelTemperature
+			newModelSettings.enableModelTemperature = true
+		} else {
+			delete newModelSettings.modelTemperature
+			delete newModelSettings.enableModelTemperature
 		}
 
 		const configToSave: ProviderSettings = {
@@ -162,7 +167,6 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		delete (configToSave as Partial<ProviderSettings>).modelMaxTokens
 		delete (configToSave as Partial<ProviderSettings>).modelMaxThinkingTokens
 		delete (configToSave as Partial<ProviderSettings>).enableReasoningEffort
-		delete (configToSave as Partial<ProviderSettings>).modelTemperature
 
 		setIsAwaitingConfigurationUpdate(true)
 		vscode.postMessage({
@@ -216,6 +220,10 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 
 			setLocalApiConfiguration((prevState) => {
 				if (!prevState) return undefined
+				const modelSettingsKey = getModelSettingsKey(localApiProvider, newModelId)
+				const savedModelSettings = apiConfiguration?.modelSettings?.[modelSettingsKey]
+				const newModelTemperature = savedModelSettings?.modelTemperature
+				const newEnableModelTemperature = savedModelSettings?.enableModelTemperature
 				return {
 					...prevState,
 					apiModelId: newModelId,
@@ -226,6 +234,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 					modelMaxTokens: newMaxOutputTokens,
 					modelMaxThinkingTokens: newThinkingBudget,
 					enableReasoningEffort: newEnableReasoning,
+					modelTemperature: newModelTemperature,
+					enableModelTemperature: newEnableModelTemperature,
 				}
 			})
 			setHasChanges(true)
@@ -259,6 +269,34 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 				if (modelEntries.length > 0) newModelId = modelEntries[0][0]
 			}
 
+			const modelInfo =
+				newProviderModels && newModelId && newModelId in newProviderModels
+					? (newProviderModels as Record<string, ModelInfo>)[newModelId]
+					: undefined
+
+			let newMaxOutputTokens = localMaxOutputTokens
+			let newThinkingBudget = localThinkingBudget
+			let newEnableReasoning = localEnableReasoning
+			let newModelTemperature = localModelTemperature
+			let newEnableModelTemperature = localEnableModelTemperature
+
+			if (modelInfo && newModelId) {
+				const modelSettingsKey = getModelSettingsKey(newProvider, newModelId)
+				const savedModelSettings = apiConfiguration?.modelSettings?.[modelSettingsKey]
+				newMaxOutputTokens =
+					savedModelSettings?.modelMaxTokens ??
+					getModelMaxOutputTokens({
+						modelId: newModelId,
+						model: modelInfo,
+						settings: { ...apiConfiguration, modelMaxTokens: undefined } as ProviderSettings,
+					})
+				newThinkingBudget =
+					savedModelSettings?.modelMaxThinkingTokens ?? DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
+				newEnableReasoning = savedModelSettings?.enableReasoningEffort ?? !!modelInfo.supportsReasoningBudget
+				newModelTemperature = savedModelSettings?.modelTemperature
+				newEnableModelTemperature = savedModelSettings?.enableModelTemperature
+			}
+
 			setLocalApiConfiguration((prevState) => {
 				if (!prevState) return undefined
 				return {
@@ -269,12 +307,25 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 						...prevState.providerModelSelections,
 						[newProvider]: newModelId,
 					},
+					modelMaxTokens: newMaxOutputTokens,
+					modelMaxThinkingTokens: newThinkingBudget,
+					enableReasoningEffort: newEnableReasoning,
+					modelTemperature: newModelTemperature,
+					enableModelTemperature: newEnableModelTemperature,
 				}
 			})
-			if (newModelId) handleModelChange(newModelId)
 			setHasChanges(true)
 		},
-		[routerModels, localApiConfiguration, handleModelChange],
+		[
+			routerModels,
+			localApiConfiguration,
+			apiConfiguration,
+			localMaxOutputTokens,
+			localThinkingBudget,
+			localEnableReasoning,
+			localModelTemperature,
+			localEnableModelTemperature,
+		],
 	)
 
 	useEffect(() => {

@@ -58,7 +58,9 @@ export class LiteLLMHandler extends RouterProvider implements SingleCompletionHa
 		}
 
 		if (this.supportsTemperature(modelId)) {
-			requestOptions.temperature = this.options.modelTemperature ?? 0
+			requestOptions.temperature =
+				this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.litellmModelId}`]
+					?.modelTemperature ?? 0
 		}
 
 		try {
@@ -116,7 +118,9 @@ export class LiteLLMHandler extends RouterProvider implements SingleCompletionHa
 			}
 
 			if (this.supportsTemperature(modelId)) {
-				requestOptions.temperature = this.options.modelTemperature ?? 0
+				requestOptions.temperature =
+					this.options.modelSettings?.[`${this.options.apiProvider}:${this.options.litellmModelId}`]
+						?.modelTemperature ?? 0
 			}
 
 			requestOptions.max_tokens = info.maxTokens

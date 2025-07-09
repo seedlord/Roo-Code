@@ -60,56 +60,54 @@ export interface ApiHandler {
 }
 
 export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
-	const { apiProvider, ...options } = configuration
-
-	switch (apiProvider) {
+	switch (configuration.apiProvider) {
 		case "anthropic":
-			return new AnthropicHandler(options)
+			return new AnthropicHandler(configuration)
 		case "claude-code":
-			return new ClaudeCodeHandler(options)
+			return new ClaudeCodeHandler(configuration)
 		case "glama":
-			return new GlamaHandler(options)
+			return new GlamaHandler(configuration)
 		case "openrouter":
-			return new OpenRouterHandler(options)
+			return new OpenRouterHandler(configuration)
 		case "bedrock":
-			return new AwsBedrockHandler(options)
+			return new AwsBedrockHandler(configuration)
 		case "vertex":
-			return options.apiModelId?.startsWith("claude")
-				? new AnthropicVertexHandler(options)
-				: new VertexHandler(options)
+			return configuration.apiModelId?.startsWith("claude")
+				? new AnthropicVertexHandler(configuration)
+				: new VertexHandler(configuration)
 		case "openai":
-			return new OpenAiHandler(options)
+			return new OpenAiHandler(configuration)
 		case "ollama":
-			return new OllamaHandler(options)
+			return new OllamaHandler(configuration)
 		case "lmstudio":
-			return new LmStudioHandler(options)
+			return new LmStudioHandler(configuration)
 		case "gemini":
-			return new GeminiHandler(options)
+			return new GeminiHandler(configuration)
 		case "openai-native":
-			return new OpenAiNativeHandler(options)
+			return new OpenAiNativeHandler(configuration)
 		case "deepseek":
-			return new DeepSeekHandler(options)
+			return new DeepSeekHandler(configuration)
 		case "vscode-lm":
-			return new VsCodeLmHandler(options)
+			return new VsCodeLmHandler(configuration)
 		case "mistral":
-			return new MistralHandler(options)
+			return new MistralHandler(configuration)
 		case "unbound":
-			return new UnboundHandler(options)
+			return new UnboundHandler(configuration)
 		case "requesty":
-			return new RequestyHandler(options)
+			return new RequestyHandler(configuration)
 		case "human-relay":
 			return new HumanRelayHandler()
 		case "fake-ai":
-			return new FakeAIHandler(options)
+			return new FakeAIHandler(configuration)
 		case "xai":
-			return new XAIHandler(options)
+			return new XAIHandler(configuration)
 		case "groq":
-			return new GroqHandler(options)
+			return new GroqHandler(configuration)
 		case "chutes":
-			return new ChutesHandler(options)
+			return new ChutesHandler(configuration)
 		case "litellm":
-			return new LiteLLMHandler(options)
+			return new LiteLLMHandler(configuration)
 		default:
-			return new AnthropicHandler(options)
+			return new AnthropicHandler(configuration)
 	}
 }
