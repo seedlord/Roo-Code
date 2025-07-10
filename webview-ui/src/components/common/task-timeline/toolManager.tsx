@@ -317,7 +317,8 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	api_req_started: {
 		group: "error",
-		color: COLOR.RED, // Default to red, will be overridden if no error
+		color: COLOR.RED,
+		icon: "error",
 		getDescription: () => t("chat:apiRequest.streamingFailed"),
 	},
 	checkpoint_saved: {
@@ -367,13 +368,19 @@ export function getMessageMetadata(message: ClineMessage): MessageMetadata | nul
 	// Special handling for api_req_started
 	if (key === "api_req_started") {
 		const info = safeJsonParse<{ streamingFailedMessage?: string }>(message.text)
-		if (!info?.streamingFailedMessage) {
+		if (info?.streamingFailedMessage) {
+			return messageMetadata[key] // Return the default error metadata
+		}
+		if (message.text?.includes("[ERROR]")) {
 			return {
-				group: "info",
-				color: COLOR.DARK_GRAY,
-				getDescription: () => "API Request Started", // This should be filtered out anyway
+				group: "error",
+				color: COLOR.RED,
+				icon: "error",
+				getDescription: () => t("chat:apiRequest.modelError"),
 			}
 		}
+		// If it's a regular, non-error api_req_started, return null to hide it from the timeline
+		return null
 	}
 
 	const metadata = messageMetadata[key]

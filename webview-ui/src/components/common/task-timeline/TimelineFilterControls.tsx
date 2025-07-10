@@ -36,7 +36,7 @@ export const TimelineFilterControls: React.FC = () => {
 							flow: { say: "completion_result" },
 							ask: { ask: "followup" },
 							info: { say: "text" },
-							error: { say: "error" },
+							error: { say: "api_req_started", text: "[ERROR]" },
 							checkpoint: { say: "checkpoint_saved" },
 						}
 						const representativeMessage = representativeMessages[group]
