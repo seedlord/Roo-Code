@@ -339,7 +339,8 @@
 			"ask": "Ask",
 			"info": "Info",
 			"error": "Error",
-			"checkpoint": "Checkpoints"
+			"checkpoint": "Checkpoints",
+			"task_completion": "Completed"
 		},
 		"onlyShowTasksWithFilteredTypes": "Only show tasks containing filtered types"
 	}
