@@ -38,6 +38,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.CODEBASE_SEARCH]: {
 		group: "read",
 		color: COLOR.YELLOW,
+		icon: "search",
 		getDescription: (tool) =>
 			tool?.path ? (
 				<Trans
@@ -56,6 +57,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.READ_FILE]: {
 		group: "read",
 		color: COLOR.YELLOW,
+		icon: "file-code",
 		getDescription: (tool) => {
 			const title =
 				tool?.batchFiles && Array.isArray(tool.batchFiles)
@@ -71,6 +73,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.LIST_FILES_TOP_LEVEL]: {
 		group: "read",
 		color: COLOR.YELLOW,
+		icon: "folder-opened",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:directoryOperations.wantsToViewTopLevel",
@@ -82,6 +85,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.LIST_FILES_RECURSIVE]: {
 		group: "read",
 		color: COLOR.YELLOW,
+		icon: "folder-opened",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:directoryOperations.wantsToViewRecursive",
@@ -104,6 +108,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.SEARCH_FILES]: {
 		group: "read",
 		color: COLOR.YELLOW,
+		icon: "search",
 		getDescription: (tool) => (
 			<Trans
 				i18nKey={
@@ -119,6 +124,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.APPLIED_DIFF]: {
 		group: "edit",
 		color: COLOR.BLUE,
+		icon: "diff",
 		getDescription: (tool) => {
 			if (tool?.batchDiffs && Array.isArray(tool.batchDiffs)) {
 				return t("chat:fileOperations.wantsToApplyBatchChanges")
@@ -134,6 +140,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	[TOOL_NAMES.EDITED_EXISTING_FILE]: {
 		group: "edit",
 		color: COLOR.BLUE,
+		icon: "edit",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:fileOperations.wantsToEdit",
@@ -278,6 +285,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	user_feedback_diff: {
 		group: "edit",
 		color: COLOR.BLUE,
+		icon: "feedback",
 		getDescription: () => t("chat:userFeedback.diffTitle"),
 	},
 	text: {
@@ -312,8 +320,9 @@ const messageMetadata: Record<string, MessageMetadata> = {
 		getDescription: () => t("chat:browser.result"),
 	},
 	completion_result: {
-		group: "flow",
+		group: "task_completion",
 		color: COLOR.GREEN,
+		icon: "check",
 		getDescription: () => t("chat:taskCompleted"),
 	},
 	api_req_started: {
@@ -367,6 +376,14 @@ export function getMessageMetadata(message: ClineMessage): MessageMetadata | nul
 	// Handle specific `say` types first to avoid being overridden by tool parsing
 	if (message.say === "codebase_search_result") {
 		const metadata = messageMetadata.codebase_search_result
+		return {
+			...metadata,
+			getDescription: () => metadata.getDescription(tool, message),
+		}
+	}
+
+	if (message.say === "user_feedback_diff") {
+		const metadata = messageMetadata.user_feedback_diff
 		return {
 			...metadata,
 			getDescription: () => metadata.getDescription(tool, message),

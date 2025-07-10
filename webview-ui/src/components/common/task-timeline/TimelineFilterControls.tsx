@@ -33,11 +33,12 @@ export const TimelineFilterControls: React.FC = () => {
 							read: { say: "codebase_search_result" },
 							edit: { say: "user_feedback_diff" },
 							command: { ask: "command" },
-							flow: { say: "completion_result" },
+							flow: { say: "subtask_result" },
 							ask: { ask: "followup" },
 							info: { say: "text" },
 							error: { say: "api_req_started", text: "[ERROR]" },
 							checkpoint: { say: "checkpoint_saved" },
+							task_completion: { say: "completion_result" },
 						}
 						const representativeMessage = representativeMessages[group]
 						const metadata = getMessageMetadata(representativeMessage as any)
