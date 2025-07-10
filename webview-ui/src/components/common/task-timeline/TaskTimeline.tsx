@@ -31,6 +31,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 	const containerRef = useRef<HTMLDivElement>(null)
 	const scrollableRef = useRef<HTMLDivElement>(null)
 	const tooltipRef = useRef<HTMLDivElement>(null)
+	const hideTimeoutRef = useRef<number | null>(null)
 
 	const filteredMessages = useMemo(() => {
 		return messages.filter((message) => {
@@ -134,15 +135,25 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 		return null
 	}
 
+	const handleTooltipMouseEnter = () => {
+		if (hideTimeoutRef.current) {
+			clearTimeout(hideTimeoutRef.current)
+			hideTimeoutRef.current = null
+		}
+	}
+
 	const handleMouseEnter = (message: ClineMessage, event: React.MouseEvent<HTMLDivElement>) => {
+		handleTooltipMouseEnter() // Clear any pending hide timer
 		setHoveredElement(event.currentTarget)
 		setHoveredMessage(message)
 	}
 
 	const handleMouseLeave = () => {
-		setHoveredMessage(null)
-		setHoveredElement(null)
-		setTooltipStyle((prev) => ({ ...prev, opacity: 0, pointerEvents: "none" }))
+		hideTimeoutRef.current = window.setTimeout(() => {
+			setHoveredMessage(null)
+			setHoveredElement(null)
+			setTooltipStyle((prev) => ({ ...prev, opacity: 0, pointerEvents: "none" }))
+		}, 200)
 	}
 
 	return (
@@ -200,7 +211,11 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 				})}
 			</div>
 
-			<div ref={tooltipRef} style={tooltipStyle}>
+			<div
+				ref={tooltipRef}
+				style={tooltipStyle}
+				onMouseEnter={handleTooltipMouseEnter}
+				onMouseLeave={handleMouseLeave}>
 				{hoveredMessage && <TaskTimelineTooltip message={hoveredMessage} />}
 			</div>
 		</div>
