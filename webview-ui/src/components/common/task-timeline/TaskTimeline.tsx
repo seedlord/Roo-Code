@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from "react"
 import { ClineMessage } from "@roo-code/types"
-import { TaskTimelineTooltip } from "./TaskTimelineTooltip"
+import { TaskTimelineTooltip, SearchResult } from "./TaskTimelineTooltip"
 import { getMessageColor, getMessageMetadata, getMessageIcon } from "./toolManager"
 import { useTimelineFilter } from "./TimelineFilterContext"
+import { safeJsonParse } from "@roo/safeJsonParse"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
@@ -20,6 +21,7 @@ interface TaskTimelineProps {
 const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, enableFilter = false }) => {
 	const { activeFilters } = useTimelineFilter()
 	const [hoveredMessage, setHoveredMessage] = useState<ClineMessage | null>(null)
+	const [hoveredSearchResults, setHoveredSearchResults] = useState<SearchResult[] | undefined>(undefined)
 	const [hoveredElement, setHoveredElement] = useState<HTMLDivElement | null>(null)
 	const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({
 		opacity: 0,
@@ -35,6 +37,10 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 
 	const filteredMessages = useMemo(() => {
 		return messages.filter((message) => {
+			// Hide the search result message itself, as it's displayed in the tool call tooltip
+			if (message.say === "codebase_search_result") {
+				return false
+			}
 			const metadata = getMessageMetadata(message)
 			// Hide messages that have no metadata (e.g. non-error api_req_started)
 			if (!metadata) {
@@ -142,16 +148,22 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 		}
 	}
 
-	const handleMouseEnter = (message: ClineMessage, event: React.MouseEvent<HTMLDivElement>) => {
+	const handleMouseEnter = (
+		message: ClineMessage,
+		event: React.MouseEvent<HTMLDivElement>,
+		searchResults?: SearchResult[],
+	) => {
 		handleTooltipMouseEnter() // Clear any pending hide timer
 		setHoveredElement(event.currentTarget)
 		setHoveredMessage(message)
+		setHoveredSearchResults(searchResults)
 	}
 
 	const handleMouseLeave = () => {
 		hideTimeoutRef.current = window.setTimeout(() => {
 			setHoveredMessage(null)
 			setHoveredElement(null)
+			setHoveredSearchResults(undefined)
 			setTooltipStyle((prev) => ({ ...prev, opacity: 0, pointerEvents: "none" }))
 		}, 200)
 	}
@@ -163,12 +175,30 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 				className="flex w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"
 				style={{ height: TIMELINE_HEIGHT, gap: BLOCK_GAP }}>
 				{filteredMessages.map((message, index) => {
+					const findCorrespondingSearchResult = (): SearchResult[] | undefined => {
+						const tool = safeJsonParse<{ tool?: string }>(message.text)
+						if (tool?.tool !== "codebaseSearch") {
+							return undefined
+						}
+
+						// Find the next `codebase_search_result` message
+						const resultMessage = messages.find((m, i) => i > index && m.say === "codebase_search_result")
+						if (!resultMessage) return undefined
+
+						const parsedResult = safeJsonParse<{
+							content: { results: SearchResult[] }
+						}>(resultMessage.text)
+						return parsedResult?.content?.results
+					}
+
 					const handleClick = (e: React.MouseEvent) => {
 						e.stopPropagation() // Prevent the click from bubbling up to the parent TaskItem
 						if (onBlockClick) {
 							onBlockClick(message.ts)
 						}
 					}
+
+					const searchResults = findCorrespondingSearchResult()
 					const icon = getMessageIcon(message)
 					const color = getMessageColor(message)
 					const isFirst = index === 0
@@ -202,7 +232,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 							key={`${message.ts}-${index}`}
 							className="h-full flex-shrink-0 cursor-pointer flex items-center justify-center"
 							style={getIconStyle()}
-							onMouseEnter={(e) => handleMouseEnter(message, e)}
+							onMouseEnter={(e) => handleMouseEnter(message, e, searchResults)}
 							onMouseLeave={handleMouseLeave}
 							onClick={handleClick}>
 							{icon && renderIcon(icon)}
@@ -216,7 +246,9 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 				style={tooltipStyle}
 				onMouseEnter={handleTooltipMouseEnter}
 				onMouseLeave={handleMouseLeave}>
-				{hoveredMessage && <TaskTimelineTooltip message={hoveredMessage} />}
+				{hoveredMessage && (
+					<TaskTimelineTooltip message={hoveredMessage} searchResults={hoveredSearchResults} />
+				)}
 			</div>
 		</div>
 	)

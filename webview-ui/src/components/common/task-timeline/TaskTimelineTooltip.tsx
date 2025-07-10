@@ -1,15 +1,23 @@
 import React from "react"
+import { Trans } from "react-i18next"
 import { ClineMessage } from "@roo-code/types"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import { ClineSayTool } from "@roo/ExtensionMessage"
 import { getMessageMetadata } from "./toolManager"
 import { getMessageColor } from "./toolManager"
 
-interface TaskTimelineTooltipProps {
-	message: ClineMessage
+export interface SearchResult {
+	filePath: string
+	startLine: number
+	endLine: number
 }
 
-export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message }) => {
+interface TaskTimelineTooltipProps {
+	message: ClineMessage
+	searchResults?: SearchResult[]
+}
+
+export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ message, searchResults }) => {
 	const getMessageDescription = (message: ClineMessage): React.ReactNode => {
 		const metadata = getMessageMetadata(message)
 		const tool = safeJsonParse<ClineSayTool>(message.text) ?? null
@@ -36,17 +44,34 @@ export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ messag
 		return message.say || message.ask || "Unknown Message Type"
 	}
 
-	const getMessageContent = (message: ClineMessage): string => {
+	const getMessageContent = (message: ClineMessage): React.ReactNode => {
+		const tool = safeJsonParse<{ tool?: string; query?: string }>(message.text)
+		if (tool?.tool === "codebaseSearch" && searchResults) {
+			const title = (
+				<Trans
+					i18nKey="chat:codebaseSearch.didSearch"
+					components={{ code: <code /> }}
+					values={{ query: tool.query, count: searchResults.length }}
+				/>
+			)
+			if (searchResults.length > 0) {
+				const resultsText = searchResults.map((r) => `${r.filePath}:${r.startLine}-${r.endLine}`).join("\n")
+				return (
+					<>
+						{title}
+						{"\n"}
+						{resultsText}
+					</>
+				)
+			}
+			return title
+		}
+
 		// Handle specific `say` types first to avoid being overridden by tool parsing
 		if (message.say === "codebase_search_result") {
-			const parsed = safeJsonParse<{
-				content: { results: Array<{ filePath: string; startLine: number; endLine: number }> }
-			}>(message.text)
-			const results = parsed?.content?.results || []
-			if (results.length > 0) {
-				return results.map((r) => `${r.filePath}:${r.startLine}-${r.endLine}`).join("\n")
-			}
-			return "" // Return empty string if no results, so the content box doesn't render
+			// This message type is now handled by the logic above and filtered out
+			// in TaskTimeline.tsx, but we keep this as a fallback.
+			return ""
 		}
 
 		if (message.text) {
