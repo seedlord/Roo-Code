@@ -263,16 +263,19 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	mistake_limit_reached: {
 		group: "error",
 		color: COLOR.RED,
+		icon: "error",
 		getDescription: () => t("chat:troubleMessage"),
 	},
 	api_req_failed: {
 		group: "error",
 		color: COLOR.RED,
+		icon: "error",
 		getDescription: () => t("chat:apiRequest.failed"),
 	},
 	auto_approval_max_req_reached: {
 		group: "error",
 		color: COLOR.RED,
+		icon: "error",
 		getDescription: () => t("chat:autoApproval.limitReached"),
 	},
 
@@ -280,6 +283,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	user_feedback: {
 		group: "info",
 		color: COLOR.WHITE,
+		icon: "comment",
 		getDescription: () => t("chat:userFeedback.title"),
 	},
 	user_feedback_diff: {
@@ -291,6 +295,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	text: {
 		group: "info",
 		color: COLOR.GRAY,
+		icon: "roo",
 		getDescription: () => t("chat:response"),
 	},
 	reasoning: {
@@ -358,14 +363,20 @@ const messageMetadata: Record<string, MessageMetadata> = {
 			)
 		},
 	},
-	error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
-	rooignore_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
-	diff_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
-	condense_context_error: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
-	shell_integration_warning: { group: "error", color: COLOR.RED, getDescription: () => t("chat:error") },
+	error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
+	rooignore_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
+	diff_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
+	condense_context_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
+	shell_integration_warning: {
+		group: "error",
+		color: COLOR.RED,
+		icon: "error",
+		getDescription: () => t("chat:error"),
+	},
 	api_req_deleted: {
 		group: "error",
 		color: COLOR.RED,
+		icon: "error",
 		getDescription: () => t("chat:apiRequest.cancelled"),
 	},
 }
