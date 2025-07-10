@@ -3,9 +3,8 @@ import { useTimelineFilter, ALL_MESSAGE_GROUPS, MessageGroup } from "./TimelineF
 import { Checkbox } from "@src/components/ui"
 import { Label } from "../../../../../apps/web-evals/src/components/ui/label"
 import { t } from "i18next"
-import { getMessageMetadata } from "./toolManager"
+import * as COLOR from "./colors"
 import { cn } from "@src/lib/utils"
-import { ClineMessage } from "@roo-code/types"
 
 export const TimelineFilterControls: React.FC = () => {
 	const { activeFilters, setActiveFilters, hideTasksWithoutFilteredTypes, setHideTasksWithoutFilteredTypes } =
@@ -29,22 +28,33 @@ export const TimelineFilterControls: React.FC = () => {
 				<p className="text-xs font-medium text-vscode-descriptionForeground">{t("chat:timeline.filterBy")}</p>
 				<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
 					{ALL_MESSAGE_GROUPS.map((group) => {
-						const representativeMessages: Record<MessageGroup, Partial<ClineMessage>> = {
-							read: { say: "codebase_search_result" },
-							edit: { say: "user_feedback_diff" },
-							command: { ask: "command" },
-							flow: { say: "subtask_result" },
-							ask: { ask: "followup" },
-							info: { say: "text" },
-							reasoning: { say: "reasoning" },
-							error: { say: "api_req_started", text: "[ERROR]" },
-							checkpoint: { say: "checkpoint_saved" },
-							task_completion: { say: "completion_result" },
+						const filterIconMap: Record<MessageGroup, string | undefined> = {
+							read: "book",
+							edit: "edit",
+							command: "terminal",
+							flow: "arrow-right",
+							ask: "question",
+							info: "info",
+							reasoning: "history",
+							error: "error",
+							checkpoint: "git-commit",
+							task_completion: "check",
 						}
-						const representativeMessage = representativeMessages[group]
-						const metadata = getMessageMetadata(representativeMessage as any)
-						const color = metadata?.color
-						const icon = metadata?.icon
+
+						const filterColorMap: Record<MessageGroup, string> = {
+							read: COLOR.YELLOW,
+							edit: COLOR.BLUE,
+							command: COLOR.PURPLE,
+							flow: COLOR.LIGHT_GREEN,
+							ask: COLOR.GRAY,
+							info: COLOR.GRAY,
+							reasoning: COLOR.GRAY,
+							error: COLOR.RED,
+							checkpoint: COLOR.BLUE,
+							task_completion: COLOR.GREEN,
+						}
+						const color = filterColorMap[group]
+						const icon = filterIconMap[group]
 
 						return (
 							<div

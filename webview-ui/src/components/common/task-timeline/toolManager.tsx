@@ -10,9 +10,21 @@ import { MessageGroup } from "./TimelineFilterContext"
 
 interface MessageMetadata {
 	group: MessageGroup
-	color: string
-	icon?: string // icon name, e.g. "question"
+	icon?: string
 	getDescription: (tool: ClineSayTool | null, message: ClineMessage) => React.ReactNode
+}
+
+const groupSettings: Record<MessageGroup, { color: string; icon?: string }> = {
+	read: { color: COLOR.YELLOW, icon: "book" },
+	edit: { color: COLOR.BLUE, icon: "edit" },
+	command: { color: COLOR.PURPLE, icon: "terminal" },
+	flow: { color: COLOR.LIGHT_GREEN, icon: "arrow-right" },
+	ask: { color: COLOR.GRAY, icon: "question" },
+	info: { color: COLOR.WHITE, icon: "info" },
+	reasoning: { color: COLOR.GRAY, icon: "history" },
+	error: { color: COLOR.RED, icon: "error" },
+	checkpoint: { color: COLOR.BLUE, icon: "git-commit" },
+	task_completion: { color: COLOR.GREEN, icon: "check" },
 }
 
 const getFileOpTitle = (
@@ -37,7 +49,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	// Tools
 	[TOOL_NAMES.CODEBASE_SEARCH]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		icon: "search",
 		getDescription: (tool) =>
 			tool?.path ? (
@@ -56,7 +67,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.READ_FILE]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		icon: "file-code",
 		getDescription: (tool) => {
 			const title =
@@ -72,7 +82,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.LIST_FILES_TOP_LEVEL]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		icon: "folder-opened",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
@@ -84,7 +93,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.LIST_FILES_RECURSIVE]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		icon: "folder-opened",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
@@ -96,7 +104,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.LIST_CODE_DEFINITION_NAMES]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:directoryOperations.wantsToViewDefinitions",
@@ -107,7 +114,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.SEARCH_FILES]: {
 		group: "read",
-		color: COLOR.YELLOW,
 		icon: "search",
 		getDescription: (tool) => (
 			<Trans
@@ -123,7 +129,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.APPLIED_DIFF]: {
 		group: "edit",
-		color: COLOR.BLUE,
 		icon: "diff",
 		getDescription: (tool) => {
 			if (tool?.batchDiffs && Array.isArray(tool.batchDiffs)) {
@@ -139,8 +144,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.EDITED_EXISTING_FILE]: {
 		group: "edit",
-		color: COLOR.BLUE,
-		icon: "edit",
+		icon: "diff",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:fileOperations.wantsToEdit",
@@ -152,7 +156,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.INSERT_CONTENT]: {
 		group: "edit",
-		color: COLOR.BLUE,
+		icon: "insert",
 		getDescription: (tool) => {
 			const normalKey =
 				tool?.lineNumber === 0
@@ -173,7 +177,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.SEARCH_AND_REPLACE]: {
 		group: "edit",
-		color: COLOR.BLUE,
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:fileOperations.wantsToSearchReplace",
@@ -184,7 +187,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.NEW_FILE_CREATED]: {
 		group: "edit",
-		color: COLOR.BLUE,
+		icon: "file-add",
 		getDescription: (tool) => {
 			const title = getFileOpTitle(tool!, {
 				normal: "chat:fileOperations.wantsToCreate",
@@ -195,8 +198,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.NEW_TASK]: {
 		group: "flow",
-		color: COLOR.LIGHT_GREEN,
-		icon: "tasklist",
+		icon: "arrow-right", // or "tasklist"
 		getDescription: (tool) => (
 			<Trans
 				i18nKey="chat:subtasks.wantsToCreate"
@@ -207,7 +209,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.FINISH_TASK]: {
 		group: "flow",
-		color: COLOR.LIGHT_GREEN,
+		icon: "arrow-left",
 		getDescription: (tool) => (
 			<Trans
 				i18nKey="chat:subtasks.wantsToFinish"
@@ -218,7 +220,6 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.SWITCH_MODE]: {
 		group: "flow",
-		color: COLOR.LIGHT_GREEN,
 		icon: "symbol-enum",
 		getDescription: (tool) => (
 			<Trans i18nKey="chat:modes.wantsToSwitch" components={{ code: <code /> }} values={{ mode: tool?.mode }} />
@@ -226,35 +227,30 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	[TOOL_NAMES.ATTEMPT_COMPLETION]: {
 		group: "flow",
-		color: COLOR.GREEN,
 		getDescription: () => t("chat:completion.wantsToComplete"),
 	},
 
 	// Ask Messages
 	followup: {
 		group: "ask",
-		color: COLOR.GRAY,
 		icon: "question",
 		getDescription: () => t("chat:questions.hasQuestion"),
 	},
 	tool: {
 		group: "ask",
-		color: COLOR.YELLOW,
 		getDescription: (tool) => `Tool Approval: ${tool?.tool || ""}`,
 	},
 	command: {
 		group: "command",
-		color: COLOR.PURPLE,
+		icon: "terminal",
 		getDescription: () => t("chat:runCommand.title"),
 	},
 	browser_action_launch: {
 		group: "command",
-		color: COLOR.PURPLE,
 		getDescription: () => t("chat:browser.approval"),
 	},
 	use_mcp_server: {
 		group: "command",
-		color: COLOR.PURPLE,
 		getDescription: (_tool, message) => {
 			const mcpInfo = safeJsonParse<{ serverName: string; toolName?: string }>(message.text)
 			return t("chat:mcp.wantsToUseTool", { serverName: mcpInfo?.serverName })
@@ -262,19 +258,16 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	},
 	mistake_limit_reached: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:troubleMessage"),
 	},
 	api_req_failed: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:apiRequest.failed"),
 	},
 	auto_approval_max_req_reached: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:autoApproval.limitReached"),
 	},
@@ -282,74 +275,62 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	// Say Messages
 	user_feedback: {
 		group: "info",
-		color: COLOR.WHITE,
 		icon: "comment",
 		getDescription: () => t("chat:userFeedback.title"),
 	},
 	user_feedback_diff: {
 		group: "edit",
-		color: COLOR.BLUE,
 		icon: "feedback",
 		getDescription: () => t("chat:userFeedback.diffTitle"),
 	},
 	text: {
 		group: "info",
-		color: COLOR.GRAY,
 		icon: "roo",
 		getDescription: () => t("chat:response"),
 	},
 	reasoning: {
 		group: "reasoning",
-		color: COLOR.GRAY,
 		icon: "history",
 		getDescription: () => t("chat:reasoning.thinking"),
 	},
 	subtask_result: {
 		group: "flow",
-		color: COLOR.LIGHT_GREEN,
+		icon: "arrow-left",
 		getDescription: () => t("chat:subtasks.resultContent"),
 	},
 	command_output: {
 		group: "command",
-		color: COLOR.RED,
 		getDescription: () => t("chat:runCommand.outputTitle"),
 	},
 	browser_action: {
 		group: "command",
-		color: COLOR.PURPLE,
 		getDescription: () => t("chat:browser.action"),
 	},
 	browser_action_result: {
 		group: "command",
-		color: COLOR.PURPLE,
 		getDescription: () => t("chat:browser.result"),
 	},
 	completion_result: {
 		group: "task_completion",
-		color: COLOR.GREEN,
 		icon: "check",
 		getDescription: () => t("chat:taskCompleted"),
 	},
 	api_req_started: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:apiRequest.streamingFailed"),
 	},
 	checkpoint_saved: {
 		group: "checkpoint",
-		color: COLOR.BLUE,
 		icon: "git-commit",
 		getDescription: () => t("chat:checkpoint.saved"),
 	},
 	condense_context: {
 		group: "flow",
-		color: COLOR.LIGHT_GREEN,
 		getDescription: () => t("chat:context.condensing"),
 	},
 	codebase_search_result: {
 		group: "read",
-		color: COLOR.YELLOW,
 		getDescription: (_tool, message) => {
 			const parsed = safeJsonParse<{ content: { query: string; results: unknown[] } }>(message.text)
 			const query = parsed?.content?.query || ""
@@ -363,19 +344,17 @@ const messageMetadata: Record<string, MessageMetadata> = {
 			)
 		},
 	},
-	error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
-	rooignore_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
-	diff_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
-	condense_context_error: { group: "error", color: COLOR.RED, icon: "error", getDescription: () => t("chat:error") },
+	error: { group: "error", icon: "error", getDescription: () => t("chat:error") },
+	rooignore_error: { group: "error", icon: "error", getDescription: () => t("chat:error") },
+	diff_error: { group: "error", icon: "error", getDescription: () => t("chat:error") },
+	condense_context_error: { group: "error", icon: "error", getDescription: () => t("chat:error") },
 	shell_integration_warning: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:error"),
 	},
 	api_req_deleted: {
 		group: "error",
-		color: COLOR.RED,
 		icon: "error",
 		getDescription: () => t("chat:apiRequest.cancelled"),
 	},
@@ -413,7 +392,6 @@ export function getMessageMetadata(message: ClineMessage): MessageMetadata | nul
 		if (message.text?.includes("[ERROR]")) {
 			return {
 				group: "error",
-				color: COLOR.RED,
 				icon: "error",
 				getDescription: () => t("chat:apiRequest.modelError"),
 			}
@@ -435,10 +413,13 @@ export function getMessageMetadata(message: ClineMessage): MessageMetadata | nul
 
 export const getMessageColor = (message: ClineMessage): string => {
 	const metadata = getMessageMetadata(message)
-	return metadata?.color ?? COLOR.DARK_GRAY
+	if (!metadata) return COLOR.DARK_GRAY
+	return groupSettings[metadata.group]?.color ?? COLOR.DARK_GRAY
 }
 
 export const getMessageIcon = (message: ClineMessage): string | undefined => {
 	const metadata = getMessageMetadata(message)
-	return metadata?.icon
+	if (!metadata) return undefined
+	const groupSettingIcon = groupSettings[metadata.group]?.icon
+	return metadata.icon ?? groupSettingIcon
 }
