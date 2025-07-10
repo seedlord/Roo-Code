@@ -7,9 +7,7 @@ import { safeJsonParse } from "@roo/safeJsonParse"
 
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
-const BLOCK_WIDTH = "9px"
-const ICON_WIDTH = "11px" // BLOCK_WIDTH (9px) + 2px padding
-const BLOCK_GAP = "3px"
+const BLOCK_GAP = "4px"
 const VERTICAL_OFFSET = 8 // Vertical offset from the timeline block
 
 interface TaskTimelineProps {
@@ -123,7 +121,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 			// The vertical scroll is prevented by `overflow-y: hidden` and
 			// `overscroll-behavior-y: contain` on the element's style.
 			const { deltaY } = event
-			scrollableElement.scrollLeft += deltaY
+			scrollableElement.scrollLeft += deltaY * 0.2 // Reduce scroll speed
 		}
 
 		scrollableElement.addEventListener("mouseenter", handleMouseEnter)
@@ -173,7 +171,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 			<div
 				ref={scrollableRef}
 				className="flex items-center w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"
-				style={{ height: TIMELINE_HEIGHT, gap: BLOCK_GAP }}>
+				style={{ height: TIMELINE_HEIGHT, gap: BLOCK_GAP, padding: `0 ${BLOCK_GAP}` }}>
 				{filteredMessages.map((message, index) => {
 					const findCorrespondingSearchResult = (): SearchResult[] | undefined => {
 						const tool = safeJsonParse<{ tool?: string }>(message.text)
@@ -201,24 +199,14 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 					const searchResults = findCorrespondingSearchResult()
 					const icon = getMessageIcon(message)
 					const color = getMessageColor(message)
-					const isFirst = index === 0
-					const isLast = index === filteredMessages.length - 1
 
 					const getIconStyle = (): React.CSSProperties => {
 						const style: React.CSSProperties = {
-							width: BLOCK_WIDTH,
+							width: "18px", // Use a fixed width for all icons to ensure uniform spacing
 							backgroundColor: icon ? "transparent" : color,
-						}
-
-						if ((icon && icon !== "git-commit") || icon === "roo") {
-							style.width = icon === "roo" ? "18px" : ICON_WIDTH
-							const paddingValue = "1px"
-							if (isFirst) {
-								style.paddingRight = paddingValue
-							} else if (isLast) {
-								style.paddingLeft = paddingValue
-							}
-							// Middle icons don't need padding as ICON_WIDTH handles it
+							lineHeight: TIMELINE_HEIGHT,
+							textAlign: "center",
+							fontSize: "16px", // Explicitly set font size for better control
 						}
 						return style
 					}
@@ -228,7 +216,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 						if (name === "roo") {
 							return (
 								<div
-									className="w-4.5 h-4.5"
+									className="w-full h-full"
 									style={{
 										backgroundColor: color,
 										WebkitMaskImage: `url('${rooLogoUri}')`,
@@ -249,7 +237,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 					return (
 						<div
 							key={`${message.ts}-${index}`}
-							className="h-full flex-shrink-0 cursor-pointer flex items-center justify-center"
+							className="h-full flex-shrink-0 cursor-pointer"
 							style={getIconStyle()}
 							onMouseEnter={(e) => handleMouseEnter(message, e, searchResults)}
 							onMouseLeave={handleMouseLeave}
