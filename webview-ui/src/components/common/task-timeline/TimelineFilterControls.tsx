@@ -54,7 +54,22 @@ export const TimelineFilterControls: React.FC = () => {
 								})}
 								onClick={() => handleCheckedChange(group)}>
 								{icon ? (
-									<span className={`codicon codicon-${icon}`} style={{ color }} />
+									icon === "roo" ? (
+										<div
+											className="w-3 h-3"
+											style={{
+												backgroundColor: color,
+												WebkitMaskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
+												WebkitMaskRepeat: "no-repeat",
+												WebkitMaskSize: "contain",
+												maskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
+												maskRepeat: "no-repeat",
+												maskSize: "contain",
+											}}
+										/>
+									) : (
+										<span className={`codicon codicon-${icon}`} style={{ color }} />
+									)
 								) : (
 									<div
 										className="w-2.5 h-3 rounded-sm"

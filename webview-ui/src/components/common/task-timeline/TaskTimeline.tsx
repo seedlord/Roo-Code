@@ -223,9 +223,27 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 						return style
 					}
 
-					const renderIcon = (name: string) => (
-						<span className={`codicon codicon-${name}`} style={{ color }}></span>
-					)
+					const rooLogoUri = (window as any).IMAGES_BASE_URI + "/roo-logo.svg"
+					const renderIcon = (name: string) => {
+						if (name === "roo") {
+							return (
+								<div
+									className="w-full h-full"
+									style={{
+										backgroundColor: color,
+										WebkitMaskImage: `url('${rooLogoUri}')`,
+										WebkitMaskRepeat: "no-repeat",
+										WebkitMaskSize: "contain",
+										maskImage: `url('${rooLogoUri}')`,
+										maskRepeat: "no-repeat",
+										maskSize: "contain",
+										width: ICON_WIDTH,
+									}}
+								/>
+							)
+						}
+						return <span className={`codicon codicon-${name}`} style={{ color }}></span>
+					}
 
 					return (
 						<div
