@@ -5,8 +5,6 @@ import { ClineSayTool } from "@roo/ExtensionMessage"
 import { getMessageMetadata } from "./toolManager"
 import { getMessageColor } from "./toolManager"
 
-const MAX_CONTENT_LENGTH = 200
-
 interface TaskTimelineTooltipProps {
 	message: ClineMessage
 }
@@ -39,6 +37,18 @@ export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ messag
 	}
 
 	const getMessageContent = (message: ClineMessage): string => {
+		// Handle specific `say` types first to avoid being overridden by tool parsing
+		if (message.say === "codebase_search_result") {
+			const parsed = safeJsonParse<{
+				content: { results: Array<{ filePath: string; startLine: number; endLine: number }> }
+			}>(message.text)
+			const results = parsed?.content?.results || []
+			if (results.length > 0) {
+				return results.map((r) => `${r.filePath}:${r.startLine}-${r.endLine}`).join("\n")
+			}
+			return "" // Return empty string if no results, so the content box doesn't render
+		}
+
 		if (message.text) {
 			const parsedJson = safeJsonParse<any>(message.text, undefined, false)
 			if (message.say === "api_req_started" && parsedJson?.streamingFailedMessage) {
@@ -66,22 +76,12 @@ export const TaskTimelineTooltip: React.FC<TaskTimelineTooltipProps> = ({ messag
 			if (parsed?.question) {
 				const suggestions =
 					parsed.suggest
-						?.map((s) =>
-							typeof s === "string"
-								? `- ${s}`
-								: typeof s === "object" && s.answer
-									? `- ${s.answer}`
-									: null,
-						)
+						?.map((s) => (typeof s === "string" ? s : typeof s === "object" && s.answer ? s.answer : null))
 						.filter(Boolean)
 						.join("\n") || ""
 				return `${parsed.question}\n${suggestions}`
 			}
 			return message.text || ""
-		}
-
-		if (message.text && message.text.length > MAX_CONTENT_LENGTH) {
-			return message.text.substring(0, MAX_CONTENT_LENGTH) + "..."
 		}
 		return message.text || ""
 	}
@@ -176,8 +176,9 @@ const getToolContent = (toolData: ClineSayTool): string => {
 		case "listFilesRecursive":
 		case "listCodeDefinitionNames":
 		case "searchFiles":
+			return toolData.content || ""
 		case "codebaseSearch":
-			return ""
+			return "" // This is the tool *call*, the result is handled in `codebase_search_result`
 		default:
 			return JSON.stringify(toolData, null, 2)
 	}
