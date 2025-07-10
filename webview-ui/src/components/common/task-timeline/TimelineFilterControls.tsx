@@ -56,7 +56,7 @@ export const TimelineFilterControls: React.FC = () => {
 								{icon ? (
 									icon === "roo" ? (
 										<div
-											className="w-3 h-3"
+											className="w-4.5 h-4.5"
 											style={{
 												backgroundColor: color,
 												WebkitMaskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
@@ -65,6 +65,8 @@ export const TimelineFilterControls: React.FC = () => {
 												maskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
 												maskRepeat: "no-repeat",
 												maskSize: "contain",
+												position: "relative",
+												top: "2px",
 											}}
 										/>
 									) : (

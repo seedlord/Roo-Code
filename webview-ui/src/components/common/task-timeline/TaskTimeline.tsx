@@ -172,7 +172,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 		<div ref={containerRef} className="relative w-full mt-1 mb-1 overflow-hidden">
 			<div
 				ref={scrollableRef}
-				className="flex w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"
+				className="flex items-center w-full overflow-x-auto overflow-y-hidden overscroll-y-contain scrollbar-hide"
 				style={{ height: TIMELINE_HEIGHT, gap: BLOCK_GAP }}>
 				{filteredMessages.map((message, index) => {
 					const findCorrespondingSearchResult = (): SearchResult[] | undefined => {
@@ -210,8 +210,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 							backgroundColor: icon ? "transparent" : color,
 						}
 
-						if (icon && icon !== "git-commit") {
-							style.width = ICON_WIDTH
+						if ((icon && icon !== "git-commit") || icon === "roo") {
+							style.width = icon === "roo" ? "18px" : ICON_WIDTH
 							const paddingValue = "1px"
 							if (isFirst) {
 								style.paddingRight = paddingValue
@@ -228,7 +228,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 						if (name === "roo") {
 							return (
 								<div
-									className="w-full h-full"
+									className="w-4.5 h-4.5"
 									style={{
 										backgroundColor: color,
 										WebkitMaskImage: `url('${rooLogoUri}')`,
@@ -237,7 +237,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 										maskImage: `url('${rooLogoUri}')`,
 										maskRepeat: "no-repeat",
 										maskSize: "contain",
-										width: ICON_WIDTH,
+										position: "relative",
+										top: "2px",
 									}}
 								/>
 							)
