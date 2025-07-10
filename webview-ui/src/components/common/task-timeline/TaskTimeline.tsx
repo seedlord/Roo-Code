@@ -7,6 +7,7 @@ import { useTimelineFilter } from "./TimelineFilterContext"
 // Timeline dimensions and spacing
 const TIMELINE_HEIGHT = "18px"
 const BLOCK_WIDTH = "9px"
+const ICON_WIDTH = "11px" // BLOCK_WIDTH (9px) + 2px padding
 const BLOCK_GAP = "3px"
 const VERTICAL_OFFSET = 8 // Vertical offset from the timeline block
 
@@ -32,13 +33,22 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 	const tooltipRef = useRef<HTMLDivElement>(null)
 
 	const filteredMessages = useMemo(() => {
-		return messages
-			.filter((message) => message.say !== "api_req_retry_delayed")
-			.filter((message) => {
-				if (!enableFilter) return true
-				const metadata = getMessageMetadata(message)
-				return metadata ? activeFilters.includes(metadata.group) : true
-			})
+		return messages.filter((message) => {
+			const metadata = getMessageMetadata(message)
+			// Hide messages that have no metadata (e.g. non-error api_req_started)
+			if (!metadata) {
+				return false
+			}
+			// Explicitly filter out retry_delayed
+			if (message.say === "api_req_retry_delayed") {
+				return false
+			}
+			// Apply timeline filters if enabled
+			if (enableFilter && !activeFilters.includes(metadata.group)) {
+				return false
+			}
+			return true
+		})
 	}, [messages, enableFilter, activeFilters])
 
 	useEffect(() => {
@@ -150,6 +160,27 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 					}
 					const icon = getMessageIcon(message)
 					const color = getMessageColor(message)
+					const isFirst = index === 0
+					const isLast = index === filteredMessages.length - 1
+
+					const getIconStyle = (): React.CSSProperties => {
+						const style: React.CSSProperties = {
+							width: BLOCK_WIDTH,
+							backgroundColor: icon ? "transparent" : color,
+						}
+
+						if (icon && icon !== "git-commit") {
+							style.width = ICON_WIDTH
+							const paddingValue = "1px"
+							if (isFirst) {
+								style.paddingRight = paddingValue
+							} else if (isLast) {
+								style.paddingLeft = paddingValue
+							}
+							// Middle icons don't need padding as ICON_WIDTH handles it
+						}
+						return style
+					}
 
 					const renderIcon = (name: string) => (
 						<span className={`codicon codicon-${name}`} style={{ color }}></span>
@@ -159,10 +190,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ messages, onBlockClick, ena
 						<div
 							key={`${message.ts}-${index}`}
 							className="h-full flex-shrink-0 cursor-pointer flex items-center justify-center"
-							style={{
-								width: BLOCK_WIDTH,
-								backgroundColor: icon ? "transparent" : color,
-							}}
+							style={getIconStyle()}
 							onMouseEnter={(e) => handleMouseEnter(message, e)}
 							onMouseLeave={handleMouseLeave}
 							onClick={handleClick}>
