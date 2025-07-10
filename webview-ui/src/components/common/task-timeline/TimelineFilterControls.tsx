@@ -36,6 +36,7 @@ export const TimelineFilterControls: React.FC = () => {
 							flow: { say: "subtask_result" },
 							ask: { ask: "followup" },
 							info: { say: "text" },
+							reasoning: { say: "reasoning" },
 							error: { say: "api_req_started", text: "[ERROR]" },
 							checkpoint: { say: "checkpoint_saved" },
 							task_completion: { say: "completion_result" },

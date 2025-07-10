@@ -8,6 +8,7 @@ export type MessageGroup =
 	| "flow"
 	| "ask"
 	| "info"
+	| "reasoning"
 	| "error"
 	| "checkpoint"
 	| "task_completion"
@@ -19,6 +20,7 @@ export const ALL_MESSAGE_GROUPS: MessageGroup[] = [
 	"flow",
 	"ask",
 	"info",
+	"reasoning",
 	"error",
 	"checkpoint",
 	"task_completion",

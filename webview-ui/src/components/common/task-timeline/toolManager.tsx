@@ -294,7 +294,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 		getDescription: () => t("chat:response"),
 	},
 	reasoning: {
-		group: "info",
+		group: "reasoning",
 		color: COLOR.GRAY,
 		icon: "history",
 		getDescription: () => t("chat:reasoning.thinking"),

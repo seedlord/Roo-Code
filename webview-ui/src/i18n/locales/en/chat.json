@@ -338,6 +338,7 @@
 			"flow": "Flow",
 			"ask": "Ask",
 			"info": "Info",
+			"reasoning": "Thinking",
 			"error": "Error",
 			"checkpoint": "Checkpoints",
 			"task_completion": "Completed"
