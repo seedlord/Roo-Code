@@ -288,6 +288,7 @@ const messageMetadata: Record<string, MessageMetadata> = {
 	reasoning: {
 		group: "info",
 		color: COLOR.GRAY,
+		icon: "history",
 		getDescription: () => t("chat:reasoning.thinking"),
 	},
 	subtask_result: {
@@ -362,6 +363,16 @@ const messageMetadata: Record<string, MessageMetadata> = {
 
 export function getMessageMetadata(message: ClineMessage): MessageMetadata | null {
 	const tool = safeJsonParse<ClineSayTool>(message.text) ?? null
+
+	// Handle specific `say` types first to avoid being overridden by tool parsing
+	if (message.say === "codebase_search_result") {
+		const metadata = messageMetadata.codebase_search_result
+		return {
+			...metadata,
+			getDescription: () => metadata.getDescription(tool, message),
+		}
+	}
+
 	const key = tool?.tool || message.ask || message.say
 	if (!key) return null
 
