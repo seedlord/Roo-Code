@@ -34,7 +34,7 @@ export const TimelineFilterControls: React.FC = () => {
 							command: "terminal",
 							flow: "arrow-right",
 							ask: "question",
-							info: "info",
+							info: "roo",
 							reasoning: "history",
 							error: "error",
 							checkpoint: "git-commit",
@@ -63,33 +63,38 @@ export const TimelineFilterControls: React.FC = () => {
 									"opacity-40": !activeFilters.includes(group),
 								})}
 								onClick={() => handleCheckedChange(group)}>
-								{icon ? (
-									icon === "roo" ? (
+								<div className="w-4.5 h-4.5 flex items-center justify-center">
+									{icon ? (
+										icon === "roo" ? (
+											<div
+												className="w-full h-full"
+												style={{
+													backgroundColor: color,
+													WebkitMaskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
+													WebkitMaskRepeat: "no-repeat",
+													WebkitMaskSize: "contain",
+													maskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
+													maskRepeat: "no-repeat",
+													maskSize: "contain",
+													position: "relative",
+													top: "2px",
+												}}
+											/>
+										) : (
+											<span
+												className={`codicon codicon-${icon}`}
+												style={{ color, fontSize: "16px" }}
+											/>
+										)
+									) : (
 										<div
-											className="w-4.5 h-4.5"
+											className="w-2.5 h-3 rounded-sm"
 											style={{
 												backgroundColor: color,
-												WebkitMaskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
-												WebkitMaskRepeat: "no-repeat",
-												WebkitMaskSize: "contain",
-												maskImage: `url(${(window as any).IMAGES_BASE_URI + "/roo-logo.svg"})`,
-												maskRepeat: "no-repeat",
-												maskSize: "contain",
-												position: "relative",
-												top: "2px",
 											}}
 										/>
-									) : (
-										<span className={`codicon codicon-${icon}`} style={{ color }} />
-									)
-								) : (
-									<div
-										className="w-2.5 h-3 rounded-sm"
-										style={{
-											backgroundColor: color,
-										}}
-									/>
-								)}
+									)}
+								</div>
 								<span className="text-xs capitalize">{t(`chat:timeline.filterGroups.${group}`)}</span>
 							</div>
 						)
