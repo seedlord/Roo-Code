@@ -329,7 +329,7 @@
 			"command": "Command",
 			"flow": "Flow",
 			"ask": "Ask",
-			"info": "Info",
+			"info": "Roo/User",
 			"reasoning": "Thinking",
 			"error": "Error",
 			"checkpoint": "Checkpoints",
