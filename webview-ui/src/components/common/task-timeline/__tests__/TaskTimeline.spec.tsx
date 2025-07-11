@@ -21,6 +21,8 @@ describe("TaskTimeline", () => {
 			setActiveFilters: () => {},
 			hideTasksWithoutFilteredTypes: false,
 			setHideTasksWithoutFilteredTypes: () => {},
+			showCompletedTasks: true,
+			setShowCompletedTasks: () => {},
 		})
 		const { container } = render(<TaskTimeline messages={mockMessages} enableFilter={false} />)
 		const blocks = container.querySelectorAll("div.h-full.flex-shrink-0")
@@ -33,6 +35,8 @@ describe("TaskTimeline", () => {
 			setActiveFilters: () => {},
 			hideTasksWithoutFilteredTypes: false,
 			setHideTasksWithoutFilteredTypes: () => {},
+			showCompletedTasks: true,
+			setShowCompletedTasks: () => {},
 		})
 		const { container } = render(<TaskTimeline messages={mockMessages} enableFilter={true} />)
 		const blocks = container.querySelectorAll("div.h-full.flex-shrink-0")
@@ -45,6 +49,8 @@ describe("TaskTimeline", () => {
 			setActiveFilters: () => {},
 			hideTasksWithoutFilteredTypes: false,
 			setHideTasksWithoutFilteredTypes: () => {},
+			showCompletedTasks: true,
+			setShowCompletedTasks: () => {},
 		})
 		const { container } = render(<TaskTimeline messages={mockMessages} enableFilter={true} />)
 		const blocks = container.querySelectorAll("div.h-full.flex-shrink-0")
