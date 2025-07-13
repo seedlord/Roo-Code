@@ -196,6 +196,7 @@ export interface WebviewMessage {
 		| "checkRulesDirectoryResult"
 		| "saveCodeIndexSettingsAtomic"
 		| "requestCodeIndexSecretStatus"
+		| "updateAllSettings"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "account"
@@ -257,6 +258,7 @@ export interface WebviewMessage {
 		codebaseIndexOpenAiCompatibleApiKey?: string
 		codebaseIndexGeminiApiKey?: string
 	}
+	settings?: Record<string, any>
 }
 
 export const checkoutDiffPayloadSchema = z.object({

@@ -77,6 +77,8 @@ const baseProviderSettingsSchema = z.object({
 	reasoningEffort: reasoningEffortsSchema.optional(),
 	modelMaxTokens: z.number().optional(),
 	modelMaxThinkingTokens: z.number().optional(),
+	modelTemperature: z.number().nullish(),
+	enableModelTemperature: z.boolean().optional(),
 	modelSettings: z.record(modelSpecificSettingsSchema).optional(),
 	providerModelSelections: z.record(providerNamesSchema, z.string()).optional(),
 })

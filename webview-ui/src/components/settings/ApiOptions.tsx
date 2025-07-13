@@ -294,6 +294,9 @@ const ApiOptions = ({
 					config.default,
 				)
 			}
+			setApiConfigurationField("modelMaxTokens", undefined)
+			setApiConfigurationField("modelMaxThinkingTokens", undefined)
+			setApiConfigurationField("enableReasoningEffort", undefined)
 		},
 		[setApiConfigurationField, apiConfiguration],
 	)
@@ -500,7 +503,9 @@ const ApiOptions = ({
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
 								setApiConfigurationField("apiModelId", value)
-
+								setApiConfigurationField("modelMaxTokens", undefined)
+								setApiConfigurationField("modelMaxThinkingTokens", undefined)
+								setApiConfigurationField("enableReasoningEffort", undefined)
 								// Clear custom ARN if not using custom ARN option.
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
 									setApiConfigurationField("awsCustomArn", "")

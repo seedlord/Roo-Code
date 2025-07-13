@@ -72,10 +72,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 	const localMaxOutputTokens = localApiConfiguration?.modelMaxTokens
 	const localThinkingBudget = localApiConfiguration?.modelMaxThinkingTokens
 	const localEnableReasoning = localApiConfiguration?.enableReasoningEffort
-	const localModelTemperature =
-		localApiConfiguration?.modelSettings?.[`${localApiProvider}:${localSelectedModelId}`]?.modelTemperature
-	const localEnableModelTemperature =
-		localApiConfiguration?.modelSettings?.[`${localApiProvider}:${localSelectedModelId}`]?.enableModelTemperature
+	const localModelTemperature = localApiConfiguration?.modelTemperature
+	const localEnableModelTemperature = localApiConfiguration?.enableModelTemperature
 
 	const setLocalApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
@@ -113,8 +111,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 					(selectedModelInfo
 						? !!(selectedModelInfo.supportsReasoningBudget || selectedModelInfo.requiredReasoningBudget)
 						: false),
-				modelTemperature: modelSpecificSettings?.modelTemperature,
-				enableModelTemperature: modelSpecificSettings?.enableModelTemperature,
+				modelTemperature: modelSpecificSettings?.modelTemperature ?? 1,
+				enableModelTemperature: modelSpecificSettings?.enableModelTemperature ?? false,
 			}
 			setLocalApiConfiguration(initialLocalConfig)
 			setHasChanges(false)
@@ -146,14 +144,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			modelMaxTokens: localMaxOutputTokens,
 			modelMaxThinkingTokens: localThinkingBudget,
 			enableReasoningEffort: localEnableReasoning,
-		}
-
-		if (localEnableModelTemperature) {
-			newModelSettings.modelTemperature = localModelTemperature
-			newModelSettings.enableModelTemperature = true
-		} else {
-			delete newModelSettings.modelTemperature
-			delete newModelSettings.enableModelTemperature
+			modelTemperature: localModelTemperature,
+			enableModelTemperature: localEnableModelTemperature,
 		}
 
 		const configToSave: ProviderSettings = {
@@ -167,6 +159,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		delete (configToSave as Partial<ProviderSettings>).modelMaxTokens
 		delete (configToSave as Partial<ProviderSettings>).modelMaxThinkingTokens
 		delete (configToSave as Partial<ProviderSettings>).enableReasoningEffort
+		delete (configToSave as Partial<ProviderSettings>).modelTemperature
+		delete (configToSave as Partial<ProviderSettings>).enableModelTemperature
 
 		setIsAwaitingConfigurationUpdate(true)
 		vscode.postMessage({
@@ -222,8 +216,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 				if (!prevState) return undefined
 				const modelSettingsKey = getModelSettingsKey(localApiProvider, newModelId)
 				const savedModelSettings = apiConfiguration?.modelSettings?.[modelSettingsKey]
-				const newModelTemperature = savedModelSettings?.modelTemperature
-				const newEnableModelTemperature = savedModelSettings?.enableModelTemperature
+				const newModelTemperature = savedModelSettings?.modelTemperature ?? 1
+				const newEnableModelTemperature = savedModelSettings?.enableModelTemperature ?? false
 				return {
 					...prevState,
 					apiModelId: newModelId,
@@ -293,8 +287,8 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 				newThinkingBudget =
 					savedModelSettings?.modelMaxThinkingTokens ?? DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
 				newEnableReasoning = savedModelSettings?.enableReasoningEffort ?? !!modelInfo.supportsReasoningBudget
-				newModelTemperature = savedModelSettings?.modelTemperature
-				newEnableModelTemperature = savedModelSettings?.enableModelTemperature
+				newModelTemperature = savedModelSettings?.modelTemperature ?? 1
+				newEnableModelTemperature = savedModelSettings?.enableModelTemperature ?? false
 			}
 
 			setLocalApiConfiguration((prevState) => {
@@ -339,47 +333,21 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		setHasChanges(false)
 	}, [apiConfiguration])
 
-	const handleTemperatureChange = useCallback(
-		(value: number | undefined | null) => {
-			if (localApiProvider && localSelectedModelId) {
-				const modelSettingsKey = getModelSettingsKey(localApiProvider, localSelectedModelId)
-				setLocalApiConfiguration((prevState) => {
-					if (!prevState) return undefined
-					const newModelSettings = {
-						...(prevState.modelSettings ?? {}),
-						[modelSettingsKey]: {
-							...(prevState.modelSettings?.[modelSettingsKey] ?? {}),
-							modelTemperature: value,
-						},
-					}
-					return { ...prevState, modelSettings: newModelSettings }
-				})
-				setHasChanges(true)
-			}
-		},
-		[localApiProvider, localSelectedModelId],
-	)
+	const handleTemperatureChange = useCallback((value: number | undefined | null) => {
+		setLocalApiConfiguration((prevState) => {
+			if (!prevState || prevState.modelTemperature === value) return prevState
+			setHasChanges(true)
+			return { ...prevState, modelTemperature: value }
+		})
+	}, [])
 
-	const handleCustomTemperatureChange = useCallback(
-		(enabled: boolean) => {
-			if (localApiProvider && localSelectedModelId) {
-				const modelSettingsKey = getModelSettingsKey(localApiProvider, localSelectedModelId)
-				setLocalApiConfiguration((prevState) => {
-					if (!prevState) return undefined
-					const newModelSettings = {
-						...(prevState.modelSettings ?? {}),
-						[modelSettingsKey]: {
-							...(prevState.modelSettings?.[modelSettingsKey] ?? {}),
-							enableModelTemperature: enabled,
-						},
-					}
-					return { ...prevState, modelSettings: newModelSettings }
-				})
-				setHasChanges(true)
-			}
-		},
-		[localApiProvider, localSelectedModelId],
-	)
+	const handleCustomTemperatureChange = useCallback((enabled: boolean) => {
+		setLocalApiConfiguration((prevState) => {
+			if (!prevState || prevState.enableModelTemperature === enabled) return prevState
+			setHasChanges(true)
+			return { ...prevState, enableModelTemperature: enabled }
+		})
+	}, [])
 
 	return {
 		localApiConfiguration,

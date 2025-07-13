@@ -6,7 +6,9 @@ import { type ProviderSettings, type ModelInfo, type ReasoningEffort, reasoningE
 import { DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS, DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS } from "@roo/api"
 
 import { useAppTranslation } from "@src/i18n/TranslationContext"
+import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
 import { Slider, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@src/components/ui"
+import { getModelSettingsKey } from "../chat/hooks/useModelSettings"
 
 interface ThinkingBudgetProps {
 	apiConfiguration: ProviderSettings
@@ -16,13 +18,17 @@ interface ThinkingBudgetProps {
 
 export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, modelInfo }: ThinkingBudgetProps) => {
 	const { t } = useAppTranslation()
+	const { provider: selectedProvider } = useSelectedModel(apiConfiguration)
 
 	const isReasoningBudgetSupported = !!modelInfo && modelInfo.supportsReasoningBudget
 	const isReasoningBudgetRequired = !!modelInfo && modelInfo.requiredReasoningBudget
 	const isReasoningEffortSupported = !!modelInfo && modelInfo.supportsReasoningEffort
 
 	const modelId = apiConfiguration.apiModelId
-	const modelSettings = modelId ? apiConfiguration.modelSettings?.[modelId] : undefined
+	const modelSettings =
+		modelId && selectedProvider
+			? apiConfiguration.modelSettings?.[getModelSettingsKey(selectedProvider, modelId)]
+			: undefined
 
 	const enableReasoningEffort = modelSettings?.enableReasoningEffort ?? apiConfiguration.enableReasoningEffort
 	const customMaxOutputTokens =

@@ -2201,5 +2201,18 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "updateAllSettings": {
+			const { settings, apiConfiguration } = message
+			if (settings) {
+				for (const key in settings) {
+					await updateGlobalState(key as keyof GlobalState, settings[key])
+				}
+			}
+			if (apiConfiguration) {
+				await provider.upsertProviderProfile(settings?.currentApiConfigName, apiConfiguration)
+			}
+			await provider.postStateToWebview()
+			break
+		}
 	}
 }
