@@ -2204,12 +2204,10 @@ export const webviewMessageHandler = async (
 		case "updateAllSettings": {
 			const { settings, apiConfiguration } = message
 			if (settings) {
-				for (const key in settings) {
-					await updateGlobalState(key as keyof GlobalState, settings[key])
-				}
+				await provider.batchUpdateGlobalState(settings)
 			}
-			if (apiConfiguration) {
-				await provider.upsertProviderProfile(settings?.currentApiConfigName, apiConfiguration)
+			if (apiConfiguration && message.settings?.currentApiConfigName) {
+				await provider.upsertProviderProfile(message.settings.currentApiConfigName, apiConfiguration)
 			}
 			await provider.postStateToWebview()
 			break

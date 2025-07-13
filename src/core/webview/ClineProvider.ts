@@ -1741,6 +1741,12 @@ export class ClineProvider
 		await this.contextProxy.setValue(key, value)
 	}
 
+	async batchUpdateGlobalState(updates: Partial<GlobalState>) {
+		const currentValues = this.contextProxy.getValues()
+		const newValues = { ...currentValues, ...updates }
+		await this.contextProxy.setValues(newValues)
+	}
+
 	// @deprecated - Use `ContextProxy#getValue` instead.
 	private getGlobalState<K extends keyof GlobalState>(key: K) {
 		return this.contextProxy.getValue(key)
