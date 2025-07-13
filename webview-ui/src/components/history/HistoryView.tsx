@@ -231,13 +231,22 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 
 	const toggleTaskExpansion = useCallback(
 		async (taskId: string) => {
-			const isExpanding = !expandedTaskIds[taskId]
-			setExpandedTaskIds((prev) => ({
-				...prev,
-				[taskId]: isExpanding,
-			}))
+			let isNowExpanding: boolean
+			if (areAllExpanded) {
+				setAreAllExpanded(false)
+				const newExpandedState = Object.fromEntries(filteredTasks.map((task) => [task.id, task.id !== taskId]))
+				setExpandedTaskIds(newExpandedState)
+				isNowExpanding = false // We just collapsed one item
+			} else {
+				const currentlyExpanded = expandedTaskIds[taskId] ?? false
+				setExpandedTaskIds((prev) => ({
+					...prev,
+					[taskId]: !currentlyExpanded,
+				}))
+				isNowExpanding = !currentlyExpanded
+			}
 
-			if (isExpanding && !timelineData[taskId]) {
+			if (isNowExpanding && !timelineData[taskId]) {
 				const cached = await getCachedTimeline(taskId)
 				if (cached) {
 					timelineDataBuffer.current[taskId] = cached
@@ -251,23 +260,33 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				}
 			}
 		},
-		[expandedTaskIds, timelineData],
+		[areAllExpanded, expandedTaskIds, filteredTasks, timelineData],
 	)
 
-	const toggleAllExpanded = () => {
-		const newExpandedState = !areAllExpanded
-		setAreAllExpanded(newExpandedState)
+	// Effect to batch-fetch all timelines when expanding all
+	useEffect(() => {
+		if (!areAllExpanded) {
+			return // Do nothing if we are not in 'expand all' mode
+		}
 
-		if (newExpandedState) {
-			// Proactively fetch all missing timelines
-			const fetchAllMissing = async () => {
-				const idsToFetch = filteredTasks
-					.map((task) => task.id)
-					.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
+		let isCancelled = false
+		const BATCH_SIZE = 20
+		let currentIndex = 0
 
-				if (idsToFetch.length === 0) return
+		const idsToFetch = filteredTasks
+			.map((task) => task.id)
+			.filter((id) => !timelineData[id] && !requestedDetailsRef.current.has(id))
 
-				const cachedData = await getMultipleCachedTimelines(idsToFetch)
+		const processBatch = async () => {
+			if (isCancelled || currentIndex >= idsToFetch.length) {
+				return
+			}
+
+			const batch = idsToFetch.slice(currentIndex, currentIndex + BATCH_SIZE)
+			currentIndex += BATCH_SIZE
+
+			if (batch.length > 0) {
+				const cachedData = await getMultipleCachedTimelines(batch)
 				if (Object.keys(cachedData).length > 0) {
 					Object.assign(timelineDataBuffer.current, cachedData)
 					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
@@ -277,14 +296,29 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 					}, 50)
 				}
 
-				const remainingIds = idsToFetch.filter((id) => !cachedData[id])
+				const remainingIds = batch.filter((id) => !cachedData[id])
 				if (remainingIds.length > 0) {
 					remainingIds.forEach((id) => requestedDetailsRef.current.add(id))
 					vscode.postMessage({ type: "getTaskDetailsBatch", taskIds: remainingIds })
 				}
 			}
-			fetchAllMissing()
+
+			if (!isCancelled) {
+				setTimeout(processBatch, 100) // Process next batch after a short delay
+			}
 		}
+
+		processBatch()
+
+		return () => {
+			isCancelled = true // Cancel processing if mode changes or component unmounts
+		}
+	}, [areAllExpanded, filteredTasks, timelineData]) // Rerun if the filter changes
+
+	const toggleAllExpanded = () => {
+		const newExpandedState = !areAllExpanded
+		setAreAllExpanded(newExpandedState)
+		setExpandedTaskIds({}) // Clear individual expansion states
 	}
 
 	// Toggle selection mode
