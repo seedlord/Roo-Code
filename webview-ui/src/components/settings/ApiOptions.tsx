@@ -504,8 +504,8 @@ const ApiOptions = ({
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
 								setApiConfigurationField("apiModelId", value)
-								setApiConfigurationField("modelMaxTokens", undefined)
-								setApiConfigurationField("modelMaxThinkingTokens", undefined)
+								// setApiConfigurationField("modelMaxTokens", undefined)
+								// setApiConfigurationField("modelMaxThinkingTokens", undefined)
 								// Don't reset, let the component logic handle the default
 								// setApiConfigurationField("enableReasoningEffort", undefined)
 								// Clear custom ARN if not using custom ARN option.
