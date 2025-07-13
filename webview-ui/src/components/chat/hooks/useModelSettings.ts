@@ -253,7 +253,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			const newProviderModels = isRouterName(newProvider)
 				? routerModels?.[newProvider]
 				: modelSources[newProvider as ProviderName]
-			const lastUsedModelId = localApiConfiguration?.providerModelSelections?.[newProvider]
+			const lastUsedModelId = apiConfiguration?.providerModelSelections?.[newProvider]
 			let newModelId: string | undefined
 
 			if (
@@ -316,7 +316,6 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		},
 		[
 			routerModels,
-			localApiConfiguration,
 			apiConfiguration,
 			localMaxOutputTokens,
 			localThinkingBudget,

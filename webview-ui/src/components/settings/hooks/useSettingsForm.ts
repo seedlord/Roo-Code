@@ -74,12 +74,12 @@ export const useSettingsForm = (
 	}, [])
 
 	const handleModelChange = useCallback(
-		(newModelId: string) => {
-			if (!selectedProvider) return
+		(newModelId: string, provider: ProviderName | RouterName) => {
+			if (!provider) return
 
-			const modelSource = isRouterName(selectedProvider)
-				? routerModels?.[selectedProvider]
-				: modelSources[selectedProvider as ProviderName]
+			const modelSource = isRouterName(provider)
+				? routerModels?.[provider]
+				: modelSources[provider as ProviderName]
 			const modelInfo =
 				modelSource && newModelId in modelSource
 					? (modelSource as Record<string, ModelInfo>)[newModelId]
@@ -92,7 +92,7 @@ export const useSettingsForm = (
 			let newEnableModelTemperature = undefined
 
 			if (modelInfo) {
-				const modelSettingsKey = getModelSettingsKey(selectedProvider, newModelId)
+				const modelSettingsKey = getModelSettingsKey(provider, newModelId)
 				const savedModelSettings = pristineApiConfiguration?.modelSettings?.[modelSettingsKey]
 				newMaxOutputTokens =
 					savedModelSettings?.modelMaxTokens ??
@@ -109,13 +109,17 @@ export const useSettingsForm = (
 			}
 
 			setApiConfigurationField("apiModelId", newModelId)
+			setApiConfigurationField("providerModelSelections", {
+				...draftApiConfiguration.providerModelSelections,
+				[provider]: newModelId,
+			})
 			setApiConfigurationField("modelMaxTokens", newMaxOutputTokens)
 			setApiConfigurationField("modelMaxThinkingTokens", newThinkingBudget)
 			setApiConfigurationField("enableReasoningEffort", newEnableReasoning)
 			setApiConfigurationField("modelTemperature", newModelTemperature)
 			setApiConfigurationField("enableModelTemperature", newEnableModelTemperature)
 		},
-		[selectedProvider, routerModels, pristineApiConfiguration, setApiConfigurationField],
+		[routerModels, pristineApiConfiguration, setApiConfigurationField, draftApiConfiguration],
 	)
 
 	const onProviderChange = useCallback(
@@ -138,7 +142,7 @@ export const useSettingsForm = (
 			}
 			setApiConfigurationField("apiProvider", newProvider)
 			if (newModelId) {
-				handleModelChange(newModelId)
+				handleModelChange(newModelId, newProvider)
 			} else {
 				// Reset model specific fields if no model is selected for the new provider
 				setApiConfigurationField("apiModelId", undefined)

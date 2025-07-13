@@ -406,7 +406,7 @@ const ApiOptions = ({
 						<Select
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
-								handleModelChange(value)
+								handleModelChange(value, selectedProvider)
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
 									setApiConfigurationField("awsCustomArn", "")
 								}
