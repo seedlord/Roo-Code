@@ -95,6 +95,7 @@ const ApiOptions = ({
 		routerModels,
 		refetchRouterModels,
 		onProviderChange,
+		handleModelChange,
 	} = useSettingsForm(apiConfiguration, setApiConfigurationField)
 
 	const [customHeaders, setCustomHeaders] = useState<[string, string][]>(() => {
@@ -405,7 +406,7 @@ const ApiOptions = ({
 						<Select
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
-								setApiConfigurationField("apiModelId", value)
+								handleModelChange(value)
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
 									setApiConfigurationField("awsCustomArn", "")
 								}

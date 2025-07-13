@@ -149,8 +149,11 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		}
 
 		const configToSave: ProviderSettings = {
-			...localApiConfiguration,
-			apiModelId: localSelectedModelId,
+			...(localApiConfiguration as ProviderSettings),
+			providerModelSelections: {
+				...apiConfiguration?.providerModelSelections,
+				[localApiProvider]: localSelectedModelId,
+			},
 			modelSettings: {
 				...localApiConfiguration?.modelSettings,
 				[modelSettingsKey]: newModelSettings,
@@ -179,6 +182,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		localEnableModelTemperature,
 		currentApiConfigName,
 		setIsAwaitingConfigurationUpdate,
+		apiConfiguration,
 	])
 
 	const handleModelChange = useCallback(

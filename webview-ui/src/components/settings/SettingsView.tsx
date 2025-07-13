@@ -244,12 +244,18 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					}
 
 					setChangeDetected(true)
+					const newApiConfiguration = {
+						...prevState.apiConfiguration,
+						modelSettings: updatedModelSettings,
+					}
+					// Also update the top-level convenience properties
+					if (modelId === prevState.apiConfiguration?.apiModelId) {
+						;(newApiConfiguration as any)[field] = value
+					}
+
 					return {
 						...prevState,
-						apiConfiguration: {
-							...prevState.apiConfiguration,
-							modelSettings: updatedModelSettings,
-						},
+						apiConfiguration: newApiConfiguration,
 					}
 				} else {
 					if (prevState.apiConfiguration?.[field] === value) {
@@ -368,10 +374,27 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				telemetrySetting,
 				profileThresholds,
 			}
+			const { providerModelSelections, ...restApiConfig } = apiConfiguration
+			const currentProvider = apiConfiguration.apiProvider
+			const currentModel = apiConfiguration.apiModelId
+
+			const cleanedProviderModelSelections =
+				providerModelSelections && currentProvider && currentModel
+					? {
+							...(extensionState.apiConfiguration?.providerModelSelections ?? {}),
+							[currentProvider]: currentModel,
+						}
+					: providerModelSelections
+
+			const cleanedApiConfiguration = {
+				...restApiConfig,
+				providerModelSelections: cleanedProviderModelSelections,
+			}
+
 			vscode.postMessage({
 				type: "updateAllSettings",
 				settings: settingsToUpdate,
-				apiConfiguration,
+				apiConfiguration: cleanedApiConfiguration,
 			})
 			setChangeDetected(false)
 		}
