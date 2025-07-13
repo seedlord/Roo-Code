@@ -30,7 +30,9 @@ export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, mod
 			? apiConfiguration.modelSettings?.[getModelSettingsKey(selectedProvider, modelId)]
 			: undefined
 
-	const enableReasoningEffort = modelSettings?.enableReasoningEffort ?? apiConfiguration.enableReasoningEffort
+	const enableReasoningEffort =
+		modelSettings?.enableReasoningEffort ??
+		(modelInfo ? !!(modelInfo.supportsReasoningBudget || modelInfo.requiredReasoningBudget) : false)
 	const customMaxOutputTokens =
 		modelSettings?.modelMaxTokens ?? apiConfiguration.modelMaxTokens ?? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
 	const customMaxThinkingTokens =

@@ -296,7 +296,8 @@ const ApiOptions = ({
 			}
 			setApiConfigurationField("modelMaxTokens", undefined)
 			setApiConfigurationField("modelMaxThinkingTokens", undefined)
-			setApiConfigurationField("enableReasoningEffort", undefined)
+			// Don't reset, let the component logic handle the default
+			// setApiConfigurationField("enableReasoningEffort", undefined)
 		},
 		[setApiConfigurationField, apiConfiguration],
 	)
@@ -505,7 +506,8 @@ const ApiOptions = ({
 								setApiConfigurationField("apiModelId", value)
 								setApiConfigurationField("modelMaxTokens", undefined)
 								setApiConfigurationField("modelMaxThinkingTokens", undefined)
-								setApiConfigurationField("enableReasoningEffort", undefined)
+								// Don't reset, let the component logic handle the default
+								// setApiConfigurationField("enableReasoningEffort", undefined)
 								// Clear custom ARN if not using custom ARN option.
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
 									setApiConfigurationField("awsCustomArn", "")
@@ -570,7 +572,7 @@ const ApiOptions = ({
 						}
 						isCustomEnabled={
 							apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]
-								?.enableModelTemperature
+								?.enableModelTemperature ?? false
 						}
 						onCustomEnabledChange={(enabled) => {
 							if (selectedProvider && selectedModelId) {
