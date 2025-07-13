@@ -61,8 +61,6 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 	const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({})
 	const [timelineData, setTimelineData] = useState<Record<string, ClineMessage[]>>({})
 	const requestedDetailsRef = useRef(new Set<string>())
-	const timelineDataBuffer = useRef<Record<string, ClineMessage[]>>({})
-	const timelineUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
 	const filteredTasks = useMemo(() => {
 		if (!hideTasksWithoutFilteredTypes) {
@@ -88,12 +86,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (allTaskIds.length > 0) {
 				const cachedData = await getMultipleCachedTimelines(allTaskIds)
 				if (Object.keys(cachedData).length > 0) {
-					Object.assign(timelineDataBuffer.current, cachedData)
-					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
-					timelineUpdateTimeoutRef.current = setTimeout(() => {
-						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
-						timelineDataBuffer.current = {}
-					}, 50)
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
 				}
 			}
 		}
@@ -131,7 +124,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				if (potentialIdsToFetch.length > 0) {
 					const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
 					if (Object.keys(cachedData).length > 0) {
-						Object.assign(timelineDataBuffer.current, cachedData)
+						setTimelineData((prev) => ({ ...prev, ...cachedData }))
 					}
 
 					const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
@@ -161,7 +154,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (potentialIdsToFetch.length > 0) {
 				const cachedData = await getMultipleCachedTimelines(potentialIdsToFetch)
 				if (Object.keys(cachedData).length > 0) {
-					Object.assign(timelineDataBuffer.current, cachedData)
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
 				}
 
 				const idsToFetch = potentialIdsToFetch.filter((id) => !cachedData[id])
@@ -200,31 +193,20 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			}
 
 			if (dataToProcess) {
-				let updated = false
+				const newTimelineData: Record<string, ClineMessage[]> = {}
 				for (const taskId in dataToProcess) {
 					if (Object.prototype.hasOwnProperty.call(dataToProcess, taskId)) {
-						timelineDataBuffer.current[taskId] = dataToProcess[taskId].history
-						updated = true
+						newTimelineData[taskId] = dataToProcess[taskId].history
 					}
 				}
-
-				if (updated) {
-					if (timelineUpdateTimeoutRef.current) {
-						clearTimeout(timelineUpdateTimeoutRef.current)
-					}
-					timelineUpdateTimeoutRef.current = setTimeout(() => {
-						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
-						timelineDataBuffer.current = {}
-					}, 50) // Debounce updates
+				if (Object.keys(newTimelineData).length > 0) {
+					setTimelineData((prev) => ({ ...prev, ...newTimelineData }))
 				}
 			}
 		}
 
 		window.addEventListener("message", handleMessage)
 		return () => {
-			if (timelineUpdateTimeoutRef.current) {
-				clearTimeout(timelineUpdateTimeoutRef.current)
-			}
 			window.removeEventListener("message", handleMessage)
 		}
 	}, [setTimelineData])
@@ -249,12 +231,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (isNowExpanding && !timelineData[taskId]) {
 				const cached = await getCachedTimeline(taskId)
 				if (cached) {
-					timelineDataBuffer.current[taskId] = cached
-					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
-					timelineUpdateTimeoutRef.current = setTimeout(() => {
-						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
-						timelineDataBuffer.current = {}
-					}, 50)
+					setTimelineData((prev) => ({ ...prev, [taskId]: cached }))
 				} else {
 					vscode.postMessage({ type: "getTaskDetails", text: taskId })
 				}
@@ -288,12 +265,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			if (batch.length > 0) {
 				const cachedData = await getMultipleCachedTimelines(batch)
 				if (Object.keys(cachedData).length > 0) {
-					Object.assign(timelineDataBuffer.current, cachedData)
-					if (timelineUpdateTimeoutRef.current) clearTimeout(timelineUpdateTimeoutRef.current)
-					timelineUpdateTimeoutRef.current = setTimeout(() => {
-						setTimelineData((prev) => ({ ...prev, ...timelineDataBuffer.current }))
-						timelineDataBuffer.current = {}
-					}, 50)
+					setTimelineData((prev) => ({ ...prev, ...cachedData }))
 				}
 
 				const remainingIds = batch.filter((id) => !cachedData[id])

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { Fzf } from "fzf"
 
-import { highlightFzfMatch } from "@/utils/highlight"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 
 type SortOption = "newest" | "oldest" | "mostExpensive" | "mostTokens" | "mostRelevant"
@@ -42,19 +41,10 @@ export const useTaskSearch = () => {
 
 		if (searchQuery) {
 			const searchResults = fzf.find(searchQuery)
-			results = searchResults.map((result) => {
-				const positions = Array.from(result.positions)
-				const taskEndIndex = result.item.task.length
-
-				return {
-					...result.item,
-					highlight: highlightFzfMatch(
-						result.item.task,
-						positions.filter((p) => p < taskEndIndex),
-					),
-					workspace: result.item.workspace,
-				}
-			})
+			results = searchResults.map((result) => ({
+				...result.item,
+				searchQueryForHighlight: searchQuery,
+			}))
 		}
 
 		// Then sort the results

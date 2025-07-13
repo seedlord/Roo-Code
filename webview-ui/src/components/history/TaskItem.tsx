@@ -3,6 +3,7 @@ import type { HistoryItem, ClineMessage } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { cn } from "@src/lib/utils"
+import { SafeHighlight } from "../common/SafeHighlight"
 import { formatLargeNumber } from "@src/utils/format"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { CloudDownload, CloudUpload } from "lucide-react"
@@ -18,7 +19,7 @@ import { Mention } from "../chat/Mention"
 import { LRUCache } from "lru-cache"
 
 interface DisplayHistoryItem extends HistoryItem {
-	highlight?: string
+	searchQueryForHighlight?: string
 }
 
 interface TaskItemProps {
@@ -143,8 +144,8 @@ const TaskItem = ({
 								{!currentExpandedState && (
 									<span className="font-normal">
 										{" "}
-										{item.highlight ? (
-											<span dangerouslySetInnerHTML={{ __html: item.highlight }} />
+										{item.searchQueryForHighlight ? (
+											<SafeHighlight text={item.task} highlight={item.searchQueryForHighlight} />
 										) : (
 											<Mention text={item.task} />
 										)}
@@ -173,8 +174,11 @@ const TaskItem = ({
 											className="text-vscode-font-size overflow-y-auto break-words break-anywhere relative"
 											data-testid="task-content-expanded">
 											<div className="overflow-auto max-h-80 whitespace-pre-wrap break-words break-anywhere">
-												{item.highlight ? (
-													<div dangerouslySetInnerHTML={{ __html: item.highlight }} />
+												{item.searchQueryForHighlight ? (
+													<SafeHighlight
+														text={item.task}
+														highlight={item.searchQueryForHighlight}
+													/>
 												) : (
 													<Mention text={item.task} />
 												)}
