@@ -301,8 +301,10 @@ describe("SettingsView - Sound Settings", () => {
 
 		expect(vscode.postMessage).toHaveBeenCalledWith(
 			expect.objectContaining({
-				type: "ttsEnabled",
-				bool: true,
+				type: "updateAllSettings",
+				settings: expect.objectContaining({
+					ttsEnabled: true,
+				}),
 			}),
 		)
 	})
@@ -326,8 +328,10 @@ describe("SettingsView - Sound Settings", () => {
 
 		expect(vscode.postMessage).toHaveBeenCalledWith(
 			expect.objectContaining({
-				type: "soundEnabled",
-				bool: true,
+				type: "updateAllSettings",
+				settings: expect.objectContaining({
+					soundEnabled: true,
+				}),
 			}),
 		)
 	})
@@ -386,10 +390,14 @@ describe("SettingsView - Sound Settings", () => {
 		fireEvent.click(saveButton)
 
 		// Verify message sent to VSCode
-		expect(vscode.postMessage).toHaveBeenCalledWith({
-			type: "ttsSpeed",
-			value: 0.75,
-		})
+		expect(vscode.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "updateAllSettings",
+				settings: expect.objectContaining({
+					ttsSpeed: 0.75,
+				}),
+			}),
+		)
 	})
 
 	it("updates volume and sends message to VSCode when slider changes", () => {
@@ -412,10 +420,14 @@ describe("SettingsView - Sound Settings", () => {
 		fireEvent.click(saveButtons[0])
 
 		// Verify message sent to VSCode
-		expect(vscode.postMessage).toHaveBeenCalledWith({
-			type: "soundVolume",
-			value: 0.75,
-		})
+		expect(vscode.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "updateAllSettings",
+				settings: expect.objectContaining({
+					soundVolume: 0.75,
+				}),
+			}),
+		)
 	})
 })
 
