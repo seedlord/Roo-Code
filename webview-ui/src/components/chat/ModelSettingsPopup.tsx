@@ -250,8 +250,8 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 									</>
 								)}
 								<TemperatureControl
-									value={localModelTemperature}
-									isCustomEnabled={localEnableModelTemperature}
+									value={localModelTemperature ?? 1}
+									isCustomEnabled={localEnableModelTemperature ?? false}
 									onCustomEnabledChange={handleCustomTemperatureChange}
 									onChange={handleTemperatureChange}
 									maxValue={2}

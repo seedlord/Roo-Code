@@ -1,16 +1,14 @@
 import { VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
-import { useEffect, useRef, useState } from "react"
 import { useAppTranslation } from "@/i18n/TranslationContext"
-import { useDebounce } from "react-use"
 
 import { Slider } from "@/components/ui"
 
 interface TemperatureControlProps {
-	value: number | undefined | null
-	onChange: (value: number | undefined | null) => void
+	value: number
+	onChange: (value: number) => void
 	maxValue?: number
-	isCustomEnabled?: boolean
-	onCustomEnabledChange?: (enabled: boolean) => void
+	isCustomEnabled: boolean
+	onCustomEnabledChange: (enabled: boolean) => void
 	disabled?: boolean
 }
 
@@ -23,51 +21,19 @@ export const TemperatureControl = ({
 	disabled,
 }: TemperatureControlProps) => {
 	const { t } = useAppTranslation()
-	const [isCustomTemperature, setIsCustomTemperature] = useState(isCustomEnabled ?? value !== undefined)
-	const [inputValue, setInputValue] = useState(value)
-	const hasInteracted = useRef(false)
-
-	useDebounce(
-		() => {
-			if (hasInteracted.current) {
-				onChange(inputValue)
-			}
-		},
-		50,
-		[onChange, inputValue],
-	)
-
-	useEffect(() => {
-		const hasCustomTemperature = isCustomEnabled ?? (value !== undefined && value !== null)
-		setIsCustomTemperature(hasCustomTemperature)
-		setInputValue(value)
-		hasInteracted.current = false
-	}, [value, isCustomEnabled])
 
 	const handleCheckedChange = (e: any) => {
-		hasInteracted.current = true
-		const isChecked = e.target.checked
-		setIsCustomTemperature(isChecked)
-		if (onCustomEnabledChange) {
-			onCustomEnabledChange(isChecked)
-		}
-
-		if (!isChecked) {
-			setInputValue(null)
-		} else {
-			setInputValue(value ?? 0)
-		}
+		onCustomEnabledChange(e.target.checked)
 	}
 
 	const handleSliderChange = (newValue: number[]) => {
-		hasInteracted.current = true
-		setInputValue(newValue[0])
+		onChange(newValue[0])
 	}
 
 	return (
 		<>
 			<div>
-				<VSCodeCheckbox checked={isCustomTemperature} onChange={handleCheckedChange} disabled={disabled}>
+				<VSCodeCheckbox checked={isCustomEnabled} onChange={handleCheckedChange} disabled={disabled}>
 					<label className="block font-medium mb-1">{t("settings:temperature.useCustom")}</label>
 				</VSCodeCheckbox>
 				<div className="text-sm text-vscode-descriptionForeground mt-1">
@@ -75,7 +41,7 @@ export const TemperatureControl = ({
 				</div>
 			</div>
 
-			{isCustomTemperature && (
+			{isCustomEnabled && (
 				<div className="flex flex-col gap-3 pl-3 border-l-2 border-vscode-button-background">
 					<div>
 						<div className="flex items-center gap-2">
@@ -83,11 +49,11 @@ export const TemperatureControl = ({
 								min={0}
 								max={maxValue}
 								step={0.01}
-								value={[inputValue ?? 0]}
+								value={[value]}
 								onValueChange={handleSliderChange}
 								disabled={disabled}
 							/>
-							<span className="w-10">{inputValue}</span>
+							<span className="w-10">{value}</span>
 						</div>
 						<div className="text-vscode-descriptionForeground text-sm mt-1">
 							{t("settings:temperature.rangeDescription")}

@@ -221,6 +221,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					"modelMaxTokens",
 					"modelMaxThinkingTokens",
 					"enableReasoningEffort",
+					"modelTemperature",
+					"enableModelTemperature",
 				]
 
 				if (provider && modelId && modelSpecificFields.includes(field)) {

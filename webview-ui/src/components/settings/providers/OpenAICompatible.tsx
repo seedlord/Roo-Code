@@ -6,7 +6,6 @@ import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
 import {
 	type ProviderSettings,
 	type ModelInfo,
-	type ReasoningEffort,
 	type OrganizationAllowList,
 	azureOpenAiDefaultApiVersion,
 	openAiModelInfoSaneDefaults,
@@ -260,24 +259,55 @@ export const OpenAICompatible = ({
 				</Checkbox>
 				{!!apiConfiguration.enableReasoningEffort && (
 					<ThinkingBudget
-						apiConfiguration={{
-							...apiConfiguration,
-							reasoningEffort: apiConfiguration.openAiCustomModelInfo?.reasoningEffort,
+						enableReasoningEffort={apiConfiguration.enableReasoningEffort}
+						reasoningEffort={apiConfiguration.openAiCustomModelInfo?.reasoningEffort}
+						customMaxOutputTokens={
+							apiConfiguration.openAiCustomModelInfo?.maxTokens ??
+							openAiModelInfoSaneDefaults.maxTokens ??
+							0
+						}
+						customMaxThinkingTokens={
+							apiConfiguration.openAiCustomModelInfo?.maxThinkingTokens ??
+							openAiModelInfoSaneDefaults.maxThinkingTokens ??
+							0
+						}
+						modelMaxThinkingTokens={
+							apiConfiguration.openAiCustomModelInfo?.maxThinkingTokens ??
+							openAiModelInfoSaneDefaults.maxThinkingTokens ??
+							0
+						}
+						isReasoningBudgetSupported={
+							apiConfiguration.openAiCustomModelInfo?.supportsReasoningBudget ?? false
+						}
+						isReasoningBudgetRequired={
+							apiConfiguration.openAiCustomModelInfo?.requiredReasoningBudget ?? false
+						}
+						isReasoningEffortSupported={true}
+						maxTokens={apiConfiguration.openAiCustomModelInfo?.maxTokens ?? undefined}
+						onReasoningEffortChange={(value) => setApiConfigurationField("enableReasoningEffort", value)}
+						onReasoningEffortValueChange={(value) => {
+							const openAiCustomModelInfo =
+								apiConfiguration.openAiCustomModelInfo || openAiModelInfoSaneDefaults
+							setApiConfigurationField("openAiCustomModelInfo", {
+								...openAiCustomModelInfo,
+								reasoningEffort: value,
+							})
 						}}
-						setApiConfigurationField={(field, value) => {
-							if (field === "reasoningEffort") {
-								const openAiCustomModelInfo =
-									apiConfiguration.openAiCustomModelInfo || openAiModelInfoSaneDefaults
-
-								setApiConfigurationField("openAiCustomModelInfo", {
-									...openAiCustomModelInfo,
-									reasoningEffort: value as ReasoningEffort,
-								})
-							}
+						onMaxOutputTokensChange={(value) => {
+							const openAiCustomModelInfo =
+								apiConfiguration.openAiCustomModelInfo || openAiModelInfoSaneDefaults
+							setApiConfigurationField("openAiCustomModelInfo", {
+								...openAiCustomModelInfo,
+								maxTokens: value,
+							})
 						}}
-						modelInfo={{
-							...(apiConfiguration.openAiCustomModelInfo || openAiModelInfoSaneDefaults),
-							supportsReasoningEffort: true,
+						onMaxThinkingTokensChange={(value) => {
+							const openAiCustomModelInfo =
+								apiConfiguration.openAiCustomModelInfo || openAiModelInfoSaneDefaults
+							setApiConfigurationField("openAiCustomModelInfo", {
+								...openAiCustomModelInfo,
+								maxThinkingTokens: value,
+							})
 						}}
 					/>
 				)}

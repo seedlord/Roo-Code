@@ -1,6 +1,6 @@
 // npx vitest src/components/settings/__tests__/TemperatureControl.spec.tsx
 
-import { render, screen, fireEvent, waitFor } from "@/utils/test-utils"
+import { render, screen, fireEvent } from "@/utils/test-utils"
 
 import { TemperatureControl } from "../TemperatureControl"
 
@@ -36,16 +36,32 @@ vi.mock("@vscode/webview-ui-toolkit/react", () => ({
 describe("TemperatureControl", () => {
 	it("renders with default temperature disabled", () => {
 		const onChange = vi.fn()
-		render(<TemperatureControl value={undefined} onChange={onChange} />)
+		const onCustomEnabledChange = vi.fn()
+		render(
+			<TemperatureControl
+				value={1}
+				onChange={onChange}
+				isCustomEnabled={false}
+				onCustomEnabledChange={onCustomEnabledChange}
+			/>,
+		)
 
 		const checkbox = screen.getByRole("checkbox")
 		expect(checkbox).not.toBeChecked()
-		expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
+		expect(screen.queryByRole("slider")).not.toBeInTheDocument()
 	})
 
 	it("renders with custom temperature enabled", () => {
 		const onChange = vi.fn()
-		render(<TemperatureControl value={0.7} onChange={onChange} />)
+		const onCustomEnabledChange = vi.fn()
+		render(
+			<TemperatureControl
+				value={0.7}
+				onChange={onChange}
+				isCustomEnabled={true}
+				onCustomEnabledChange={onCustomEnabledChange}
+			/>,
+		)
 
 		const checkbox = screen.getByRole("checkbox")
 		expect(checkbox).toBeChecked()
@@ -55,43 +71,37 @@ describe("TemperatureControl", () => {
 		expect(input).toHaveValue("0.7")
 	})
 
-	it("updates when checkbox is toggled", async () => {
+	it("calls onCustomEnabledChange when checkbox is toggled", () => {
 		const onChange = vi.fn()
-		render(<TemperatureControl value={0.7} onChange={onChange} />)
+		const onCustomEnabledChange = vi.fn()
+		render(
+			<TemperatureControl
+				value={0.7}
+				onChange={onChange}
+				isCustomEnabled={true}
+				onCustomEnabledChange={onCustomEnabledChange}
+			/>,
+		)
 
 		const checkbox = screen.getByRole("checkbox")
-
-		// Uncheck - should clear temperature.
 		fireEvent.click(checkbox)
-
-		// Wait for debounced onChange call.
-		await waitFor(() => {
-			expect(onChange).toHaveBeenCalledWith(null)
-		})
-
-		// Check - should restore previous temperature.
-		fireEvent.click(checkbox)
-
-		// Wait for debounced onChange call.
-		await waitFor(() => {
-			expect(onChange).toHaveBeenCalledWith(0.7)
-		})
+		expect(onCustomEnabledChange).toHaveBeenCalledWith(false)
 	})
 
-	it("syncs checkbox state when value prop changes", () => {
+	it("calls onChange when slider is moved", () => {
 		const onChange = vi.fn()
-		const { rerender } = render(<TemperatureControl value={0.7} onChange={onChange} />)
+		const onCustomEnabledChange = vi.fn()
+		render(
+			<TemperatureControl
+				value={0.7}
+				onChange={onChange}
+				isCustomEnabled={true}
+				onCustomEnabledChange={onCustomEnabledChange}
+			/>,
+		)
 
-		// Initially checked.
-		const checkbox = screen.getByRole("checkbox")
-		expect(checkbox).toBeChecked()
-
-		// Update to undefined.
-		rerender(<TemperatureControl value={undefined} onChange={onChange} />)
-		expect(checkbox).not.toBeChecked()
-
-		// Update back to a value.
-		rerender(<TemperatureControl value={0.5} onChange={onChange} />)
-		expect(checkbox).toBeChecked()
+		const slider = screen.getByRole("slider")
+		fireEvent.change(slider, { target: { value: "0.5" } })
+		expect(onChange).toHaveBeenCalledWith(0.5)
 	})
 })

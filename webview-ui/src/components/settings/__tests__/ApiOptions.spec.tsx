@@ -175,9 +175,8 @@ vi.mock("../DiffSettingsControl", () => ({
 
 // Mock ThinkingBudget component
 vi.mock("../ThinkingBudget", () => ({
-	ThinkingBudget: ({ modelInfo }: any) => {
-		// Only render if model supports reasoning budget (thinking models)
-		if (modelInfo?.supportsReasoningBudget || modelInfo?.requiredReasoningBudget) {
+	ThinkingBudget: ({ isReasoningBudgetSupported, isReasoningBudgetRequired }: any) => {
+		if (isReasoningBudgetSupported || isReasoningBudgetRequired) {
 			return (
 				<div data-testid="reasoning-budget">
 					<div>Max Thinking Tokens</div>

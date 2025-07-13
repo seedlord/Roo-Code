@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react"
+import React, { memo, useEffect, useMemo, useState } from "react"
 import { convertHeadersToObject } from "./utils/headers"
 import { useDebounce } from "react-use"
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react"
@@ -8,29 +8,11 @@ import {
 	type ProviderName,
 	type ProviderSettings,
 	DEFAULT_CONSECUTIVE_MISTAKE_LIMIT,
-	openRouterDefaultModelId,
-	requestyDefaultModelId,
-	glamaDefaultModelId,
-	unboundDefaultModelId,
-	litellmDefaultModelId,
-	openAiNativeDefaultModelId,
-	anthropicDefaultModelId,
-	claudeCodeDefaultModelId,
-	geminiDefaultModelId,
-	deepSeekDefaultModelId,
-	mistralDefaultModelId,
-	xaiDefaultModelId,
-	groqDefaultModelId,
-	chutesDefaultModelId,
-	bedrockDefaultModelId,
-	vertexDefaultModelId,
 } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { validateApiConfigurationExcludingModelErrors, getModelValidationError } from "@src/utils/validate"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
-import { useRouterModels } from "@src/components/ui/hooks/useRouterModels"
-import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import {
 	useOpenRouterModelProviders,
@@ -82,6 +64,7 @@ import { RateLimitSecondsControl } from "./RateLimitSecondsControl"
 import { ConsecutiveMistakeLimitControl } from "./ConsecutiveMistakeLimitControl"
 import { BedrockCustomArn } from "./providers/BedrockCustomArn"
 import { buildDocLink } from "@src/utils/docLinks"
+import { useSettingsForm } from "./hooks/useSettingsForm"
 
 export interface ApiOptionsProps {
 	uriScheme: string | undefined
@@ -103,6 +86,17 @@ const ApiOptions = ({
 	const { t } = useAppTranslation()
 	const { organizationAllowList } = useExtensionState()
 
+	const {
+		isDescriptionExpanded,
+		setIsDescriptionExpanded,
+		selectedProvider,
+		selectedModelId,
+		selectedModelInfo,
+		routerModels,
+		refetchRouterModels,
+		onProviderChange,
+	} = useSettingsForm(apiConfiguration, setApiConfigurationField)
+
 	const [customHeaders, setCustomHeaders] = useState<[string, string][]>(() => {
 		const headers = apiConfiguration?.openAiHeaders || {}
 		return Object.entries(headers)
@@ -116,16 +110,11 @@ const ApiOptions = ({
 		}
 	}, [apiConfiguration?.openAiHeaders, customHeaders])
 
-	// Helper to convert array of tuples to object (filtering out empty keys).
-
-	// Debounced effect to update the main configuration when local
-	// customHeaders state stabilizes.
 	useDebounce(
 		() => {
 			const currentConfigHeaders = apiConfiguration?.openAiHeaders || {}
 			const newHeadersObject = convertHeadersToObject(customHeaders)
 
-			// Only update if the processed object is different from the current config.
 			if (JSON.stringify(currentConfigHeaders) !== JSON.stringify(newHeadersObject)) {
 				setApiConfigurationField("openAiHeaders", newHeadersObject)
 			}
@@ -134,16 +123,7 @@ const ApiOptions = ({
 		[customHeaders, apiConfiguration?.openAiHeaders, setApiConfigurationField],
 	)
 
-	const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 	const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false)
-
-	const {
-		provider: selectedProvider,
-		id: selectedModelId,
-		info: selectedModelInfo,
-	} = useSelectedModel(apiConfiguration)
-
-	const { data: routerModels, refetch: refetchRouterModels } = useRouterModels()
 
 	const { data: openRouterModelProviders } = useOpenRouterModelProviders(apiConfiguration?.openRouterModelId, {
 		enabled:
@@ -170,7 +150,6 @@ const ApiOptions = ({
 	useDebounce(
 		() => {
 			if (selectedProvider === "openai") {
-				// Use our custom headers state to build the headers object.
 				const headerObject = convertHeadersToObject(customHeaders)
 
 				vscode.postMessage({
@@ -178,7 +157,7 @@ const ApiOptions = ({
 					values: {
 						baseUrl: apiConfiguration?.openAiBaseUrl,
 						apiKey: apiConfiguration?.openAiApiKey,
-						customHeaders: {}, // Reserved for any additional headers
+						customHeaders: {},
 						openAiHeaders: headerObject,
 					},
 				})
@@ -227,81 +206,6 @@ const ApiOptions = ({
 		return modelOptions
 	}, [selectedProvider, organizationAllowList])
 
-	const onProviderChange = useCallback(
-		(value: ProviderName) => {
-			setApiConfigurationField("apiProvider", value)
-
-			// It would be much easier to have a single attribute that stores
-			// the modelId, but we have a separate attribute for each of
-			// OpenRouter, Glama, Unbound, and Requesty.
-			// If you switch to one of these providers and the corresponding
-			// modelId is not set then you immediately end up in an error state.
-			// To address that we set the modelId to the default value for th
-			// provider if it's not already set.
-			const validateAndResetModel = (
-				modelId: string | undefined,
-				field: keyof ProviderSettings,
-				defaultValue?: string,
-			) => {
-				// in case we haven't set a default value for a provider
-				if (!defaultValue) return
-
-				// only set default if no model is set, but don't reset invalid models
-				// let users see and decide what to do with invalid model selections
-				const shouldSetDefault = !modelId
-
-				if (shouldSetDefault) {
-					setApiConfigurationField(field, defaultValue)
-				}
-			}
-
-			// Define a mapping object that associates each provider with its model configuration
-			const PROVIDER_MODEL_CONFIG: Partial<
-				Record<
-					ProviderName,
-					{
-						field: keyof ProviderSettings
-						default?: string
-					}
-				>
-			> = {
-				openrouter: { field: "openRouterModelId", default: openRouterDefaultModelId },
-				glama: { field: "glamaModelId", default: glamaDefaultModelId },
-				unbound: { field: "unboundModelId", default: unboundDefaultModelId },
-				requesty: { field: "requestyModelId", default: requestyDefaultModelId },
-				litellm: { field: "litellmModelId", default: litellmDefaultModelId },
-				anthropic: { field: "apiModelId", default: anthropicDefaultModelId },
-				"claude-code": { field: "apiModelId", default: claudeCodeDefaultModelId },
-				"openai-native": { field: "apiModelId", default: openAiNativeDefaultModelId },
-				gemini: { field: "apiModelId", default: geminiDefaultModelId },
-				deepseek: { field: "apiModelId", default: deepSeekDefaultModelId },
-				mistral: { field: "apiModelId", default: mistralDefaultModelId },
-				xai: { field: "apiModelId", default: xaiDefaultModelId },
-				groq: { field: "apiModelId", default: groqDefaultModelId },
-				chutes: { field: "apiModelId", default: chutesDefaultModelId },
-				bedrock: { field: "apiModelId", default: bedrockDefaultModelId },
-				vertex: { field: "apiModelId", default: vertexDefaultModelId },
-				openai: { field: "openAiModelId" },
-				ollama: { field: "ollamaModelId" },
-				lmstudio: { field: "lmStudioModelId" },
-			}
-
-			const config = PROVIDER_MODEL_CONFIG[value]
-			if (config) {
-				validateAndResetModel(
-					apiConfiguration[config.field] as string | undefined,
-					config.field,
-					config.default,
-				)
-			}
-			setApiConfigurationField("modelMaxTokens", undefined)
-			setApiConfigurationField("modelMaxThinkingTokens", undefined)
-			// Don't reset, let the component logic handle the default
-			// setApiConfigurationField("enableReasoningEffort", undefined)
-		},
-		[setApiConfigurationField, apiConfiguration],
-	)
-
 	const modelValidationError = useMemo(() => {
 		return getModelValidationError(apiConfiguration, routerModels, organizationAllowList)
 	}, [apiConfiguration, routerModels, organizationAllowList])
@@ -314,7 +218,6 @@ const ApiOptions = ({
 			return undefined
 		}
 
-		// Get the URL slug - use custom mapping if available, otherwise use the provider key.
 		const slugs: Record<string, string> = {
 			"openai-native": "openai",
 			openai: "openai-compatible",
@@ -327,7 +230,6 @@ const ApiOptions = ({
 		}
 	}, [selectedProvider])
 
-	// Convert providers to SearchableSelect options
 	const providerOptions = useMemo(() => {
 		return filterProviders(PROVIDERS, organizationAllowList).map(({ value, label }) => ({
 			value,
@@ -504,11 +406,6 @@ const ApiOptions = ({
 							value={selectedModelId === "custom-arn" ? "custom-arn" : selectedModelId}
 							onValueChange={(value) => {
 								setApiConfigurationField("apiModelId", value)
-								// setApiConfigurationField("modelMaxTokens", undefined)
-								// setApiConfigurationField("modelMaxThinkingTokens", undefined)
-								// Don't reset, let the component logic handle the default
-								// setApiConfigurationField("enableReasoningEffort", undefined)
-								// Clear custom ARN if not using custom ARN option.
 								if (value !== "custom-arn" && selectedProvider === "bedrock") {
 									setApiConfigurationField("awsCustomArn", "")
 								}
@@ -548,9 +445,26 @@ const ApiOptions = ({
 
 			<ThinkingBudget
 				key={`${selectedProvider}-${selectedModelId}`}
-				apiConfiguration={apiConfiguration}
-				setApiConfigurationField={setApiConfigurationField}
-				modelInfo={selectedModelInfo}
+				enableReasoningEffort={
+					apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]?.enableReasoningEffort
+				}
+				reasoningEffort={apiConfiguration.reasoningEffort}
+				customMaxOutputTokens={
+					apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]?.modelMaxTokens ?? 0
+				}
+				customMaxThinkingTokens={
+					apiConfiguration.modelSettings?.[`${selectedProvider}:${selectedModelId}`]
+						?.modelMaxThinkingTokens ?? 0
+				}
+				modelMaxThinkingTokens={selectedModelInfo?.maxThinkingTokens ?? 0}
+				isReasoningBudgetSupported={selectedModelInfo?.supportsReasoningBudget ?? false}
+				isReasoningBudgetRequired={selectedModelInfo?.requiredReasoningBudget ?? false}
+				isReasoningEffortSupported={selectedModelInfo?.supportsReasoningEffort ?? false}
+				maxTokens={selectedModelInfo?.maxTokens ?? undefined}
+				onReasoningEffortChange={(value) => setApiConfigurationField("enableReasoningEffort", value)}
+				onReasoningEffortValueChange={(value) => setApiConfigurationField("reasoningEffort", value)}
+				onMaxOutputTokensChange={(value) => setApiConfigurationField("modelMaxTokens", value)}
+				onMaxThinkingTokensChange={(value) => setApiConfigurationField("modelMaxThinkingTokens", value)}
 			/>
 
 			{!fromWelcomeView && (
@@ -576,28 +490,12 @@ const ApiOptions = ({
 						}
 						onCustomEnabledChange={(enabled) => {
 							if (selectedProvider && selectedModelId) {
-								const modelSettingsKey = `${selectedProvider}:${selectedModelId}`
-								const newModelSettings = {
-									...(apiConfiguration.modelSettings ?? {}),
-									[modelSettingsKey]: {
-										...(apiConfiguration.modelSettings?.[modelSettingsKey] ?? {}),
-										enableModelTemperature: enabled,
-									},
-								}
-								setApiConfigurationField("modelSettings", newModelSettings)
+								setApiConfigurationField("enableModelTemperature", enabled)
 							}
 						}}
 						onChange={(value) => {
 							if (selectedProvider && selectedModelId) {
-								const modelSettingsKey = `${selectedProvider}:${selectedModelId}`
-								const newModelSettings = {
-									...(apiConfiguration.modelSettings ?? {}),
-									[modelSettingsKey]: {
-										...(apiConfiguration.modelSettings?.[modelSettingsKey] ?? {}),
-										modelTemperature: value,
-									},
-								}
-								setApiConfigurationField("modelSettings", newModelSettings)
+								setApiConfigurationField("modelTemperature", value)
 							}
 						}}
 						maxValue={2}

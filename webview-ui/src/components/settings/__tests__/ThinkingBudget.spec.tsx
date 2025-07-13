@@ -2,8 +2,6 @@
 
 import { render, screen, fireEvent } from "@/utils/test-utils"
 
-import type { ModelInfo } from "@roo-code/types"
-
 import { ThinkingBudget } from "../ThinkingBudget"
 
 vi.mock("@/components/ui", () => ({
@@ -17,113 +15,69 @@ vi.mock("@/components/ui", () => ({
 			onChange={(e) => onValueChange([parseInt(e.target.value)])}
 		/>
 	),
+	Select: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+	SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+	SelectValue: () => <div />,
+	SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+	SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
 describe("ThinkingBudget", () => {
-	const mockModelInfo: ModelInfo = {
-		supportsReasoningBudget: true,
-		requiredReasoningBudget: true,
-		maxTokens: 16384,
-		contextWindow: 200000,
-		supportsPromptCache: true,
-		supportsImages: true,
-	}
-
 	const defaultProps = {
-		apiConfiguration: {},
-		setApiConfigurationField: vi.fn(),
-		modelInfo: mockModelInfo,
+		enableReasoningEffort: true,
+		reasoningEffort: "low" as const,
+		customMaxOutputTokens: 8192,
+		customMaxThinkingTokens: 4096,
+		modelMaxThinkingTokens: 16384,
+		isReasoningBudgetSupported: true,
+		isReasoningBudgetRequired: false,
+		isReasoningEffortSupported: false,
+		maxTokens: 32768,
+		onReasoningEffortChange: vi.fn(),
+		onReasoningEffortValueChange: vi.fn(),
+		onMaxOutputTokensChange: vi.fn(),
+		onMaxThinkingTokensChange: vi.fn(),
 	}
 
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
 
-	it("should render nothing when model doesn't support thinking", () => {
+	it("should render nothing when model supports neither budget nor effort", () => {
 		const { container } = render(
-			<ThinkingBudget
-				{...defaultProps}
-				modelInfo={{
-					...mockModelInfo,
-					maxTokens: 16384,
-					contextWindow: 200000,
-					supportsPromptCache: true,
-					supportsImages: true,
-					supportsReasoningBudget: false,
-				}}
-			/>,
+			<ThinkingBudget {...defaultProps} isReasoningBudgetSupported={false} isReasoningEffortSupported={false} />,
 		)
-
 		expect(container.firstChild).toBeNull()
 	})
 
-	it("should render sliders when model supports thinking", () => {
+	it("should render sliders when model supports reasoning budget", () => {
 		render(<ThinkingBudget {...defaultProps} />)
-
 		expect(screen.getAllByTestId("slider")).toHaveLength(2)
 	})
 
-	it("should update modelMaxThinkingTokens", () => {
-		const setApiConfigurationField = vi.fn()
-
-		render(
-			<ThinkingBudget
-				{...defaultProps}
-				apiConfiguration={{ modelMaxThinkingTokens: 4096 }}
-				setApiConfigurationField={setApiConfigurationField}
-			/>,
-		)
-
+	it("should call onMaxThinkingTokensChange when thinking tokens slider changes", () => {
+		render(<ThinkingBudget {...defaultProps} />)
 		const sliders = screen.getAllByTestId("slider")
 		fireEvent.change(sliders[1], { target: { value: "5000" } })
-
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxThinkingTokens", 5000)
+		expect(defaultProps.onMaxThinkingTokensChange).toHaveBeenCalledWith(5000)
 	})
 
-	it("should cap thinking tokens at 80% of max tokens", () => {
-		const setApiConfigurationField = vi.fn()
-
-		render(
-			<ThinkingBudget
-				{...defaultProps}
-				apiConfiguration={{ modelMaxTokens: 10000, modelMaxThinkingTokens: 9000 }}
-				setApiConfigurationField={setApiConfigurationField}
-			/>,
-		)
-
-		// Effect should trigger and cap the value
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxThinkingTokens", 8000) // 80% of 10000
-	})
-
-	it("should use default thinking tokens if not provided", () => {
-		render(<ThinkingBudget {...defaultProps} apiConfiguration={{ modelMaxTokens: 10000 }} />)
-
-		// Default is 80% of max tokens, capped at 8192
-		const sliders = screen.getAllByTestId("slider")
-		expect(sliders[1]).toHaveValue("8000") // 80% of 10000
-	})
-
-	it("should use min thinking tokens of 1024", () => {
-		render(<ThinkingBudget {...defaultProps} apiConfiguration={{ modelMaxTokens: 1000 }} />)
-
-		const sliders = screen.getAllByTestId("slider")
-		expect(sliders[1].getAttribute("min")).toBe("1024")
-	})
-
-	it("should update max tokens when slider changes", () => {
-		const setApiConfigurationField = vi.fn()
-
-		render(
-			<ThinkingBudget
-				{...defaultProps}
-				apiConfiguration={{ modelMaxTokens: 10000 }}
-				setApiConfigurationField={setApiConfigurationField}
-			/>,
-		)
-
+	it("should call onMaxOutputTokensChange when max tokens slider changes", () => {
+		render(<ThinkingBudget {...defaultProps} />)
 		const sliders = screen.getAllByTestId("slider")
 		fireEvent.change(sliders[0], { target: { value: "12000" } })
+		expect(defaultProps.onMaxOutputTokensChange).toHaveBeenCalledWith(12000)
+	})
 
-		expect(setApiConfigurationField).toHaveBeenCalledWith("modelMaxTokens", 12000)
+	it("should render effort select when model supports reasoning effort", () => {
+		render(
+			<ThinkingBudget
+				{...defaultProps}
+				isReasoningBudgetSupported={false}
+				isReasoningEffortSupported={true}
+				maxTokens={undefined}
+			/>,
+		)
+		expect(screen.getByTestId("reasoning-effort")).toBeInTheDocument()
 	})
 })

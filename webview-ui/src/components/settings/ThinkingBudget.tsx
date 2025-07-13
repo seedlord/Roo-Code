@@ -1,73 +1,56 @@
-import { useEffect } from "react"
 import { Checkbox } from "vscrui"
 
-import { type ProviderSettings, type ModelInfo, type ReasoningEffort, reasoningEfforts } from "@roo-code/types"
+import { type ReasoningEffort, reasoningEfforts } from "@roo-code/types"
 
-import { DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS, DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS } from "@roo/api"
+import { DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS } from "@roo/api"
 
 import { useAppTranslation } from "@src/i18n/TranslationContext"
-import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
 import { Slider, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@src/components/ui"
-import { getModelSettingsKey } from "../chat/hooks/useModelSettings"
 
 interface ThinkingBudgetProps {
-	apiConfiguration: ProviderSettings
-	setApiConfigurationField: <K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => void
-	modelInfo?: ModelInfo
+	enableReasoningEffort?: boolean
+	reasoningEffort?: ReasoningEffort
+	customMaxOutputTokens: number
+	customMaxThinkingTokens: number
+	modelMaxThinkingTokens: number
+	isReasoningBudgetSupported: boolean
+	isReasoningBudgetRequired: boolean
+	isReasoningEffortSupported: boolean
+	maxTokens?: number
+	onReasoningEffortChange: (value: boolean) => void
+	onReasoningEffortValueChange: (value: ReasoningEffort) => void
+	onMaxOutputTokensChange: (value: number) => void
+	onMaxThinkingTokensChange: (value: number) => void
 }
 
-export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, modelInfo }: ThinkingBudgetProps) => {
+export const ThinkingBudget = ({
+	enableReasoningEffort,
+	reasoningEffort,
+	customMaxOutputTokens,
+	customMaxThinkingTokens,
+	modelMaxThinkingTokens,
+	isReasoningBudgetSupported,
+	isReasoningBudgetRequired,
+	isReasoningEffortSupported,
+	maxTokens,
+	onReasoningEffortChange,
+	onReasoningEffortValueChange,
+	onMaxOutputTokensChange,
+	onMaxThinkingTokensChange,
+}: ThinkingBudgetProps) => {
 	const { t } = useAppTranslation()
-	const { provider: selectedProvider } = useSelectedModel(apiConfiguration)
 
-	const isReasoningBudgetSupported = !!modelInfo && modelInfo.supportsReasoningBudget
-	const isReasoningBudgetRequired = !!modelInfo && modelInfo.requiredReasoningBudget
-	const isReasoningEffortSupported = !!modelInfo && modelInfo.supportsReasoningEffort
-
-	const modelId = apiConfiguration.apiModelId
-	const modelSettings =
-		modelId && selectedProvider
-			? apiConfiguration.modelSettings?.[getModelSettingsKey(selectedProvider, modelId)]
-			: undefined
-
-	const enableReasoningEffort =
-		modelSettings?.enableReasoningEffort ??
-		(modelInfo ? !!(modelInfo.supportsReasoningBudget || modelInfo.requiredReasoningBudget) : false)
-	const customMaxOutputTokens =
-		modelSettings?.modelMaxTokens ?? apiConfiguration.modelMaxTokens ?? DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS
-	const customMaxThinkingTokens =
-		modelSettings?.modelMaxThinkingTokens ??
-		apiConfiguration.modelMaxThinkingTokens ??
-		DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS
-
-	// Dynamically expand or shrink the max thinking budget based on the custom
-	// max output tokens so that there's always a 20% buffer.
-	const modelMaxThinkingTokens = modelInfo?.maxThinkingTokens
-		? Math.min(modelInfo.maxThinkingTokens, Math.floor(0.8 * customMaxOutputTokens))
-		: Math.floor(0.8 * customMaxOutputTokens)
-
-	// If the custom max thinking tokens are going to exceed it's limit due
-	// to the custom max output tokens being reduced then we need to shrink it
-	// appropriately.
-	useEffect(() => {
-		if (isReasoningBudgetSupported && customMaxThinkingTokens > modelMaxThinkingTokens) {
-			setApiConfigurationField("modelMaxThinkingTokens", modelMaxThinkingTokens)
-		}
-	}, [isReasoningBudgetSupported, customMaxThinkingTokens, modelMaxThinkingTokens, setApiConfigurationField])
-
-	if (!modelInfo) {
+	if (!isReasoningBudgetSupported && !isReasoningEffortSupported) {
 		return null
 	}
 
-	return isReasoningBudgetSupported && !!modelInfo.maxTokens ? (
+	return isReasoningBudgetSupported && !!maxTokens ? (
 		<>
 			{!isReasoningBudgetRequired && (
 				<div className="flex flex-col gap-1">
 					<Checkbox
 						checked={enableReasoningEffort}
-						onChange={(checked: boolean) =>
-							setApiConfigurationField("enableReasoningEffort", checked === true)
-						}>
+						onChange={(checked: boolean) => onReasoningEffortChange(checked === true)}>
 						{t("settings:providers.useReasoning")}
 					</Checkbox>
 				</div>
@@ -80,13 +63,13 @@ export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, mod
 							<Slider
 								min={8192}
 								max={Math.max(
-									modelInfo.maxTokens || 8192,
+									maxTokens || 8192,
 									customMaxOutputTokens,
 									DEFAULT_HYBRID_REASONING_MODEL_MAX_TOKENS,
 								)}
 								step={1024}
 								value={[customMaxOutputTokens]}
-								onValueChange={([value]) => setApiConfigurationField("modelMaxTokens", value)}
+								onValueChange={([value]) => onMaxOutputTokensChange(value)}
 							/>
 							<div className="w-12 text-sm text-center">{customMaxOutputTokens}</div>
 						</div>
@@ -99,7 +82,7 @@ export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, mod
 								max={modelMaxThinkingTokens}
 								step={1024}
 								value={[customMaxThinkingTokens]}
-								onValueChange={([value]) => setApiConfigurationField("modelMaxThinkingTokens", value)}
+								onValueChange={([value]) => onMaxThinkingTokensChange(value)}
 							/>
 							<div className="w-12 text-sm text-center">{customMaxThinkingTokens}</div>
 						</div>
@@ -113,8 +96,8 @@ export const ThinkingBudget = ({ apiConfiguration, setApiConfigurationField, mod
 				<label className="block font-medium mb-1">{t("settings:providers.reasoningEffort.label")}</label>
 			</div>
 			<Select
-				value={apiConfiguration.reasoningEffort}
-				onValueChange={(value) => setApiConfigurationField("reasoningEffort", value as ReasoningEffort)}>
+				value={reasoningEffort}
+				onValueChange={(value) => onReasoningEffortValueChange(value as ReasoningEffort)}>
 				<SelectTrigger className="w-full">
 					<SelectValue placeholder={t("settings:common.select")} />
 				</SelectTrigger>
