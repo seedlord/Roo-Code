@@ -3,7 +3,7 @@ import { useExtensionState } from "../../context/ExtensionStateContext"
 import { PROVIDERS } from "../settings/constants"
 import { DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS, getModelMaxOutputTokens } from "@roo/api"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
-import { Trans, useTranslation } from "react-i18next"
+import { useTranslation } from "react-i18next"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui"
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import { getModelSettingsKey } from "./hooks/useModelSettings"
@@ -23,53 +23,6 @@ export const ProfileInfoBar: React.FC = () => {
 
 	const profileInfoBarRef = useRef<HTMLDivElement>(null)
 	const popoverContentRef = useRef<HTMLDivElement>(null)
-
-	useEffect(() => {
-		if (!isSettingsPopupOpen) return
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				profileInfoBarRef.current &&
-				!profileInfoBarRef.current.contains(event.target as Node) &&
-				popoverContentRef.current &&
-				!popoverContentRef.current.contains(event.target as Node)
-			) {
-				setIsSettingsPopupOpen(false)
-			}
-		}
-		document.addEventListener("mousedown", handleClickOutside, true)
-		return () => document.removeEventListener("mousedown", handleClickOutside, true)
-	}, [isSettingsPopupOpen])
-
-	useEffect(() => {
-		if (!isSettingsPopupOpen) return
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "ArrowDown") {
-				const activeElement = document.activeElement as HTMLElement
-				if (activeElement) {
-					const role = activeElement.getAttribute("role")
-					const ariaHasPopup = activeElement.getAttribute("aria-haspopup")
-					const shouldPreventClose =
-						role === "slider" ||
-						role === "option" ||
-						role === "combobox" ||
-						ariaHasPopup === "true" ||
-						ariaHasPopup === "listbox" ||
-						activeElement.tagName === "INPUT" ||
-						activeElement.tagName === "SELECT" ||
-						activeElement.tagName === "TEXTAREA"
-
-					if (shouldPreventClose) {
-						return // Don't close the popup
-					}
-				}
-				event.preventDefault()
-				setIsSettingsPopupOpen(false)
-				profileInfoBarRef.current?.focus()
-			}
-		}
-		document.addEventListener("keydown", handleKeyDown)
-		return () => document.removeEventListener("keydown", handleKeyDown)
-	}, [isSettingsPopupOpen])
 
 	if (!apiConfiguration || !apiConfiguration.apiProvider) {
 		return null
@@ -181,9 +134,7 @@ export const ProfileInfoBar: React.FC = () => {
 		if (!modelId) {
 			return (
 				<div className="flex items-center justify-center text-vscode-descriptionForeground">
-					<VSCodeBadge>
-						<Trans>Profilinformationen nicht verfügbar (keine Modell-ID)</Trans>
-					</VSCodeBadge>
+					<VSCodeBadge>{t("chat:profile.noInfoNoModelId")}</VSCodeBadge>
 				</div>
 			)
 		}
@@ -195,9 +146,7 @@ export const ProfileInfoBar: React.FC = () => {
 			) {
 				return (
 					<div className="flex items-center justify-center text-vscode-descriptionForeground">
-						<VSCodeBadge>
-							<Trans>Profilinformationen für dieses Modell nicht gefunden.</Trans>
-						</VSCodeBadge>
+						<VSCodeBadge>{t("chat:profile.noInfoForModel")}</VSCodeBadge>
 					</div>
 				)
 			}
@@ -205,16 +154,16 @@ export const ProfileInfoBar: React.FC = () => {
 				<div className="flex items-center justify-center gap-x-2 text-vscode-descriptionForeground">
 					<span title="Provider">{providerDisplayName}</span>
 					{modelId && <span className="opacity-50">|</span>}
-					<span>
-						<Trans>Weitere Profilinformationen nicht verfügbar.</Trans>
-					</span>
+					<span>{t("chat:profile.noExtraInfo")}</span>
 				</div>
 			)
 		}
 		return (
 			<div className="flex gap-x-2 items-center min-w-0 overflow-hidden text-[9px] h-full">
-				<div className="flex flex-col gap-y-0 w-24 flex-shrink min-w-0">
-					<MarqueeText text={providerDisplayName} title={t("chat:profile.provider")} />
+				<div
+					className="flex flex-col gap-y-0 flex-shrink-0"
+					style={{ width: `${Math.max(10, providerDisplayName.length)}ch` }}>
+					<div className="truncate">{providerDisplayName}</div>
 					<MarqueeText text={modelId} title={t("chat:profile.model")} />
 				</div>
 				{(maxOutputTokens !== undefined ||
@@ -319,9 +268,7 @@ export const ProfileInfoBar: React.FC = () => {
 	if (!modelId) {
 		return (
 			<div className="flex items-center justify-center p-1 text-xs text-vscode-descriptionForeground bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md">
-				<VSCodeBadge>
-					<Trans>Profilinformationen nicht verfügbar (keine Modell-ID)</Trans>
-				</VSCodeBadge>
+				<VSCodeBadge>{t("chat:profile.noInfoNoModelId")}</VSCodeBadge>
 			</div>
 		)
 	}

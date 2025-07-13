@@ -345,6 +345,9 @@
 		"context": "Context",
 		"budget": "Budget",
 		"enableReasoning": "Enable Reasoning",
-		"temperature": "Temperature"
+		"temperature": "Temperature",
+		"noInfoNoModelId": "Profile info not available (no model ID)",
+		"noInfoForModel": "Profile info not found for this model.",
+		"noExtraInfo": "More profile info not available."
 	}
 }

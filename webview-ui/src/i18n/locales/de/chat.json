@@ -345,6 +345,9 @@
 		"output": "Ausgabe",
 		"context": "Kontext",
 		"budget": "Budget",
-		"temperature": "Temperatur"
+		"temperature": "Temperatur",
+		"noInfoNoModelId": "Profilinformationen nicht verfügbar (keine Modell-ID)",
+		"noInfoForModel": "Profilinformationen für dieses Modell nicht gefunden.",
+		"noExtraInfo": "Weitere Profilinformationen nicht verfügbar."
 	}
 }
