@@ -188,6 +188,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	const userRespondedRef = useRef<boolean>(false)
 	const [currentFollowUpTs, setCurrentFollowUpTs] = useState<number | null>(null)
 
+	const soundPlayedForTs = useRef<number | null>(null)
 	const clineAskRef = useRef(clineAsk)
 	useEffect(() => {
 		clineAskRef.current = clineAsk
@@ -885,6 +886,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		// if user finished a task, then start a new task with a new conversation history since in this moment that the extension is waiting for user response, the user could close the extension and the conversation history would be lost.
 		// basically as long as a task is active, the conversation history will be persisted
 		if (lastMessage) {
+			if (lastMessage.ts === soundPlayedForTs.current) {
+				return
+			}
 			switch (lastMessage.type) {
 				case "ask":
 					// Reset user response flag when a new ask arrives to allow auto-approval
@@ -893,6 +897,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					switch (lastMessage.ask) {
 						case "api_req_failed":
 							playSound("progress_loop")
+							soundPlayedForTs.current = lastMessage.ts
 							setSendingDisabled(true)
 							setClineAsk("api_req_failed")
 							setEnableButtons(true)
@@ -901,6 +906,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							break
 						case "mistake_limit_reached":
 							playSound("progress_loop")
+							soundPlayedForTs.current = lastMessage.ts
 							setSendingDisabled(false)
 							setClineAsk("mistake_limit_reached")
 							setEnableButtons(true)
@@ -910,6 +916,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "followup":
 							if (!isPartial) {
 								playSound("notification")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("followup")
@@ -924,6 +931,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "tool":
 							if (!isAutoApproved(lastMessage) && !isPartial) {
 								playSound("notification")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("tool")
@@ -959,6 +967,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "browser_action_launch":
 							if (!isAutoApproved(lastMessage) && !isPartial) {
 								playSound("notification")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("browser_action_launch")
@@ -969,6 +978,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "command":
 							if (!isAutoApproved(lastMessage) && !isPartial) {
 								playSound("notification")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("command")
@@ -986,6 +996,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "use_mcp_server":
 							if (!isAutoApproved(lastMessage) && !isPartial) {
 								playSound("notification")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("use_mcp_server")
@@ -997,6 +1008,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							// extension waiting for feedback. but we can just present a new task button
 							if (!isPartial) {
 								playSound("celebration")
+								soundPlayedForTs.current = lastMessage.ts
 							}
 							setSendingDisabled(isPartial)
 							setClineAsk("completion_result")
