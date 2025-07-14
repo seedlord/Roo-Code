@@ -325,5 +325,21 @@
 	},
 	"editMessage": {
 		"placeholder": "Bearbeite deine Nachricht..."
+	},
+	"timeline": {
+		"filterBy": "Filtern nach:",
+		"filterGroups": {
+			"read": "Lesen",
+			"edit": "Bearbeiten",
+			"command": "Befehl",
+			"flow": "Ablauf",
+			"ask": "Fragen",
+			"info": "Roo/Benutzer",
+			"reasoning": "Denken",
+			"error": "Fehler",
+			"checkpoint": "Checkpoints",
+			"task_completion": "Abgeschlossen"
+		},
+		"onlyShowTasksWithFilteredTypes": "Nur Aufgaben anzeigen, die gefilterte Typen enthalten"
 	}
 }
