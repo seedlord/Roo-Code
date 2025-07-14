@@ -1035,17 +1035,31 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					}
 					break
 				case "say":
-					// Don't want to reset since there could be a "say" after
-					// an "ask" while ask is waiting for response.
+					// Only reset button states if there's no active "ask" message that requires user input,
+					// or if the "say" message explicitly indicates a change that requires resetting (e.g., command output finished).
+					if (
+						clineAsk === undefined ||
+						(lastMessage.say === "api_req_started" && secondLastMessage?.ask === "command_output")
+					) {
+						// Reset all button-related states
+						setSendingDisabled(false)
+						setClineAsk(undefined)
+						setEnableButtons(false)
+						setPrimaryButtonText(undefined)
+						setSecondaryButtonText(undefined)
+					}
+
 					switch (lastMessage.say) {
 						case "api_req_retry_delayed":
 							setSendingDisabled(true)
 							break
 						case "api_req_started":
 							if (secondLastMessage?.ask === "command_output") {
+								// This block is specifically for when a command finishes and API request starts,
+								// which means the command_output ask is no longer relevant.
 								setSendingDisabled(true)
 								setSelectedImages([])
-								setClineAsk(undefined)
+								setClineAsk(undefined) // Explicitly clear if command_output finished
 								setEnableButtons(false)
 							}
 							break
@@ -1058,12 +1072,14 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "mcp_server_request_started":
 						case "mcp_server_response":
 						case "completion_result":
+							// These cases generally don't require state changes if an ask is active.
+							// The outer if-condition handles cases where no ask is active.
 							break
 					}
 					break
 			}
 		}
-	}, [isAutoApproved, lastMessage, playSound, secondLastMessage?.ask, t])
+	}, [clineAsk, isAutoApproved, lastMessage, playSound, secondLastMessage?.ask, t])
 
 	useEffect(() => {
 		// This ensures the first message is not read, future user messages are
