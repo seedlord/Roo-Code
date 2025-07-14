@@ -164,7 +164,9 @@ export const ProfileInfoBar: React.FC = () => {
 					className="flex flex-col gap-y-0 flex-shrink-0"
 					style={{ width: `${Math.max(10, providerDisplayName.length)}ch` }}>
 					<div className="truncate">{providerDisplayName}</div>
-					<MarqueeText text={modelId} title={t("chat:profile.model")} />
+					<StandardTooltip content={t("chat:profile.model")}>
+						<MarqueeText text={modelId} title="" />
+					</StandardTooltip>
 				</div>
 				{(maxOutputTokens !== undefined ||
 					modelInfo.contextWindow !== undefined ||
@@ -173,45 +175,50 @@ export const ProfileInfoBar: React.FC = () => {
 						{thinkingBudget !== undefined ? (
 							<>
 								<div className="flex flex-col gap-y-0">
-									<span
-										title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
+									<StandardTooltip
+										content={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
 											"chat:profile.tokens",
-										)}`}
-										className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
-										{formatTokenCount(maxOutputTokens)}
-									</span>
-									<span
-										title={`${t("chat:profile.thinkingBudget")}: ${thinkingBudget} ${t(
+										)}`}>
+										<span className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+											{formatTokenCount(maxOutputTokens)}
+										</span>
+									</StandardTooltip>
+									<StandardTooltip
+										content={`${t("chat:profile.thinkingBudget")}: ${thinkingBudget} ${t(
 											"chat:profile.tokens",
-										)}`}
-										className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
-										{formatTokenCount(thinkingBudget)}
-									</span>
+										)}`}>
+										<span className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+											{formatTokenCount(thinkingBudget)}
+										</span>
+									</StandardTooltip>
 								</div>
-								<span
-									title={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
+								<StandardTooltip
+									content={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
 										"chat:profile.tokens",
-									)}`}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis">
-									{formatTokenCount(modelInfo.contextWindow)}
-								</span>
+									)}`}>
+									<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+										{formatTokenCount(modelInfo.contextWindow)}
+									</span>
+								</StandardTooltip>
 							</>
 						) : (
 							<>
-								<span
-									title={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
+								<StandardTooltip
+									content={`${t("chat:profile.maxOutput")}: ${maxOutputTokens} ${t(
 										"chat:profile.tokens",
-									)}`}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
-									{formatTokenCount(maxOutputTokens)}
-								</span>
-								<span
-									title={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
+									)}`}>
+									<span className="block whitespace-nowrap overflow-hidden text-ellipsis rounded px-1">
+										{formatTokenCount(maxOutputTokens)}
+									</span>
+								</StandardTooltip>
+								<StandardTooltip
+									content={`${t("chat:profile.contextSize")}: ${modelInfo.contextWindow} ${t(
 										"chat:profile.tokens",
-									)}`}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis">
-									{formatTokenCount(modelInfo.contextWindow)}
-								</span>
+									)}`}>
+									<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+										{formatTokenCount(modelInfo.contextWindow)}
+									</span>
+								</StandardTooltip>
 							</>
 						)}
 					</div>
@@ -219,20 +226,20 @@ export const ProfileInfoBar: React.FC = () => {
 				{(modelInfo.inputPrice !== undefined || modelInfo.outputPrice !== undefined) && (
 					<div className="flex flex-col gap-y-0 flex-shrink min-w-0">
 						{modelInfo.inputPrice !== undefined ? (
-							<span
-								title={t("chat:profile.inputPricePer1M")}
-								className="block whitespace-nowrap overflow-hidden text-ellipsis">
-								{formatPrice(modelInfo.inputPrice)}
-							</span>
+							<StandardTooltip content={t("chat:profile.inputPricePer1M")}>
+								<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+									{formatPrice(modelInfo.inputPrice)}
+								</span>
+							</StandardTooltip>
 						) : (
 							<PlaceholderSpan />
 						)}
 						{modelInfo.outputPrice !== undefined ? (
-							<span
-								title={t("chat:profile.outputPricePer1M")}
-								className="block whitespace-nowrap overflow-hidden text-ellipsis">
-								{formatPrice(modelInfo.outputPrice)}
-							</span>
+							<StandardTooltip content={t("chat:profile.outputPricePer1M")}>
+								<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+									{formatPrice(modelInfo.outputPrice)}
+								</span>
+							</StandardTooltip>
 						) : (
 							<PlaceholderSpan />
 						)}
@@ -242,20 +249,20 @@ export const ProfileInfoBar: React.FC = () => {
 					(modelInfo.cacheWritesPrice !== undefined || modelInfo.cacheReadsPrice !== undefined) && (
 						<div className="flex flex-col gap-y-0 flex-shrink min-w-0">
 							{modelInfo.cacheWritesPrice !== undefined ? (
-								<span
-									title={t("chat:profile.cacheWritePricePer1M")}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis">
-									{formatPrice(modelInfo.cacheWritesPrice)}
-								</span>
+								<StandardTooltip content={t("chat:profile.cacheWritePricePer1M")}>
+									<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+										{formatPrice(modelInfo.cacheWritesPrice)}
+									</span>
+								</StandardTooltip>
 							) : (
 								<PlaceholderSpan />
 							)}
 							{modelInfo.cacheReadsPrice !== undefined ? (
-								<span
-									title={t("chat:profile.cacheReadPricePer1M")}
-									className="block whitespace-nowrap overflow-hidden text-ellipsis">
-									{formatPrice(modelInfo.cacheReadsPrice)}
-								</span>
+								<StandardTooltip content={t("chat:profile.cacheReadPricePer1M")}>
+									<span className="block whitespace-nowrap overflow-hidden text-ellipsis">
+										{formatPrice(modelInfo.cacheReadsPrice)}
+									</span>
+								</StandardTooltip>
 							) : (
 								<PlaceholderSpan />
 							)}
