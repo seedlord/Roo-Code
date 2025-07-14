@@ -45,7 +45,7 @@ export const ModelSettingsPopup: React.FC<ModelSettingsPopupProps> = ({ onClose,
 		handleModelChange,
 		handleTemperatureChange,
 		handleCustomTemperatureChange,
-	} = useModelSettings(true)
+	} = useModelSettings(true, setHasChanges)
 
 	const handleAdvancedSettingsClick = () => {
 		vscode.postMessage({ type: "switchTab", tab: "settings" })

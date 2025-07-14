@@ -54,7 +54,7 @@ export const modelSources: Partial<Record<ProviderName, Record<string, ModelInfo
 	chutes: chutesModels,
 }
 
-export const useModelSettings = (isSettingsPopupOpen: boolean) => {
+export const useModelSettings = (isSettingsPopupOpen: boolean, onHasChangesChange?: (value: boolean) => void) => {
 	const { apiConfiguration, currentApiConfigName, setIsAwaitingConfigurationUpdate, routerModels } =
 		useExtensionState()
 	const {
@@ -64,7 +64,14 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 	} = useSelectedModel(apiConfiguration)
 
 	const [localApiConfiguration, setLocalApiConfiguration] = useState<ProviderSettings | undefined>(apiConfiguration)
-	const [hasChanges, setHasChanges] = useState(false)
+	const [hasChanges, _setHasChanges] = useState(false)
+	const setHasChanges = useCallback(
+		(value: boolean) => {
+			_setHasChanges(value)
+			onHasChangesChange?.(value)
+		},
+		[onHasChangesChange],
+	)
 	const [ollamaModels, setOllamaModels] = useState<string[]>([])
 
 	const localApiProvider = localApiConfiguration?.apiProvider
@@ -83,7 +90,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 				return { ...prevState, [field]: value }
 			})
 		},
-		[],
+		[setHasChanges],
 	)
 
 	useEffect(() => {
@@ -117,7 +124,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			setLocalApiConfiguration(initialLocalConfig)
 			setHasChanges(false)
 		}
-	}, [isSettingsPopupOpen, apiConfiguration, selectedModelId, selectedModelInfo, selectedProvider])
+	}, [isSettingsPopupOpen, apiConfiguration, selectedModelId, selectedModelInfo, selectedProvider, setHasChanges])
 
 	useEffect(() => {
 		if (localApiProvider === "ollama") {
@@ -171,6 +178,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			text: currentApiConfigName,
 			apiConfiguration: configToSave,
 		})
+		setHasChanges(false)
 	}, [
 		localApiConfiguration,
 		localApiProvider,
@@ -183,6 +191,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		currentApiConfigName,
 		setIsAwaitingConfigurationUpdate,
 		apiConfiguration,
+		setHasChanges,
 	])
 
 	const handleModelChange = useCallback(
@@ -245,6 +254,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			localMaxOutputTokens,
 			localThinkingBudget,
 			localEnableReasoning,
+			setHasChanges,
 		],
 	)
 
@@ -322,6 +332,7 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 			localEnableReasoning,
 			localModelTemperature,
 			localEnableModelTemperature,
+			setHasChanges,
 		],
 	)
 
@@ -329,28 +340,34 @@ export const useModelSettings = (isSettingsPopupOpen: boolean) => {
 		if (!isSettingsPopupOpen) {
 			setHasChanges(false)
 		}
-	}, [isSettingsPopupOpen, apiConfiguration])
+	}, [isSettingsPopupOpen, apiConfiguration, setHasChanges])
 
 	const resetState = useCallback(() => {
 		setLocalApiConfiguration(apiConfiguration)
 		setHasChanges(false)
-	}, [apiConfiguration])
+	}, [apiConfiguration, setHasChanges])
 
-	const handleTemperatureChange = useCallback((value: number | undefined | null) => {
-		setLocalApiConfiguration((prevState) => {
-			if (!prevState || prevState.modelTemperature === value) return prevState
-			setHasChanges(true)
-			return { ...prevState, modelTemperature: value }
-		})
-	}, [])
+	const handleTemperatureChange = useCallback(
+		(value: number | undefined | null) => {
+			setLocalApiConfiguration((prevState) => {
+				if (!prevState || prevState.modelTemperature === value) return prevState
+				setHasChanges(true)
+				return { ...prevState, modelTemperature: value }
+			})
+		},
+		[setHasChanges],
+	)
 
-	const handleCustomTemperatureChange = useCallback((enabled: boolean) => {
-		setLocalApiConfiguration((prevState) => {
-			if (!prevState || prevState.enableModelTemperature === enabled) return prevState
-			setHasChanges(true)
-			return { ...prevState, enableModelTemperature: enabled }
-		})
-	}, [])
+	const handleCustomTemperatureChange = useCallback(
+		(enabled: boolean) => {
+			setLocalApiConfiguration((prevState) => {
+				if (!prevState || prevState.enableModelTemperature === enabled) return prevState
+				setHasChanges(true)
+				return { ...prevState, enableModelTemperature: enabled }
+			})
+		},
+		[setHasChanges],
+	)
 
 	return {
 		localApiConfiguration,
