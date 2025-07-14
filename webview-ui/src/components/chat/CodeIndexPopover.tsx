@@ -49,6 +49,7 @@ const DEFAULT_OLLAMA_URL = "http://localhost:11434"
 interface CodeIndexPopoverProps {
 	children: React.ReactNode
 	indexingStatus: IndexingStatus
+	tooltip?: React.ReactNode
 }
 
 interface LocalCodeIndexSettings {
@@ -134,6 +135,7 @@ const createValidationSchema = (provider: EmbedderProvider, t: any) => {
 export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 	children,
 	indexingStatus: externalIndexingStatus,
+	tooltip,
 }) => {
 	const SECRET_PLACEHOLDER = "••••••••••••••••"
 	const { t } = useAppTranslation()
@@ -492,7 +494,13 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 						setOpen(newOpen)
 					}
 				}}>
-				<PopoverTrigger asChild>{children}</PopoverTrigger>
+				{tooltip ? (
+					<StandardTooltip content={tooltip} side="bottom">
+						<PopoverTrigger asChild>{children}</PopoverTrigger>
+					</StandardTooltip>
+				) : (
+					<PopoverTrigger asChild>{children}</PopoverTrigger>
+				)}
 				<PopoverContent
 					className="w-[calc(100vw-32px)] max-w-[450px] max-h-[80vh] overflow-y-auto p-0"
 					align="end"
