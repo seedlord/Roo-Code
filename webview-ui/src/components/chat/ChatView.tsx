@@ -1172,12 +1172,16 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 	)
 
 	useEffect(() => {
-		let timer: NodeJS.Timeout | undefined
+		// Only auto-scroll if auto-scroll is not explicitly disabled by user interaction (e.g., manual scroll up)
+		// and there isn't a specific message being scrolled to (which would be handled by scrollToMessage).
 		if (!disableAutoScrollRef.current && typeof currentTaskItem?.scrollToMessageTimestamp !== "number") {
-			timer = setTimeout(() => scrollToBottomSmooth(), 50)
-		}
-		return () => {
-			if (timer) {
+			// Use a short debounce to allow for rapid message additions (e.g., streaming) without excessive scrolling.
+			// This ensures that only when messages settle, or a burst of messages finishes, does auto-scroll trigger.
+			const timer = setTimeout(() => {
+				scrollToBottomSmooth()
+			}, 100) // Debounce by 100ms
+
+			return () => {
 				clearTimeout(timer)
 			}
 		}
