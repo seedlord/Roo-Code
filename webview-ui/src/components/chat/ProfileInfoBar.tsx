@@ -56,7 +56,7 @@ export const ProfileInfoBar: React.FC = () => {
 
 	const formatTokenCount = (tokens: number | undefined | null) => {
 		if (tokens === undefined || tokens === null) return "N/A"
-		const K_DIVISOR = 1000
+		const K_DIVISOR = 2 ** 10 // 1024
 		const M_DIVISOR = K_DIVISOR * K_DIVISOR
 		if (tokens >= M_DIVISOR) return `${Math.round(tokens / M_DIVISOR)}M`
 		if (tokens >= K_DIVISOR) return `${Math.round(tokens / K_DIVISOR)}K`
