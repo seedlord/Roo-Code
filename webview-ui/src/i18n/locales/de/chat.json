@@ -340,14 +340,13 @@
 		"outputPricePer1M": "Ausgabepreis\u00A0pro\u00A01M\u00A0Token",
 		"cacheWritePricePer1M": "Cache-Schreibpreis\u00A0pro\u00A01M\u00A0Token",
 		"cacheReadPricePer1M": "Cache-Lesepreis\u00A0pro\u00A01M\u00A0Token",
-		"expandInfobar": "Infobar aufklappen",
-		"collapseInfobar": "Infobar zuklappen",
 		"output": "Ausgabe",
 		"context": "Kontext",
 		"budget": "Budget",
 		"temperature": "Temperatur",
 		"noInfoNoModelId": "Profilinformationen nicht verfügbar (keine Modell-ID)",
 		"noInfoForModel": "Profilinformationen für dieses Modell nicht gefunden.",
-		"noExtraInfo": "Weitere Profilinformationen nicht verfügbar."
+		"noExtraInfo": "Weitere Profilinformationen nicht verfügbar.",
+		"selectModelConfig": "Anbieter/Modell-Konfiguration auswählen"
 	}
 }

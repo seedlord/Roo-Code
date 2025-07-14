@@ -4,7 +4,7 @@ import { PROVIDERS } from "../settings/constants"
 import { DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS, getModelMaxOutputTokens } from "@roo/api"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
 import { useTranslation } from "react-i18next"
-import { Popover, PopoverContent, PopoverTrigger } from "../ui"
+import { Popover, PopoverContent, PopoverTrigger, StandardTooltip } from "../ui"
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import { getModelSettingsKey } from "./hooks/useModelSettings"
 import { ModelSettingsPopup } from "./ModelSettingsPopup"
@@ -21,7 +21,7 @@ export const ProfileInfoBar: React.FC = () => {
 		provider: selectedProvider,
 	} = useSelectedModel(apiConfiguration)
 
-	const profileInfoBarRef = useRef<HTMLDivElement>(null)
+	const profileInfoBarRef = useRef<HTMLButtonElement>(null)
 	const popoverContentRef = useRef<HTMLDivElement>(null)
 
 	if (!apiConfiguration || !apiConfiguration.apiProvider) {
@@ -275,60 +275,59 @@ export const ProfileInfoBar: React.FC = () => {
 
 	return (
 		<Popover open={isSettingsPopupOpen} onOpenChange={setIsSettingsPopupOpen}>
-			<PopoverTrigger asChild>
-				<div
-					ref={profileInfoBarRef}
-					tabIndex={0}
-					role="button"
-					aria-expanded={isExpanded}
-					title={isExpanded ? t("chat:profile.collapseInfobar") : t("chat:profile.expandInfobar")}
-					onClick={() => {
-						if (isExpanded) {
-							setIsSettingsPopupOpen(true)
-						} else {
-							setIsExpanded(true)
-						}
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-							e.preventDefault()
-							setIsExpanded(!isExpanded)
-						} else if (e.key === "Enter" || e.key === " " || e.key === "ArrowUp") {
-							e.preventDefault()
+			<StandardTooltip content={t("chat:profile.selectModelConfig")}>
+				<PopoverTrigger asChild>
+					<button
+						ref={profileInfoBarRef}
+						aria-expanded={isExpanded}
+						onClick={() => {
 							if (isExpanded) {
 								setIsSettingsPopupOpen(true)
 							} else {
 								setIsExpanded(true)
 							}
-						}
-					}}
-					className={`
-			     flex items-center px-1 py-0 text-xs h-6
+						}}
+						onKeyDown={(e) => {
+							if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+								e.preventDefault()
+								setIsExpanded(!isExpanded)
+							} else if (e.key === "Enter" || e.key === " " || e.key === "ArrowUp") {
+								e.preventDefault()
+								if (isExpanded) {
+									setIsSettingsPopupOpen(true)
+								} else {
+									setIsExpanded(true)
+								}
+							}
+						}}
+						className={`
+			     flex items-center px-1 py-0 text-xs h-6 text-left
 			     bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
 	       transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
 	       hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]
-	       focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder cursor-pointer
+	       focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vscode-focusBorder cursor-pointer
 	       ${isExpanded ? "w-full" : "w-auto max-w-xs"}
 	     `}>
-					<span
-						onClick={(e) => {
-							e.stopPropagation()
-							setIsExpanded(!isExpanded)
-						}}
-						className={`chevron-button codicon ${
-							isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
-						} text-base flex-shrink-0`}
-					/>
-					<div
-						className={`
+						<span
+							onClick={(e) => {
+								e.stopPropagation()
+								setIsExpanded(!isExpanded)
+							}}
+							className={`chevron-button codicon ${
+								isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
+							} text-base flex-shrink-0`}
+						/>
+						<div
+							className={`
 	             flex-grow overflow-hidden
 	             transition-all duration-300 ease-in-out
 	             ${isExpanded ? "ml-2 max-w-full opacity-100" : "ml-0 max-w-0 opacity-0"}
 	           `}>
-						{isExpanded && <ExpandedContent />}
-					</div>
-				</div>
-			</PopoverTrigger>
+							{isExpanded && <ExpandedContent />}
+						</div>
+					</button>
+				</PopoverTrigger>
+			</StandardTooltip>
 			<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
 				<ModelSettingsPopup
 					onClose={() => setIsSettingsPopupOpen(false)}
