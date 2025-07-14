@@ -130,7 +130,10 @@ const TaskItem = ({
 					{/* Task content and expanded details */}
 					<div className="mt-1 flex flex-col">
 						<div
-							className="flex items-center cursor-pointer -ml-0.5 select-none grow min-w-0"
+							className={cn(
+								"flex items-center cursor-pointer -ml-0.5 select-none grow min-w-0",
+								!currentExpandedState && "text-vscode-foreground/80",
+							)}
 							onClick={(e) => toggleTimelineVisibility(e)}>
 							<div className="flex items-center shrink-0">
 								<span
