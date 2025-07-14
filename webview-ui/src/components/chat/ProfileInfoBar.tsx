@@ -4,16 +4,33 @@ import { PROVIDERS } from "../settings/constants"
 import { DEFAULT_HYBRID_REASONING_MODEL_THINKING_TOKENS, getModelMaxOutputTokens } from "@roo/api"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
 import { useTranslation } from "react-i18next"
-import { Popover, PopoverContent, PopoverTrigger, StandardTooltip } from "../ui"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+	StandardTooltip,
+} from "../ui"
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import { getModelSettingsKey } from "./hooks/useModelSettings"
 import { ModelSettingsPopup } from "./ModelSettingsPopup"
 import { formatPrice } from "@/utils/formatPrice"
+import { AlertTriangle } from "lucide-react"
 
 export const ProfileInfoBar: React.FC = () => {
 	const [isExpanded, setIsExpanded] = useState(true)
 	const [isSettingsPopupOpen, setIsSettingsPopupOpen] = useState(false)
 	const { t } = useTranslation()
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
+	const confirmDialogHandler = useRef<(() => void) | null>(null)
 	const { apiConfiguration } = useExtensionState()
 	const {
 		id: selectedModelId,
@@ -280,34 +297,65 @@ export const ProfileInfoBar: React.FC = () => {
 		)
 	}
 
+	const checkUnsavedChanges = (then: () => void) => {
+		if (hasUnsavedChanges) {
+			confirmDialogHandler.current = then
+			setDiscardDialogShow(true)
+		} else {
+			then()
+		}
+	}
+
+	const onConfirmDialogResult = (confirm: boolean) => {
+		if (confirm) {
+			confirmDialogHandler.current?.()
+		}
+		setDiscardDialogShow(false)
+	}
+
+	const handlePopoverClose = () => {
+		checkUnsavedChanges(() => {
+			setIsSettingsPopupOpen(false)
+		})
+	}
+
 	return (
-		<Popover open={isSettingsPopupOpen} onOpenChange={setIsSettingsPopupOpen}>
-			<StandardTooltip content={t("chat:profile.selectModelConfig")}>
-				<PopoverTrigger asChild>
-					<button
-						ref={profileInfoBarRef}
-						aria-expanded={isExpanded}
-						onClick={() => {
-							if (isExpanded) {
-								setIsSettingsPopupOpen(true)
-							} else {
-								setIsExpanded(true)
-							}
-						}}
-						onKeyDown={(e) => {
-							if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-								e.preventDefault()
-								setIsExpanded(!isExpanded)
-							} else if (e.key === "Enter" || e.key === " " || e.key === "ArrowUp") {
-								e.preventDefault()
+		<>
+			<Popover
+				open={isSettingsPopupOpen}
+				onOpenChange={(newOpen) => {
+					if (!newOpen) {
+						handlePopoverClose()
+					} else {
+						setIsSettingsPopupOpen(newOpen)
+					}
+				}}>
+				<StandardTooltip content={t("chat:profile.selectModelConfig")}>
+					<PopoverTrigger asChild>
+						<button
+							ref={profileInfoBarRef}
+							aria-expanded={isExpanded}
+							onClick={() => {
 								if (isExpanded) {
 									setIsSettingsPopupOpen(true)
 								} else {
 									setIsExpanded(true)
 								}
-							}
-						}}
-						className={`
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+									e.preventDefault()
+									setIsExpanded(!isExpanded)
+								} else if (e.key === "Enter" || e.key === " " || e.key === "ArrowUp") {
+									e.preventDefault()
+									if (isExpanded) {
+										setIsSettingsPopupOpen(true)
+									} else {
+										setIsExpanded(true)
+									}
+								}
+							}}
+							className={`
 			     flex items-center px-1 py-0 text-xs h-6 text-left
 			     bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md
 	       transition-all duration-300 ease-in-out relative group text-vscode-descriptionForeground
@@ -315,34 +363,51 @@ export const ProfileInfoBar: React.FC = () => {
 	       focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vscode-focusBorder cursor-pointer
 	       ${isExpanded ? "w-full" : "w-auto max-w-xs"}
 	     `}>
-						<span
-							onClick={(e) => {
-								e.stopPropagation()
-								setIsExpanded(!isExpanded)
-							}}
-							className={`chevron-button codicon ${
-								isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
-							} text-base flex-shrink-0`}
-						/>
-						<div
-							className={`
+							<span
+								onClick={(e) => {
+									e.stopPropagation()
+									setIsExpanded(!isExpanded)
+								}}
+								className={`chevron-button codicon ${
+									isExpanded ? "codicon-chevron-left" : "codicon-chevron-right"
+								} text-base flex-shrink-0`}
+							/>
+							<div
+								className={`
 	             flex-grow overflow-hidden
 	             transition-all duration-300 ease-in-out
 	             ${isExpanded ? "ml-2 max-w-full opacity-100" : "ml-0 max-w-0 opacity-0"}
 	           `}>
-							{isExpanded && <ExpandedContent />}
-						</div>
-					</button>
-				</PopoverTrigger>
-			</StandardTooltip>
-			<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
-				<ModelSettingsPopup
-					onClose={() => setIsSettingsPopupOpen(false)}
-					setHasChanges={() => {
-						/* This is a no-op because the parent component doesn't need to know about changes */
-					}}
-				/>
-			</PopoverContent>
-		</Popover>
+								{isExpanded && <ExpandedContent />}
+							</div>
+						</button>
+					</PopoverTrigger>
+				</StandardTooltip>
+				<PopoverContent ref={popoverContentRef} className="w-64 px-4 py-1">
+					<ModelSettingsPopup onClose={handlePopoverClose} setHasChanges={setHasUnsavedChanges} />
+				</PopoverContent>
+			</Popover>
+			<AlertDialog open={isDiscardDialogShow} onOpenChange={setDiscardDialogShow}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle className="flex items-center gap-2">
+							<AlertTriangle className="w-5 h-5 text-yellow-500" />
+							{t("settings:unsavedChangesDialog.title")}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{t("settings:unsavedChangesDialog.description")}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => onConfirmDialogResult(false)}>
+							{t("settings:unsavedChangesDialog.cancelButton")}
+						</AlertDialogCancel>
+						<AlertDialogAction onClick={() => onConfirmDialogResult(true)}>
+							{t("settings:unsavedChangesDialog.discardButton")}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	)
 }
