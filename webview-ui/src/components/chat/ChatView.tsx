@@ -1037,9 +1037,10 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 				case "say":
 					// Only reset button states if there's no active "ask" message that requires user input,
 					// or if the "say" message explicitly indicates a change that requires resetting (e.g., command output finished).
+					// Also, do not reset if currently streaming, as buttons might be needed for cancellation.
 					if (
-						clineAsk === undefined ||
-						(lastMessage.say === "api_req_started" && secondLastMessage?.ask === "command_output")
+						(clineAsk === undefined && !isStreaming) ||
+						(lastMessage.say === "api_req_started" && secondLastMessage?.ask === "command_output") // Command output finished
 					) {
 						// Reset all button-related states
 						setSendingDisabled(false)
@@ -1079,7 +1080,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					break
 			}
 		}
-	}, [clineAsk, isAutoApproved, lastMessage, playSound, secondLastMessage?.ask, t])
+	}, [clineAsk, isAutoApproved, isStreaming, lastMessage, playSound, secondLastMessage?.ask, t])
 
 	useEffect(() => {
 		// This ensures the first message is not read, future user messages are
@@ -1679,16 +1680,12 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							itemContent={itemContent}
 							atBottomStateChange={(isAtBottom) => {
 								setIsAtBottom(isAtBottom)
-								setShowScrollToBottom(!isAtBottom) // Always show if not at bottom
+								setShowScrollToBottom(!isAtBottom)
 								if (isAtBottom) {
 									disableAutoScrollRef.current = false
-								} else if (!disableAutoScrollRef.current) {
-									// If we are not at bottom and auto-scroll was not already disabled by the user,
-									// disable it now. This covers cases where resizing content moves us off the bottom.
-									disableAutoScrollRef.current = true
 								}
 							}}
-							atBottomThreshold={10} // anything lower causes issues with followOutput
+							atBottomThreshold={120} // anything lower causes issues with followOutput
 							initialTopMostItemIndex={
 								typeof currentTaskItem?.scrollToMessageTimestamp === "number"
 									? groupedMessages.findIndex((msgOrGroup) => {
