@@ -55,34 +55,62 @@ export class GeminiEmbedder implements IEmbedder {
 	 * Creates embeddings for the given texts using Gemini's embedding API
 	 * @param texts Array of text strings to embed
 	 * @param model Optional model identifier (uses constructor model if not provided)
+	 * @param options Optional options for embedding creation, such as dimension
+	 * @param cancellationToken Optional cancellation token to support cancellation
 	 * @returns Promise resolving to embedding response
 	 */
-	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
+	async createEmbeddings(
+		texts: string[],
+		model?: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<EmbeddingResponse> {
+		if (cancellationToken?.isCancellationRequested) {
+			throw new vscode.CancellationError()
+		}
 		const modelToUse = model || this.modelId
 		let lastError: any
 		const initialKeyIndex = this.keyIndex
 
 		for (let i = 0; i < this.apiKeys.length * GeminiEmbedder.MAX_RETRIES; i++) {
+			if (cancellationToken?.isCancellationRequested) {
+				throw new vscode.CancellationError()
+			}
 			const { key: apiKey, index: keyIndexForDisplay } = this.getNextApiKey()
 			this._onKeyUsage.fire({ current: keyIndexForDisplay, total: this.apiKeys.length })
 
 			const client = this.createClient(apiKey)
 
 			try {
-				const result = await client.createEmbeddings(texts, modelToUse)
+				const result = await client.createEmbeddings(texts, modelToUse, options, cancellationToken)
 				this._onKeyUsage.fire({ current: 0, total: 0 }) // Reset on success
 				return result
 			} catch (error: any) {
+				if (error instanceof vscode.CancellationError) {
+					throw error
+				}
 				lastError = error
-				if (error.status === 429 || error.message.includes("429")) {
+				const errorMessage = error.message || ""
+				// Immediately cycle to the next key if the current one is invalid
+				if (error.status === 400 && errorMessage.includes("API key not valid")) {
+					console.warn(
+						`Invalid Gemini API key ${keyIndexForDisplay}/${this.apiKeys.length}. Trying next key.`,
+					)
+					continue // Go to the next key
+				}
+
+				// Handle rate limiting with backoff, then try the same key again
+				if (error.status === 429 || errorMessage.includes("429")) {
 					const delay = GeminiEmbedder.INITIAL_RETRY_DELAY * Math.pow(2, Math.floor(i / this.apiKeys.length))
 					console.warn(
 						`Rate limit hit on key ${keyIndexForDisplay}/${this.apiKeys.length}. Retrying in ${delay}ms.`,
 					)
 					await new Promise((resolve) => setTimeout(resolve, delay))
-					continue
+					if (cancellationToken?.isCancellationRequested) {
+						throw new vscode.CancellationError()
+					}
 				}
-				break
+				// For other errors, we still continue to the next key
 			}
 		}
 
@@ -98,9 +126,22 @@ export class GeminiEmbedder implements IEmbedder {
 	}
 
 	async validateConfiguration(): Promise<{ valid: boolean; error?: string }> {
-		// Validate with the first key, assuming all keys are for the same service
-		const client = this.createClient(this.apiKeys[0])
-		return client.validateConfiguration()
+		let lastError: string | undefined
+
+		for (const apiKey of this.apiKeys) {
+			const client = this.createClient(apiKey)
+			const result = await client.validateConfiguration()
+			if (result.valid) {
+				return { valid: true } // Found a valid key
+			}
+			lastError = result.error
+		}
+
+		// If no key was valid, return the last error
+		return {
+			valid: false,
+			error: lastError || t("embeddings:validation.allKeysInvalid"),
+		}
 	}
 
 	/**

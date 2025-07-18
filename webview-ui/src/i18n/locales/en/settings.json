@@ -85,8 +85,15 @@
 		"searchMaxResultsDescription": "Maximum number of search results to return when querying the codebase index. Higher values provide more context but may include less relevant results.",
 		"resetToDefault": "Reset to default",
 		"startIndexingButton": "Start Indexing",
+		"stopIndexingButton": "Stop Indexing",
 		"clearIndexDataButton": "Clear Index Data",
 		"unsavedSettingsMessage": "Please save your settings before starting the indexing process.",
+		"stopIndexingDialog": {
+			"title": "Stop Indexing?",
+			"description": "Are you sure you want to stop the current indexing process? Progress made so far will be saved, and you can resume later.",
+			"cancelButton": "Cancel",
+			"confirmButton": "Stop Indexing"
+		},
 		"clearDataDialog": {
 			"title": "Are you sure?",
 			"description": "This action cannot be undone. This will permanently delete your codebase index data.",
@@ -122,7 +129,8 @@
 			"geminiApiKeyRequired": "Gemini API key is required",
 			"ollamaBaseUrlRequired": "Ollama base URL is required",
 			"baseUrlRequired": "Base URL is required",
-			"modelDimensionMinValue": "Model dimension must be greater than 0"
+			"modelDimensionMinValue": "Model dimension must be greater than 0",
+			"allKeysInvalid": "None of the provided API keys are valid."
 		}
 	},
 	"autoApprove": {
@@ -254,6 +262,7 @@
 		"deepSeekApiKey": "DeepSeek API Key",
 		"getDeepSeekApiKey": "Get DeepSeek API Key",
 		"geminiApiKey": "Gemini API Key",
+		"geminiApiKeysDescription": "Enter one or more API keys, separated by commas, to load-balance and avoid rate limits.",
 		"getGroqApiKey": "Get Groq API Key",
 		"groqApiKey": "Groq API Key",
 		"getGeminiApiKey": "Get Gemini API Key",

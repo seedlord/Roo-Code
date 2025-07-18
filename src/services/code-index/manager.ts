@@ -178,6 +178,18 @@ export class CodeIndexManager {
 	}
 
 	/**
+	 * Requests a graceful stop of the current indexing process.
+	 */
+	public stopIndexing(): void {
+		if (!this.isFeatureEnabled) {
+			return
+		}
+		if (this._orchestrator) {
+			this._orchestrator.requestStop()
+		}
+	}
+
+	/**
 	 * Stops the file watcher and potentially cleans up resources.
 	 */
 	public stopWatcher(): void {

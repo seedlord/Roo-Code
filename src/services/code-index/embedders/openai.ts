@@ -1,3 +1,4 @@
+import * as vscode from "vscode"
 import { OpenAI } from "openai"
 import { OpenAiNativeHandler } from "../../../api/providers/openai-native"
 import { ApiHandlerOptions } from "../../../shared/api"
@@ -38,7 +39,15 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 	 * @param model Optional model identifier
 	 * @returns Promise resolving to embedding response
 	 */
-	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
+	async createEmbeddings(
+		texts: string[],
+		model?: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<EmbeddingResponse> {
+		if (cancellationToken?.isCancellationRequested) {
+			throw new vscode.CancellationError()
+		}
 		const modelToUse = model || this.defaultModelId
 
 		// Apply model-specific query prefix if required
@@ -71,6 +80,9 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 		const remainingTexts = [...processedTexts]
 
 		while (remainingTexts.length > 0) {
+			if (cancellationToken?.isCancellationRequested) {
+				throw new vscode.CancellationError()
+			}
 			const currentBatch: string[] = []
 			let currentBatchTokens = 0
 			const processedIndices: number[] = []
@@ -106,7 +118,7 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 			}
 
 			if (currentBatch.length > 0) {
-				const batchResult = await this._embedBatchWithRetries(currentBatch, modelToUse)
+				const batchResult = await this._embedBatchWithRetries(currentBatch, modelToUse, cancellationToken)
 				allEmbeddings.push(...batchResult.embeddings)
 				usage.promptTokens += batchResult.usage.promptTokens
 				usage.totalTokens += batchResult.usage.totalTokens
@@ -125,13 +137,28 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 	private async _embedBatchWithRetries(
 		batchTexts: string[],
 		model: string,
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<{ embeddings: number[][]; usage: { promptTokens: number; totalTokens: number } }> {
 		for (let attempts = 0; attempts < MAX_RETRIES; attempts++) {
+			if (cancellationToken?.isCancellationRequested) {
+				throw new vscode.CancellationError()
+			}
 			try {
-				const response = await this.embeddingsClient.embeddings.create({
-					input: batchTexts,
-					model: model,
-				})
+				const requestOptions: OpenAI.RequestOptions = {}
+				if (cancellationToken) {
+					const controller = new AbortController()
+					requestOptions.signal = controller.signal
+					cancellationToken.onCancellationRequested(() => {
+						controller.abort()
+					})
+				}
+				const response = await this.embeddingsClient.embeddings.create(
+					{
+						input: batchTexts,
+						model: model,
+					},
+					requestOptions,
+				)
 
 				return {
 					embeddings: response.data.map((item) => item.embedding),
@@ -141,6 +168,9 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 					},
 				}
 			} catch (error: any) {
+				if (error instanceof vscode.CancellationError) {
+					throw error
+				}
 				const hasMoreAttempts = attempts < MAX_RETRIES - 1
 
 				// Check if it's a rate limit error
@@ -155,6 +185,9 @@ export class OpenAiEmbedder extends OpenAiNativeHandler implements IEmbedder {
 						}),
 					)
 					await new Promise((resolve) => setTimeout(resolve, delayMs))
+					if (cancellationToken?.isCancellationRequested) {
+						throw new vscode.CancellationError()
+					}
 					continue
 				}
 

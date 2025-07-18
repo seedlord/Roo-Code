@@ -1,3 +1,4 @@
+import * as vscode from "vscode"
 import { OpenAI } from "openai"
 import { IEmbedder, EmbeddingResponse, EmbedderInfo } from "../interfaces/embedder"
 import {
@@ -74,7 +75,15 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 	 * @param model Optional model identifier
 	 * @returns Promise resolving to embedding response
 	 */
-	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
+	async createEmbeddings(
+		texts: string[],
+		model?: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<EmbeddingResponse> {
+		if (cancellationToken?.isCancellationRequested) {
+			throw new vscode.CancellationError()
+		}
 		const modelToUse = model || this.defaultModelId
 
 		// Apply model-specific query prefix if required
@@ -107,6 +116,9 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 		const remainingTexts = [...processedTexts]
 
 		while (remainingTexts.length > 0) {
+			if (cancellationToken?.isCancellationRequested) {
+				throw new vscode.CancellationError()
+			}
 			const currentBatch: string[] = []
 			let currentBatchTokens = 0
 			const processedIndices: number[] = []
@@ -142,7 +154,12 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 			}
 
 			if (currentBatch.length > 0) {
-				const batchResult = await this._embedBatchWithRetries(currentBatch, modelToUse)
+				const batchResult = await this._embedBatchWithRetries(
+					currentBatch,
+					modelToUse,
+					options,
+					cancellationToken,
+				)
 				allEmbeddings.push(...batchResult.embeddings)
 				usage.promptTokens += batchResult.usage.promptTokens
 				usage.totalTokens += batchResult.usage.totalTokens
@@ -184,7 +201,24 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 		url: string,
 		batchTexts: string[],
 		model: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<OpenAIEmbeddingResponse> {
+		const controller = new AbortController()
+		const signal = controller.signal
+		cancellationToken?.onCancellationRequested(() => {
+			controller.abort()
+		})
+		const body: Record<string, any> = {
+			input: batchTexts,
+			model: model,
+			encoding_format: "base64",
+		}
+
+		if (options?.dimension) {
+			body.dimensions = options.dimension
+		}
+
 		const response = await fetch(url, {
 			method: "POST",
 			headers: {
@@ -194,11 +228,8 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 				"api-key": this.apiKey,
 				Authorization: `Bearer ${this.apiKey}`,
 			},
-			body: JSON.stringify({
-				input: batchTexts,
-				model: model,
-				encoding_format: "base64",
-			}),
+			body: JSON.stringify(body),
+			signal,
 		})
 
 		if (!response || !response.ok) {
@@ -237,28 +268,51 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 	private async _embedBatchWithRetries(
 		batchTexts: string[],
 		model: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<{ embeddings: number[][]; usage: { promptTokens: number; totalTokens: number } }> {
 		// Use cached value for performance
 		const isFullUrl = this.isFullUrl
 
 		const maxAttempts = this.disableRetries ? 1 : MAX_RETRIES
 		for (let attempts = 0; attempts < maxAttempts; attempts++) {
+			if (cancellationToken?.isCancellationRequested) {
+				throw new vscode.CancellationError()
+			}
 			try {
 				let response: OpenAIEmbeddingResponse
 
 				if (isFullUrl) {
 					// Use direct HTTP request for full endpoint URLs
-					response = await this.makeDirectEmbeddingRequest(this.baseUrl, batchTexts, model)
+					response = await this.makeDirectEmbeddingRequest(
+						this.baseUrl,
+						batchTexts,
+						model,
+						options,
+						cancellationToken,
+					)
 				} else {
 					// Use OpenAI SDK for base URLs
-					response = (await this.embeddingsClient.embeddings.create({
-						input: batchTexts,
-						model: model,
-						// OpenAI package (as of v4.78.1) has a parsing issue that truncates embedding dimensions to 256
-						// when processing numeric arrays, which breaks compatibility with models using larger dimensions.
-						// By requesting base64 encoding, we bypass the package's parser and handle decoding ourselves.
-						encoding_format: "base64",
-					})) as OpenAIEmbeddingResponse
+					const requestOptions: OpenAI.RequestOptions = {}
+					if (cancellationToken) {
+						const controller = new AbortController()
+						requestOptions.signal = controller.signal
+						cancellationToken.onCancellationRequested(() => {
+							controller.abort()
+						})
+					}
+					response = (await this.embeddingsClient.embeddings.create(
+						{
+							input: batchTexts,
+							model: model,
+							// OpenAI package (as of v4.78.1) has a parsing issue that truncates embedding dimensions to 256
+							// when processing numeric arrays, which breaks compatibility with models using larger dimensions.
+							// By requesting base64 encoding, we bypass the package's parser and handle decoding ourselves.
+							encoding_format: "base64",
+							...(options?.dimension && { dimensions: options.dimension }),
+						},
+						requestOptions,
+					)) as OpenAIEmbeddingResponse
 				}
 
 				// Convert base64 embeddings to float32 arrays
@@ -289,7 +343,10 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 						totalTokens: response.usage?.total_tokens || 0,
 					},
 				}
-			} catch (error) {
+			} catch (error: any) {
+				if (error instanceof vscode.CancellationError) {
+					throw error
+				}
 				// Capture telemetry before error is reformatted
 				TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
 					error: error instanceof Error ? error.message : String(error),
@@ -312,6 +369,9 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 						}),
 					)
 					await new Promise((resolve) => setTimeout(resolve, delayMs))
+					if (cancellationToken?.isCancellationRequested) {
+						throw new vscode.CancellationError()
+					}
 					continue
 				}
 

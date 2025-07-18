@@ -109,6 +109,7 @@ export class ClineProvider
 	private mdmService?: MdmService
 
 	public isViewLaunched = false
+	private isCodeIndexManagerInitialized = false
 	public settingsImportedAt?: number
 	public readonly latestAnnouncementId = "jul-09-2025-3-23-0" // Update for v3.23.0 announcement
 	public readonly providerSettingsManager: ProviderSettingsManager
@@ -509,6 +510,17 @@ export class ClineProvider
 
 		// If the extension is starting a new session, clear previous task state.
 		await this.removeClineFromStack()
+
+		if (this.codeIndexManager && !this.isCodeIndexManagerInitialized) {
+			try {
+				await this.codeIndexManager.initialize(this.contextProxy)
+				this.isCodeIndexManagerInitialized = true
+			} catch (error) {
+				this.log(
+					`[CodeIndexManager] Error during background CodeIndexManager configuration/indexing: ${error.message || error}`,
+				)
+			}
+		}
 
 		this.log("Webview view resolved")
 	}
@@ -1853,7 +1865,12 @@ export class ClineProvider
 		}
 
 		// Get git repository information
-		const gitInfo = await getWorkspaceGitInfo()
+		let gitInfo = {}
+		try {
+			gitInfo = await getWorkspaceGitInfo()
+		} catch (error) {
+			this.log(`[getTelemetryProperties] Failed to get git info: ${error}`)
+		}
 
 		// Calculate todo list statistics
 		const todoList = task?.todoList

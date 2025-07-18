@@ -53,6 +53,7 @@ export class DirectoryScanner implements IDirectoryScanner {
 		onFileParsed?: (fileBlockCount: number) => void,
 		onFileProgress?: (filePath: string, current: number, total: number) => void,
 		onBlockProcessingStart?: (totalBlocks: number) => void,
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<{
 		stats: { processed: number; skipped: number; totalBlocksIndexed: number }
 	}> {
@@ -109,6 +110,8 @@ export class DirectoryScanner implements IDirectoryScanner {
 		// Process all files in parallel with concurrency control
 		const parsePromises = supportedPaths.map((filePath) =>
 			parseLimiter(async () => {
+				if (cancellationToken?.isCancellationRequested) return
+
 				try {
 					filesProcessedForProgress++
 					onFileProgress?.(filePath, filesProcessedForProgress, totalFilesToProcess)
@@ -180,13 +183,24 @@ export class DirectoryScanner implements IDirectoryScanner {
 
 		const allBatchPromises: Promise<number>[] = []
 		for (let i = 0; i < allBlocksToProcess.length; i += BATCH_SEGMENT_THRESHOLD) {
+			if (cancellationToken?.isCancellationRequested) break
+
 			const batchBlocks = allBlocksToProcess.slice(i, i + BATCH_SEGMENT_THRESHOLD)
 			const batchTexts = batchBlocks.map((b) => b.content.trim()).filter(Boolean)
 			const batchFilePaths = new Set(batchBlocks.map((b) => b.file_path))
 			const batchFileInfos = allFileInfosToProcess.filter((info) => batchFilePaths.has(info.filePath))
-			const batchPromise = batchLimiter(() =>
-				this.processBatch(batchBlocks, batchTexts, batchFileInfos, scanWorkspace, onError, onBlocksIndexed),
-			)
+			const batchPromise = batchLimiter(() => {
+				if (cancellationToken?.isCancellationRequested) return Promise.resolve(0)
+				return this.processBatch(
+					batchBlocks,
+					batchTexts,
+					batchFileInfos,
+					scanWorkspace,
+					onError,
+					onBlocksIndexed,
+					cancellationToken,
+				)
+			})
 			allBatchPromises.push(batchPromise)
 		}
 		// Wait for all batch processing to complete
@@ -196,6 +210,8 @@ export class DirectoryScanner implements IDirectoryScanner {
 		// Handle deleted files
 		const oldHashes = this.cacheManager.getAllHashes()
 		for (const cachedFilePath of Object.keys(oldHashes)) {
+			if (cancellationToken?.isCancellationRequested) break
+
 			if (!processedFiles.has(cachedFilePath)) {
 				// File was deleted or is no longer supported/indexed
 				if (this.qdrantClient) {
@@ -247,6 +263,7 @@ export class DirectoryScanner implements IDirectoryScanner {
 		scanWorkspace: string,
 		onError?: (error: Error) => void,
 		onBlocksIndexed?: (indexedCount: number) => void,
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<number> {
 		if (batchBlocks.length === 0) return 0
 
@@ -255,8 +272,12 @@ export class DirectoryScanner implements IDirectoryScanner {
 		let lastError: Error | null = null
 
 		while (attempts < MAX_BATCH_RETRIES && !success) {
+			if (cancellationToken?.isCancellationRequested) {
+				return 0 // Exit gracefully
+			}
 			attempts++
 			try {
+				if (cancellationToken?.isCancellationRequested) return 0
 				// --- Deletion Step ---
 				const uniqueFilePaths = [
 					...new Set(
@@ -294,7 +315,12 @@ export class DirectoryScanner implements IDirectoryScanner {
 				// --- End Deletion Step ---
 
 				// Create embeddings for batch
-				const { embeddings } = await this.embedder.createEmbeddings(batchTexts)
+				const { embeddings } = await this.embedder.createEmbeddings(
+					batchTexts,
+					undefined,
+					{},
+					cancellationToken,
+				)
 
 				// Prepare points for Qdrant
 				const points = batchBlocks.map((block, index) => {
@@ -327,7 +353,10 @@ export class DirectoryScanner implements IDirectoryScanner {
 				}
 				success = true
 				return indexedCount
-			} catch (error) {
+			} catch (error: any) {
+				if (error instanceof vscode.CancellationError) {
+					throw error // Re-throw cancellation to stop everything
+				}
 				lastError = error as Error
 				console.error(
 					`[DirectoryScanner] Error processing batch (attempt ${attempts}) in workspace ${scanWorkspace}:`,
@@ -344,6 +373,9 @@ export class DirectoryScanner implements IDirectoryScanner {
 				if (attempts < MAX_BATCH_RETRIES) {
 					const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempts - 1)
 					await new Promise((resolve) => setTimeout(resolve, delay))
+					if (cancellationToken?.isCancellationRequested) {
+						return 0
+					}
 				}
 			}
 		}

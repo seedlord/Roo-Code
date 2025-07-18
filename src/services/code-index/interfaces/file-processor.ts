@@ -39,6 +39,7 @@ export interface IDirectoryScanner {
 		onFileParsed?: (fileBlockCount: number) => void,
 		onFileProgress?: (filePath: string, current: number, total: number) => void,
 		onBlockProcessingStart?: (totalBlocks: number) => void,
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<{
 		stats: {
 			processed: number

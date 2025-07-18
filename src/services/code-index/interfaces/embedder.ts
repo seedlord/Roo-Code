@@ -1,4 +1,4 @@
-import { Event } from "vscode"
+import { CancellationToken, Event } from "vscode"
 /**
  * Interface for code index embedders.
  * This interface is implemented by both OpenAI and Ollama embedders.
@@ -17,7 +17,12 @@ export interface IEmbedder {
 	 * @param model Optional model ID to use for embeddings
 	 * @returns Promise resolving to an EmbeddingResponse
 	 */
-	createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse>
+	createEmbeddings(
+		texts: string[],
+		model?: string,
+		options?: { dimension?: number },
+		cancellationToken?: CancellationToken,
+	): Promise<EmbeddingResponse>
 
 	/**
 	 * Validates the embedder configuration by testing connectivity and credentials.

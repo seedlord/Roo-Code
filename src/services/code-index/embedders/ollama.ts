@@ -1,3 +1,4 @@
+import * as vscode from "vscode"
 import { ApiHandlerOptions } from "../../../shared/api"
 import { EmbedderInfo, EmbeddingResponse, IEmbedder } from "../interfaces"
 import { getModelQueryPrefix } from "../../../shared/embeddingModels"
@@ -30,7 +31,15 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 	 * @param model - Optional model ID to override the default.
 	 * @returns A promise that resolves to an EmbeddingResponse containing the embeddings and usage data.
 	 */
-	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
+	async createEmbeddings(
+		texts: string[],
+		model?: string,
+		options?: { dimension?: number },
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<EmbeddingResponse> {
+		if (cancellationToken?.isCancellationRequested) {
+			throw new vscode.CancellationError()
+		}
 		const modelToUse = model || this.defaultModelId
 		const url = `${this.baseUrl}/api/embed` // Endpoint as specified
 
@@ -65,7 +74,14 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 
 			// Add timeout to prevent indefinite hanging
 			const controller = new AbortController()
-			const timeoutId = setTimeout(() => controller.abort(), OLLAMA_EMBEDDING_TIMEOUT_MS)
+			cancellationToken?.onCancellationRequested(() => controller.abort())
+
+			// We still use a timeout as a fallback in case cancellation is not triggered
+			const timeoutId = setTimeout(() => {
+				if (!controller.signal.aborted) {
+					controller.abort()
+				}
+			}, OLLAMA_EMBEDDING_TIMEOUT_MS)
 
 			const response = await fetch(url, {
 				method: "POST",
@@ -74,7 +90,7 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 				},
 				body: JSON.stringify({
 					model: modelToUse,
-					input: processedTexts, // Using 'input' as requested
+					prompt: processedTexts.join("\n"), // Ollama uses `prompt` for multiple lines
 				}),
 				signal: controller.signal,
 			})
@@ -108,6 +124,9 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 				embeddings: embeddings,
 			}
 		} catch (error: any) {
+			if (error instanceof vscode.CancellationError) {
+				throw error
+			}
 			// Capture telemetry before reformatting the error
 			TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
 				error: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),

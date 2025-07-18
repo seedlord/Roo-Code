@@ -78,8 +78,15 @@
 		"qdrantApiKeyPlaceholder": "Gib deinen Qdrant API-Schlüssel ein (optional)",
 		"setupConfigLabel": "Einrichtung",
 		"startIndexingButton": "Start",
+		"stopIndexingButton": "Indexierung stoppen",
 		"clearIndexDataButton": "Index löschen",
 		"unsavedSettingsMessage": "Bitte speichere deine Einstellungen, bevor du den Indexierungsprozess startest.",
+		"stopIndexingDialog": {
+			"title": "Indexierung stoppen?",
+			"description": "Sind Sie sicher, dass Sie den aktuellen Indexierungsprozess stoppen möchten? Der bisherige Fortschritt bleibt erhalten und Sie können später fortfahren.",
+			"cancelButton": "Abbrechen",
+			"confirmButton": "Indexierung stoppen"
+		},
 		"clearDataDialog": {
 			"title": "Sind Sie sicher?",
 			"description": "Diese Aktion kann nicht rückgängig gemacht werden. Dies wird Ihre Codebase-Indexdaten dauerhaft löschen.",
@@ -115,7 +122,8 @@
 			"geminiApiKeyRequired": "Gemini-API-Schlüssel ist erforderlich",
 			"ollamaBaseUrlRequired": "Ollama-Basis-URL ist erforderlich",
 			"baseUrlRequired": "Basis-URL ist erforderlich",
-			"modelDimensionMinValue": "Modellabmessung muss größer als 0 sein"
+			"modelDimensionMinValue": "Modellabmessung muss größer als 0 sein",
+			"allKeysInvalid": "Keiner der angegebenen API-Schlüssel ist gültig."
 		},
 		"advancedConfigLabel": "Erweiterte Konfiguration",
 		"searchMinScoreLabel": "Suchergebnis-Schwellenwert",
@@ -254,6 +262,7 @@
 		"deepSeekApiKey": "DeepSeek API-Schlüssel",
 		"getDeepSeekApiKey": "DeepSeek API-Schlüssel erhalten",
 		"geminiApiKey": "Gemini API-Schlüssel",
+		"geminiApiKeysDescription": "Geben Sie einen oder mehrere API-Schlüssel durch Kommas getrennt ein, um die Last zu verteilen und Ratenbegrenzungen zu vermeiden.",
 		"getGroqApiKey": "Groq API-Schlüssel erhalten",
 		"groqApiKey": "Groq API-Schlüssel",
 		"getGeminiApiKey": "Gemini API-Schlüssel erhalten",

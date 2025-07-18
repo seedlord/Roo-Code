@@ -45,6 +45,9 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 			<div className="text-sm text-vscode-descriptionForeground -mt-2">
 				{t("settings:providers.apiKeyStorageNotice")}
 			</div>
+			<div className="text-sm text-vscode-descriptionForeground mt-1">
+				{t("settings:providers.geminiApiKeysDescription")}
+			</div>
 			{!apiConfiguration?.geminiApiKey && (
 				<VSCodeButtonLink href="https://ai.google.dev/" appearance="secondary">
 					{t("settings:providers.getGeminiApiKey")}

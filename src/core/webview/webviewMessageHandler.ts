@@ -2085,6 +2085,17 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "stopIndexing": {
+			try {
+				const manager = provider.codeIndexManager
+				if (manager) {
+					manager.stopIndexing()
+				}
+			} catch (error) {
+				provider.log(`Error stopping indexing: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
 		case "clearIndexData": {
 			try {
 				const manager = provider.codeIndexManager!

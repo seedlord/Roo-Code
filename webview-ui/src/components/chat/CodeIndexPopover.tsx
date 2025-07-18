@@ -1152,6 +1152,35 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 										</VSCodeButton>
 									)}
 
+								{currentSettings.codebaseIndexEnabled && indexingStatus.systemStatus === "Indexing" && (
+									<AlertDialog>
+										<AlertDialogTrigger asChild>
+											<VSCodeButton appearance="secondary">
+												{t("settings:codeIndex.stopIndexingButton")}
+											</VSCodeButton>
+										</AlertDialogTrigger>
+										<AlertDialogContent>
+											<AlertDialogHeader>
+												<AlertDialogTitle>
+													{t("settings:codeIndex.stopIndexingDialog.title")}
+												</AlertDialogTitle>
+												<AlertDialogDescription>
+													{t("settings:codeIndex.stopIndexingDialog.description")}
+												</AlertDialogDescription>
+											</AlertDialogHeader>
+											<AlertDialogFooter>
+												<AlertDialogCancel>
+													{t("settings:codeIndex.stopIndexingDialog.cancelButton")}
+												</AlertDialogCancel>
+												<AlertDialogAction
+													onClick={() => vscode.postMessage({ type: "stopIndexing" })}>
+													{t("settings:codeIndex.stopIndexingDialog.confirmButton")}
+												</AlertDialogAction>
+											</AlertDialogFooter>
+										</AlertDialogContent>
+									</AlertDialog>
+								)}
+
 								{currentSettings.codebaseIndexEnabled &&
 									(indexingStatus.systemStatus === "Indexed" ||
 										indexingStatus.systemStatus === "Error") && (
