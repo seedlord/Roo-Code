@@ -60,10 +60,10 @@ export class CodeIndexServiceFactory {
 				config.modelId,
 			)
 		} else if (provider === "gemini") {
-			if (!config.geminiOptions?.apiKey) {
+			if (!config.geminiOptions?.apiKeys || config.geminiOptions.apiKeys.length === 0) {
 				throw new Error(t("embeddings:serviceFactory.geminiConfigMissing"))
 			}
-			return new GeminiEmbedder(config.geminiOptions.apiKey, config.modelId)
+			return new GeminiEmbedder(config.geminiOptions.apiKeys, config.modelId)
 		}
 
 		throw new Error(

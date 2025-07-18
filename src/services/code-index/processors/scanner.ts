@@ -51,7 +51,11 @@ export class DirectoryScanner implements IDirectoryScanner {
 		onError?: (error: Error) => void,
 		onBlocksIndexed?: (indexedCount: number) => void,
 		onFileParsed?: (fileBlockCount: number) => void,
-	): Promise<{ stats: { processed: number; skipped: number }; totalBlockCount: number }> {
+		onFileProgress?: (filePath: string, current: number, total: number) => void,
+		onBlockProcessingStart?: (totalBlocks: number) => void,
+	): Promise<{
+		stats: { processed: number; skipped: number; totalBlocksIndexed: number }
+	}> {
 		const directoryPath = directory
 		// Capture workspace context at scan start
 		const scanWorkspace = getWorkspacePathForContext(directoryPath)
@@ -94,18 +98,20 @@ export class DirectoryScanner implements IDirectoryScanner {
 		const mutex = new Mutex()
 
 		// Shared batch accumulators (protected by mutex)
-		let currentBatchBlocks: CodeBlock[] = []
-		let currentBatchTexts: string[] = []
-		let currentBatchFileInfos: { filePath: string; fileHash: string; isNew: boolean }[] = []
-		const activeBatchPromises = new Set<Promise<void>>()
+		const totalFilesToProcess = supportedPaths.length
+		const allBlocksToProcess: CodeBlock[] = []
+		const allFileInfosToProcess: { filePath: string; fileHash: string; isNew: boolean }[] = []
 
 		// Initialize block counter
-		let totalBlockCount = 0
+		let totalBlocksIndexed = 0
+		let filesProcessedForProgress = 0
 
 		// Process all files in parallel with concurrency control
 		const parsePromises = supportedPaths.map((filePath) =>
 			parseLimiter(async () => {
 				try {
+					filesProcessedForProgress++
+					onFileProgress?.(filePath, filesProcessedForProgress, totalFilesToProcess)
 					// Check file size
 					const stats = await stat(filePath)
 					if (stats.size > MAX_FILE_SIZE_BYTES) {
@@ -133,75 +139,19 @@ export class DirectoryScanner implements IDirectoryScanner {
 
 					// File is new or changed - parse it using the injected parser function
 					const blocks = await this.codeParser.parseFile(filePath, { content, fileHash: currentFileHash })
-					const fileBlockCount = blocks.length
-					onFileParsed?.(fileBlockCount)
-					processedCount++
-
-					// Process embeddings if configured
-					if (this.embedder && this.qdrantClient && blocks.length > 0) {
-						// Add to batch accumulators
-						let addedBlocksFromFile = false
-						for (const block of blocks) {
-							const trimmedContent = block.content.trim()
-							if (trimmedContent) {
-								const release = await mutex.acquire()
-								try {
-									currentBatchBlocks.push(block)
-									currentBatchTexts.push(trimmedContent)
-									addedBlocksFromFile = true
-
-									// Check if batch threshold is met
-									if (currentBatchBlocks.length >= BATCH_SEGMENT_THRESHOLD) {
-										// Copy current batch data and clear accumulators
-										const batchBlocks = [...currentBatchBlocks]
-										const batchTexts = [...currentBatchTexts]
-										const batchFileInfos = [...currentBatchFileInfos]
-										currentBatchBlocks = []
-										currentBatchTexts = []
-										currentBatchFileInfos = []
-
-										// Queue batch processing
-										const batchPromise = batchLimiter(() =>
-											this.processBatch(
-												batchBlocks,
-												batchTexts,
-												batchFileInfos,
-												scanWorkspace,
-												onError,
-												onBlocksIndexed,
-											),
-										)
-										activeBatchPromises.add(batchPromise)
-
-										// Clean up completed promises to prevent memory accumulation
-										batchPromise.finally(() => {
-											activeBatchPromises.delete(batchPromise)
-										})
-									}
-								} finally {
-									release()
-								}
-							}
-						}
-
-						// Add file info once per file (outside the block loop)
-						if (addedBlocksFromFile) {
-							const release = await mutex.acquire()
-							try {
-								totalBlockCount += fileBlockCount
-								currentBatchFileInfos.push({
-									filePath,
-									fileHash: currentFileHash,
-									isNew: isNewFile,
-								})
-							} finally {
-								release()
-							}
+					if (blocks.length > 0) {
+						const release = await mutex.acquire()
+						try {
+							allBlocksToProcess.push(...blocks)
+							allFileInfosToProcess.push({ filePath, fileHash: currentFileHash, isNew: !cachedFileHash })
+						} finally {
+							release()
 						}
 					} else {
 						// Only update hash if not being processed in a batch
 						await this.cacheManager.updateHash(filePath, currentFileHash)
 					}
+					processedCount++
 				} catch (error) {
 					console.error(`Error processing file ${filePath} in workspace ${scanWorkspace}:`, error)
 					TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
@@ -226,35 +176,22 @@ export class DirectoryScanner implements IDirectoryScanner {
 		// Wait for all parsing to complete
 		await Promise.all(parsePromises)
 
-		// Process any remaining items in batch
-		if (currentBatchBlocks.length > 0) {
-			const release = await mutex.acquire()
-			try {
-				// Copy current batch data and clear accumulators
-				const batchBlocks = [...currentBatchBlocks]
-				const batchTexts = [...currentBatchTexts]
-				const batchFileInfos = [...currentBatchFileInfos]
-				currentBatchBlocks = []
-				currentBatchTexts = []
-				currentBatchFileInfos = []
+		onBlockProcessingStart?.(allBlocksToProcess.length)
 
-				// Queue final batch processing
-				const batchPromise = batchLimiter(() =>
-					this.processBatch(batchBlocks, batchTexts, batchFileInfos, scanWorkspace, onError, onBlocksIndexed),
-				)
-				activeBatchPromises.add(batchPromise)
-
-				// Clean up completed promises to prevent memory accumulation
-				batchPromise.finally(() => {
-					activeBatchPromises.delete(batchPromise)
-				})
-			} finally {
-				release()
-			}
+		const allBatchPromises: Promise<number>[] = []
+		for (let i = 0; i < allBlocksToProcess.length; i += BATCH_SEGMENT_THRESHOLD) {
+			const batchBlocks = allBlocksToProcess.slice(i, i + BATCH_SEGMENT_THRESHOLD)
+			const batchTexts = batchBlocks.map((b) => b.content.trim()).filter(Boolean)
+			const batchFilePaths = new Set(batchBlocks.map((b) => b.file_path))
+			const batchFileInfos = allFileInfosToProcess.filter((info) => batchFilePaths.has(info.filePath))
+			const batchPromise = batchLimiter(() =>
+				this.processBatch(batchBlocks, batchTexts, batchFileInfos, scanWorkspace, onError, onBlocksIndexed),
+			)
+			allBatchPromises.push(batchPromise)
 		}
-
 		// Wait for all batch processing to complete
-		await Promise.all(activeBatchPromises)
+		const batchResults = await Promise.all(allBatchPromises)
+		totalBlocksIndexed = batchResults.reduce((sum, count) => sum + count, 0)
 
 		// Handle deleted files
 		const oldHashes = this.cacheManager.getAllHashes()
@@ -298,8 +235,8 @@ export class DirectoryScanner implements IDirectoryScanner {
 			stats: {
 				processed: processedCount,
 				skipped: skippedCount,
+				totalBlocksIndexed,
 			},
-			totalBlockCount,
 		}
 	}
 
@@ -310,8 +247,8 @@ export class DirectoryScanner implements IDirectoryScanner {
 		scanWorkspace: string,
 		onError?: (error: Error) => void,
 		onBlocksIndexed?: (indexedCount: number) => void,
-	): Promise<void> {
-		if (batchBlocks.length === 0) return
+	): Promise<number> {
+		if (batchBlocks.length === 0) return 0
 
 		let attempts = 0
 		let success = false
@@ -381,13 +318,15 @@ export class DirectoryScanner implements IDirectoryScanner {
 
 				// Upsert points to Qdrant
 				await this.qdrantClient.upsertPoints(points)
-				onBlocksIndexed?.(batchBlocks.length)
+				const indexedCount = batchBlocks.length
+				onBlocksIndexed?.(indexedCount)
 
 				// Update hashes for successfully processed files in this batch
 				for (const fileInfo of batchFileInfos) {
 					await this.cacheManager.updateHash(fileInfo.filePath, fileInfo.fileHash)
 				}
 				success = true
+				return indexedCount
 			} catch (error) {
 				lastError = error as Error
 				console.error(
@@ -426,5 +365,6 @@ export class DirectoryScanner implements IDirectoryScanner {
 				)
 			}
 		}
+		return 0 // Return 0 if not successful
 	}
 }

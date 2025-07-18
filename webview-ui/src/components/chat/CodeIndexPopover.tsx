@@ -151,6 +151,7 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 
 	// Form validation state
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+	const [storedGeminiKeyCount, setStoredGeminiKeyCount] = useState(0)
 
 	// Discard changes dialog state
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
@@ -235,6 +236,8 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 					processedItems: event.data.values.processedItems,
 					totalItems: event.data.values.totalItems,
 					currentItemUnit: event.data.values.currentItemUnit || "items",
+					currentApiKey: event.data.values.currentApiKey,
+					totalApiKeys: event.data.values.totalApiKeys,
 				})
 			} else if (event.data.type === "codeIndexSettingsSaved") {
 				if (event.data.success) {
@@ -271,6 +274,7 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 			if (event.data.type === "codeIndexSecretStatus") {
 				// Update settings to show placeholders for existing secrets
 				const secretStatus = event.data.values
+				setStoredGeminiKeyCount(secretStatus.geminiApiKeyCount || 0)
 
 				// Update both current and initial settings based on what secrets exist
 				const updateWithSecrets = (prev: LocalCodeIndexSettings): LocalCodeIndexSettings => {
@@ -482,6 +486,21 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 
 	const portalContainer = useRooPortal("roo-portal")
 
+	const geminiKeyCount = useMemo(() => {
+		const keyString = currentSettings.codebaseIndexGeminiApiKey ?? ""
+		if (keyString === SECRET_PLACEHOLDER || !keyString) {
+			return 0
+		}
+		return keyString.split(",").filter((k) => k.trim().length > 0).length
+	}, [currentSettings.codebaseIndexGeminiApiKey])
+
+	const displayKeyCount =
+		currentSettings.codebaseIndexEmbedderProvider === "gemini"
+			? currentSettings.codebaseIndexGeminiApiKey === SECRET_PLACEHOLDER
+				? storedGeminiKeyCount
+				: geminiKeyCount
+			: 0
+
 	return (
 		<>
 			<Popover
@@ -556,7 +575,7 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 							</div>
 
 							{indexingStatus.systemStatus === "Indexing" && (
-								<div className="mt-2">
+								<div className="mt-2 space-y-2">
 									<ProgressPrimitive.Root
 										className="relative h-2 w-full overflow-hidden rounded-full bg-secondary"
 										value={progressPercentage}>
@@ -567,6 +586,14 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 											}}
 										/>
 									</ProgressPrimitive.Root>
+									{indexingStatus.totalApiKeys && indexingStatus.totalApiKeys > 0 ? (
+										<div className="text-xs text-vscode-descriptionForeground">
+											{t("settings:codeIndex.usingApiKey", {
+												current: indexingStatus.currentApiKey,
+												total: indexingStatus.totalApiKeys,
+											})}
+										</div>
+									) : null}
 								</div>
 							)}
 						</div>
@@ -879,20 +906,32 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 									{currentSettings.codebaseIndexEmbedderProvider === "gemini" && (
 										<>
 											<div className="space-y-2">
-												<label className="text-sm font-medium">
-													{t("settings:codeIndex.geminiApiKeyLabel")}
-												</label>
+												<div className="flex justify-between items-center">
+													<label className="text-sm font-medium">
+														{t("settings:codeIndex.geminiApiKeyLabel")}
+													</label>
+													{displayKeyCount > 0 && (
+														<span className="text-xs text-vscode-descriptionForeground">
+															{t("settings:codeIndex.keysFound", {
+																count: displayKeyCount,
+															})}
+														</span>
+													)}
+												</div>
 												<VSCodeTextField
 													type="password"
 													value={currentSettings.codebaseIndexGeminiApiKey || ""}
 													onInput={(e: any) =>
 														updateSetting("codebaseIndexGeminiApiKey", e.target.value)
 													}
-													placeholder={t("settings:codeIndex.geminiApiKeyPlaceholder")}
+													placeholder={t("settings:codeIndex.geminiApiKeysPlaceholder")}
 													className={cn("w-full", {
 														"border-red-500": formErrors.codebaseIndexGeminiApiKey,
 													})}
 												/>
+												<p className="text-xs text-vscode-descriptionForeground">
+													{t("settings:codeIndex.multipleApiKeysHint")}
+												</p>
 												{formErrors.codebaseIndexGeminiApiKey && (
 													<p className="text-xs text-vscode-errorForeground mt-1 mb-0">
 														{formErrors.codebaseIndexGeminiApiKey}
@@ -940,7 +979,6 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 											</div>
 										</>
 									)}
-
 									{/* Qdrant Settings */}
 									<div className="space-y-2">
 										<label className="text-sm font-medium">

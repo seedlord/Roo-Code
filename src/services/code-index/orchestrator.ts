@@ -14,6 +14,7 @@ import { TelemetryEventName } from "@roo-code/types"
 export class CodeIndexOrchestrator {
 	private _fileWatcherSubscriptions: vscode.Disposable[] = []
 	private _isProcessing: boolean = false
+	private _batchHasError: boolean = false
 
 	constructor(
 		private readonly configManager: CodeIndexConfigManager,
@@ -39,7 +40,9 @@ export class CodeIndexOrchestrator {
 			await this.fileWatcher.initialize()
 
 			this._fileWatcherSubscriptions = [
-				this.fileWatcher.onDidStartBatchProcessing((filePaths: string[]) => {}),
+				this.fileWatcher.onDidStartBatchProcessing(() => {
+					this._batchHasError = false // Reset error flag for new batch
+				}),
 				this.fileWatcher.onBatchProgressUpdate(({ processedInBatch, totalInBatch, currentFile }) => {
 					if (totalInBatch > 0 && this.stateManager.state !== "Indexing") {
 						this.stateManager.setSystemState("Indexing", "Processing file changes...")
@@ -49,29 +52,18 @@ export class CodeIndexOrchestrator {
 						totalInBatch,
 						currentFile ? path.basename(currentFile) : undefined,
 					)
-					if (processedInBatch === totalInBatch) {
-						// Covers (N/N) and (0/0)
-						if (totalInBatch > 0) {
-							// Batch with items completed
-							this.stateManager.setSystemState("Indexed", "File changes processed. Index up-to-date.")
-						} else {
-							if (this.stateManager.state === "Indexing") {
-								// Only transition if it was "Indexing"
-								this.stateManager.setSystemState("Indexed", "Index up-to-date. File queue empty.")
-							}
-						}
-					}
 				}),
 				this.fileWatcher.onDidFinishBatchProcessing((summary: BatchProcessingSummary) => {
 					if (summary.batchError) {
-						console.error(`[CodeIndexOrchestrator] Batch processing failed:`, summary.batchError)
-					} else {
-						const successCount = summary.processedFiles.filter(
-							(f: { status: string }) => f.status === "success",
-						).length
-						const errorCount = summary.processedFiles.filter(
-							(f: { status: string }) => f.status === "error" || f.status === "local_error",
-						).length
+						this._batchHasError = true
+						const errorMessage =
+							summary.batchError instanceof Error
+								? summary.batchError.message
+								: String(summary.batchError)
+						this.stateManager.setSystemState("Error", `Batch processing failed: ${errorMessage}`)
+					} else if (this.stateManager.state === "Indexing") {
+						// If a batch finished without error, and we were in an indexing state, mark as complete.
+						this.stateManager.setSystemState("Indexed", "Index up-to-date. File queue processed.")
 					}
 				}),
 			]
@@ -124,18 +116,30 @@ export class CodeIndexOrchestrator {
 
 			this.stateManager.setSystemState("Indexing", "Services ready. Starting workspace scan...")
 
-			let cumulativeBlocksIndexed = 0
-			let cumulativeBlocksFoundSoFar = 0
 			let batchErrors: Error[] = []
+			let cumulativeBlocksIndexed = 0
+			let totalBlocksFound = 0 // Will be determined by the scanner
+			let processedFiles = 0
 
-			const handleFileParsed = (fileBlockCount: number) => {
-				cumulativeBlocksFoundSoFar += fileBlockCount
-				this.stateManager.reportBlockIndexingProgress(cumulativeBlocksIndexed, cumulativeBlocksFoundSoFar)
+			const handleFileProgress = (currentFile: string, currentFileNumber: number, totalFileCount: number) => {
+				processedFiles = currentFileNumber
+				this.stateManager.reportFileQueueProgress(
+					currentFileNumber,
+					totalFileCount,
+					currentFile ? path.basename(currentFile) : undefined,
+				)
 			}
 
 			const handleBlocksIndexed = (indexedCount: number) => {
 				cumulativeBlocksIndexed += indexedCount
-				this.stateManager.reportBlockIndexingProgress(cumulativeBlocksIndexed, cumulativeBlocksFoundSoFar)
+				if (totalBlocksFound > 0) {
+					this.stateManager.reportBlockIndexingProgress(cumulativeBlocksIndexed, totalBlocksFound)
+				}
+			}
+
+			const handleBlockProcessingStart = (totalBlocks: number) => {
+				totalBlocksFound = totalBlocks
+				this.stateManager.reportBlockIndexingProgress(0, totalBlocks)
 			}
 
 			const result = await this.scanner.scanDirectory(
@@ -148,7 +152,9 @@ export class CodeIndexOrchestrator {
 					batchErrors.push(batchError)
 				},
 				handleBlocksIndexed,
-				handleFileParsed,
+				undefined,
+				handleFileProgress,
+				handleBlockProcessingStart,
 			)
 
 			if (!result) {
@@ -156,49 +162,39 @@ export class CodeIndexOrchestrator {
 			}
 
 			const { stats } = result
+			totalBlocksFound = stats.totalBlocksIndexed
 
-			// Check if any blocks were actually indexed successfully
-			// If no blocks were indexed but blocks were found, it means all batches failed
-			if (cumulativeBlocksIndexed === 0 && cumulativeBlocksFoundSoFar > 0) {
-				if (batchErrors.length > 0) {
-					// Use the first batch error as it's likely representative of the main issue
-					const firstError = batchErrors[0]
-					throw new Error(`Indexing failed: ${firstError.message}`)
-				} else {
-					throw new Error(
-						"Indexing failed: No code blocks were successfully indexed. This usually indicates an embedder configuration issue.",
-					)
-				}
-			}
+			// After the file scan is complete, we now report the collected blocks.
+			this.stateManager.reportBlockIndexingProgress(0, totalBlocksFound) // Start with 0 processed
 
-			// Check for partial failures - if a significant portion of blocks failed
-			const failureRate = (cumulativeBlocksFoundSoFar - cumulativeBlocksIndexed) / cumulativeBlocksFoundSoFar
-			if (batchErrors.length > 0 && failureRate > 0.1) {
-				// More than 10% of blocks failed to index
-				const firstError = batchErrors[0]
-				throw new Error(
-					`Indexing partially failed: Only ${cumulativeBlocksIndexed} of ${cumulativeBlocksFoundSoFar} blocks were indexed. ${firstError.message}`,
-				)
-			}
+			// The handleBlocksIndexed callback will have updated the cumulativeBlocksIndexed.
+			// Now, we just need to ensure the final state is correct.
+			this.stateManager.reportBlockIndexingProgress(cumulativeBlocksIndexed, totalBlocksFound)
 
-			// CRITICAL: If there were ANY batch errors and NO blocks were successfully indexed,
-			// this is a complete failure regardless of the failure rate calculation
-			if (batchErrors.length > 0 && cumulativeBlocksIndexed === 0) {
+			if (batchErrors.length > 0 && cumulativeBlocksIndexed === 0 && totalBlocksFound > 0) {
 				const firstError = batchErrors[0]
 				throw new Error(`Indexing failed completely: ${firstError.message}`)
 			}
 
-			// Final sanity check: If we found blocks but indexed none and somehow no errors were reported,
-			// this is still a failure
-			if (cumulativeBlocksFoundSoFar > 0 && cumulativeBlocksIndexed === 0) {
+			if (processedFiles > 0 && cumulativeBlocksIndexed === 0 && batchErrors.length === 0) {
 				throw new Error(
-					"Indexing failed: No code blocks were successfully indexed despite finding files to process. This indicates a critical embedder failure.",
+					"Indexing failed: No code blocks were indexed. This often means the embedder is not configured correctly or API keys are invalid.",
 				)
 			}
 
+			// Start the watcher, but don't finalize the state yet.
+			// The watcher will transition the state to "Indexed" when ready.
 			await this._startWatcher()
 
-			this.stateManager.setSystemState("Indexed", "File watcher started.")
+			// Set a transitional state to indicate the initial scan is done and we are now watching.
+			if (this.stateManager.state !== "Error") {
+				// If the file watcher queue is empty after the initial scan, we can consider it fully indexed.
+				if (this.fileWatcher.getQueueSize() === 0) {
+					this.stateManager.setSystemState("Indexed", "Index is up-to-date.")
+				} else {
+					this.stateManager.setSystemState("Indexing", "Initial scan complete. Watching for file changes...")
+				}
+			}
 		} catch (error: any) {
 			console.error("[CodeIndexOrchestrator] Error during indexing:", error)
 			TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {

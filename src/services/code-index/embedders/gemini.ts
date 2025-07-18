@@ -1,3 +1,4 @@
+import * as vscode from "vscode"
 import { OpenAICompatibleEmbedder } from "./openai-compatible"
 import { IEmbedder, EmbeddingResponse, EmbedderInfo } from "../interfaces/embedder"
 import { GEMINI_MAX_ITEM_TOKENS } from "../constants"
@@ -14,30 +15,39 @@ import { TelemetryService } from "@roo-code/telemetry"
  * - gemini-embedding-001 (dimension: 2048)
  */
 export class GeminiEmbedder implements IEmbedder {
-	private readonly openAICompatibleEmbedder: OpenAICompatibleEmbedder
+	private readonly apiKeys: string[]
+	private keyIndex = 0
 	private static readonly GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 	private static readonly DEFAULT_MODEL = "gemini-embedding-001"
 	private readonly modelId: string
+	private static readonly MAX_RETRIES = 3
+	private static readonly INITIAL_RETRY_DELAY = 500 // ms
 
-	/**
-	 * Creates a new Gemini embedder
-	 * @param apiKey The Gemini API key for authentication
-	 * @param modelId The model ID to use (defaults to gemini-embedding-001)
-	 */
-	constructor(apiKey: string, modelId?: string) {
-		if (!apiKey) {
+	private readonly _onKeyUsage = new vscode.EventEmitter<{ current: number; total: number }>()
+	public readonly onKeyUsage = this._onKeyUsage.event
+
+	constructor(apiKeys: string[], modelId?: string) {
+		if (!apiKeys || apiKeys.length === 0) {
 			throw new Error(t("embeddings:validation.apiKeyRequired"))
 		}
-
-		// Use provided model or default
+		this.apiKeys = apiKeys
 		this.modelId = modelId || GeminiEmbedder.DEFAULT_MODEL
+	}
 
-		// Create an OpenAI Compatible embedder with Gemini's configuration
-		this.openAICompatibleEmbedder = new OpenAICompatibleEmbedder(
+	private getNextApiKey(): { key: string; index: number } {
+		const currentIndex = this.keyIndex
+		const key = this.apiKeys[currentIndex]
+		this.keyIndex = (this.keyIndex + 1) % this.apiKeys.length
+		return { key, index: currentIndex + 1 } // Return 1-based index for UI
+	}
+
+	private createClient(apiKey: string): OpenAICompatibleEmbedder {
+		return new OpenAICompatibleEmbedder(
 			GeminiEmbedder.GEMINI_BASE_URL,
 			apiKey,
 			this.modelId,
 			GEMINI_MAX_ITEM_TOKENS,
+			true, // Disable retries in the compatible embedder
 		)
 	}
 
@@ -48,37 +58,49 @@ export class GeminiEmbedder implements IEmbedder {
 	 * @returns Promise resolving to embedding response
 	 */
 	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
-		try {
-			// Use the provided model or fall back to the instance's model
-			const modelToUse = model || this.modelId
-			return await this.openAICompatibleEmbedder.createEmbeddings(texts, modelToUse)
-		} catch (error) {
-			TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
-				error: error instanceof Error ? error.message : String(error),
-				stack: error instanceof Error ? error.stack : undefined,
-				location: "GeminiEmbedder:createEmbeddings",
-			})
-			throw error
+		const modelToUse = model || this.modelId
+		let lastError: any
+		const initialKeyIndex = this.keyIndex
+
+		for (let i = 0; i < this.apiKeys.length * GeminiEmbedder.MAX_RETRIES; i++) {
+			const { key: apiKey, index: keyIndexForDisplay } = this.getNextApiKey()
+			this._onKeyUsage.fire({ current: keyIndexForDisplay, total: this.apiKeys.length })
+
+			const client = this.createClient(apiKey)
+
+			try {
+				const result = await client.createEmbeddings(texts, modelToUse)
+				this._onKeyUsage.fire({ current: 0, total: 0 }) // Reset on success
+				return result
+			} catch (error: any) {
+				lastError = error
+				if (error.status === 429 || error.message.includes("429")) {
+					const delay = GeminiEmbedder.INITIAL_RETRY_DELAY * Math.pow(2, Math.floor(i / this.apiKeys.length))
+					console.warn(
+						`Rate limit hit on key ${keyIndexForDisplay}/${this.apiKeys.length}. Retrying in ${delay}ms.`,
+					)
+					await new Promise((resolve) => setTimeout(resolve, delay))
+					continue
+				}
+				break
+			}
 		}
+
+		this._onKeyUsage.fire({ current: 0, total: 0 }) // Reset on failure
+		TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
+			error: lastError instanceof Error ? lastError.message : String(lastError),
+			stack: lastError instanceof Error ? lastError.stack : undefined,
+			location: "GeminiEmbedder:createEmbeddings",
+		})
+		throw new Error(
+			`Failed to create embeddings after trying all API keys with retries. Last error: ${lastError?.message}`,
+		)
 	}
 
-	/**
-	 * Validates the Gemini embedder configuration by delegating to the underlying OpenAI-compatible embedder
-	 * @returns Promise resolving to validation result with success status and optional error message
-	 */
 	async validateConfiguration(): Promise<{ valid: boolean; error?: string }> {
-		try {
-			// Delegate validation to the OpenAI-compatible embedder
-			// The error messages will be specific to Gemini since we're using Gemini's base URL
-			return await this.openAICompatibleEmbedder.validateConfiguration()
-		} catch (error) {
-			TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
-				error: error instanceof Error ? error.message : String(error),
-				stack: error instanceof Error ? error.stack : undefined,
-				location: "GeminiEmbedder:validateConfiguration",
-			})
-			throw error
-		}
+		// Validate with the first key, assuming all keys are for the same service
+		const client = this.createClient(this.apiKeys[0])
+		return client.validateConfiguration()
 	}
 
 	/**
@@ -88,5 +110,9 @@ export class GeminiEmbedder implements IEmbedder {
 		return {
 			name: "gemini",
 		}
+	}
+
+	dispose(): void {
+		this._onKeyUsage.dispose()
 	}
 }

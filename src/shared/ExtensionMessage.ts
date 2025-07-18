@@ -32,6 +32,8 @@ export interface IndexingStatus {
 	processedItems: number
 	totalItems: number
 	currentItemUnit?: string
+	currentApiKey?: number
+	totalApiKeys?: number
 }
 
 export interface IndexingStatusUpdateMessage {

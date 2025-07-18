@@ -1,8 +1,16 @@
+import { Event } from "vscode"
 /**
  * Interface for code index embedders.
  * This interface is implemented by both OpenAI and Ollama embedders.
  */
 export interface IEmbedder {
+	/**
+	 * Event that fires when an API key is used, particularly for multi-key embedders.
+	 * Carries the current key index (1-based) and the total number of keys.
+	 * A value of 0 for `current` indicates the process is resetting/finished.
+	 */
+	readonly onKeyUsage?: Event<{ current: number; total: number }>
+
 	/**
 	 * Creates embeddings for the given texts.
 	 * @param texts Array of text strings to create embeddings for
@@ -16,6 +24,11 @@ export interface IEmbedder {
 	 * @returns Promise resolving to validation result with success status and optional error message
 	 */
 	validateConfiguration(): Promise<{ valid: boolean; error?: string }>
+
+	/**
+	 * Disposes of any resources used by the embedder, such as event listeners.
+	 */
+	dispose?(): void
 
 	get embedderInfo(): EmbedderInfo
 }

@@ -17,7 +17,7 @@ export class CodeIndexConfigManager {
 	private openAiOptions?: ApiHandlerOptions
 	private ollamaOptions?: ApiHandlerOptions
 	private openAiCompatibleOptions?: { baseUrl: string; apiKey: string }
-	private geminiOptions?: { apiKey: string }
+	private geminiOptions?: { apiKeys: string[] }
 	private qdrantUrl?: string = "http://localhost:6333"
 	private qdrantApiKey?: string
 	private searchMinScore?: number
@@ -118,7 +118,7 @@ export class CodeIndexConfigManager {
 					}
 				: undefined
 
-		this.geminiOptions = geminiApiKey ? { apiKey: geminiApiKey } : undefined
+		this.geminiOptions = geminiApiKey ? { apiKeys: geminiApiKey.split(",").map((k) => k.trim()) } : undefined
 	}
 
 	/**
@@ -134,7 +134,7 @@ export class CodeIndexConfigManager {
 			openAiOptions?: ApiHandlerOptions
 			ollamaOptions?: ApiHandlerOptions
 			openAiCompatibleOptions?: { baseUrl: string; apiKey: string }
-			geminiOptions?: { apiKey: string }
+			geminiOptions?: { apiKeys: string[] }
 			qdrantUrl?: string
 			qdrantApiKey?: string
 			searchMinScore?: number
@@ -152,7 +152,7 @@ export class CodeIndexConfigManager {
 			ollamaBaseUrl: this.ollamaOptions?.ollamaBaseUrl ?? "",
 			openAiCompatibleBaseUrl: this.openAiCompatibleOptions?.baseUrl ?? "",
 			openAiCompatibleApiKey: this.openAiCompatibleOptions?.apiKey ?? "",
-			geminiApiKey: this.geminiOptions?.apiKey ?? "",
+			geminiApiKey: this.geminiOptions?.apiKeys.join(",") ?? "",
 			qdrantUrl: this.qdrantUrl ?? "",
 			qdrantApiKey: this.qdrantApiKey ?? "",
 		}
@@ -204,9 +204,9 @@ export class CodeIndexConfigManager {
 			const isConfigured = !!(baseUrl && apiKey && qdrantUrl)
 			return isConfigured
 		} else if (this.embedderProvider === "gemini") {
-			const apiKey = this.geminiOptions?.apiKey
+			const apiKeys = this.geminiOptions?.apiKeys
 			const qdrantUrl = this.qdrantUrl
-			const isConfigured = !!(apiKey && qdrantUrl)
+			const isConfigured = !!(apiKeys && apiKeys.length > 0 && qdrantUrl)
 			return isConfigured
 		}
 		return false // Should not happen if embedderProvider is always set correctly
@@ -276,7 +276,7 @@ export class CodeIndexConfigManager {
 		const currentOpenAiCompatibleBaseUrl = this.openAiCompatibleOptions?.baseUrl ?? ""
 		const currentOpenAiCompatibleApiKey = this.openAiCompatibleOptions?.apiKey ?? ""
 		const currentModelDimension = this.modelDimension
-		const currentGeminiApiKey = this.geminiOptions?.apiKey ?? ""
+		const currentGeminiApiKey = this.geminiOptions?.apiKeys.join(",") ?? ""
 		const currentQdrantUrl = this.qdrantUrl ?? ""
 		const currentQdrantApiKey = this.qdrantApiKey ?? ""
 
@@ -386,6 +386,33 @@ export class CodeIndexConfigManager {
 		return {
 			url: this.qdrantUrl,
 			apiKey: this.qdrantApiKey,
+		}
+	}
+
+	/**
+	 * Returns the status of stored secrets, including the count of Gemini API keys.
+	 */
+	public async getSecretStatus(): Promise<{
+		hasOpenAiKey: boolean
+		hasQdrantApiKey: boolean
+		hasOpenAiCompatibleApiKey: boolean
+		hasGeminiApiKey: boolean
+		geminiApiKeyCount: number
+	}> {
+		await this.contextProxy.refreshSecrets() // Ensure secrets are fresh
+		const openAiKey = this.contextProxy.getSecret("codeIndexOpenAiKey")
+		const qdrantApiKey = this.contextProxy.getSecret("codeIndexQdrantApiKey")
+		const openAiCompatibleApiKey = this.contextProxy.getSecret("codebaseIndexOpenAiCompatibleApiKey")
+		const geminiApiKeys = this.contextProxy.getSecret("codebaseIndexGeminiApiKey")
+
+		const geminiKeyCount = geminiApiKeys ? geminiApiKeys.split(",").filter((k) => k.trim()).length : 0
+
+		return {
+			hasOpenAiKey: !!openAiKey,
+			hasQdrantApiKey: !!qdrantApiKey,
+			hasOpenAiCompatibleApiKey: !!openAiCompatibleApiKey,
+			hasGeminiApiKey: !!geminiApiKeys,
+			geminiApiKeyCount: geminiKeyCount,
 		}
 	}
 

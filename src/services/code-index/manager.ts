@@ -27,6 +27,7 @@ export class CodeIndexManager {
 	private _orchestrator: CodeIndexOrchestrator | undefined
 	private _searchService: CodeIndexSearchService | undefined
 	private _cacheManager: CacheManager | undefined
+	private _embedderSubscription: vscode.Disposable | undefined
 
 	public static getInstance(context: vscode.ExtensionContext): CodeIndexManager | undefined {
 		// Use first workspace folder consistently
@@ -138,7 +139,16 @@ export class CodeIndexManager {
 		const needsServiceRecreation = !this._serviceFactory || requiresRestart
 
 		if (needsServiceRecreation) {
-			await this._recreateServices()
+			try {
+				await this._recreateServices()
+			} catch (error) {
+				// If services fail to recreate, ensure we are in a clean state.
+				// The error is already logged and state set within _recreateServices.
+				this._orchestrator = undefined
+				this._searchService = undefined
+				this._serviceFactory = undefined
+				return { requiresRestart } // Stop further execution
+			}
 		}
 
 		// 5. Handle Indexing Start/Restart
@@ -187,6 +197,7 @@ export class CodeIndexManager {
 			this.stopWatcher()
 		}
 		this._stateManager.dispose()
+		this._embedderSubscription?.dispose()
 	}
 
 	/**
@@ -225,6 +236,8 @@ export class CodeIndexManager {
 		if (this._orchestrator) {
 			this.stopWatcher()
 		}
+		this._embedderSubscription?.dispose()
+
 		// Clear existing services to ensure clean state
 		this._orchestrator = undefined
 		this._searchService = undefined
@@ -272,6 +285,13 @@ export class CodeIndexManager {
 			const errorMessage = validationResult.error || "Embedder configuration validation failed"
 			this._stateManager.setSystemState("Error", errorMessage)
 			throw new Error(errorMessage)
+		}
+
+		// Subscribe to embedder events if available
+		if (embedder.onKeyUsage) {
+			this._embedderSubscription = embedder.onKeyUsage(({ current, total }) => {
+				this._stateManager.reportApiKeyUsage(current, total)
+			})
 		}
 
 		// (Re)Initialize orchestrator

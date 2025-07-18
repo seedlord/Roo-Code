@@ -37,6 +37,7 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 	private readonly apiKey: string
 	private readonly isFullUrl: boolean
 	private readonly maxItemTokens: number
+	private readonly disableRetries: boolean
 
 	/**
 	 * Creates a new OpenAI Compatible embedder
@@ -44,8 +45,9 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 	 * @param apiKey The API key for authentication
 	 * @param modelId Optional model identifier (defaults to "text-embedding-3-small")
 	 * @param maxItemTokens Optional maximum tokens per item (defaults to MAX_ITEM_TOKENS)
+	 * @param disableRetries Optional flag to disable internal retry logic
 	 */
-	constructor(baseUrl: string, apiKey: string, modelId?: string, maxItemTokens?: number) {
+	constructor(baseUrl: string, apiKey: string, modelId?: string, maxItemTokens?: number, disableRetries?: boolean) {
 		if (!baseUrl) {
 			throw new Error(t("embeddings:validation.baseUrlRequired"))
 		}
@@ -63,6 +65,7 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 		// Cache the URL type check for performance
 		this.isFullUrl = this.isFullEndpointUrl(baseUrl)
 		this.maxItemTokens = maxItemTokens || MAX_ITEM_TOKENS
+		this.disableRetries = disableRetries || false
 	}
 
 	/**
@@ -238,7 +241,8 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 		// Use cached value for performance
 		const isFullUrl = this.isFullUrl
 
-		for (let attempts = 0; attempts < MAX_RETRIES; attempts++) {
+		const maxAttempts = this.disableRetries ? 1 : MAX_RETRIES
+		for (let attempts = 0; attempts < maxAttempts; attempts++) {
 			try {
 				let response: OpenAIEmbeddingResponse
 
@@ -298,7 +302,7 @@ export class OpenAICompatibleEmbedder implements IEmbedder {
 
 				// Check if it's a rate limit error
 				const httpError = error as HttpError
-				if (httpError?.status === 429 && hasMoreAttempts) {
+				if (httpError?.status === 429 && hasMoreAttempts && !this.disableRetries) {
 					const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempts)
 					console.warn(
 						t("embeddings:rateLimitRetry", {

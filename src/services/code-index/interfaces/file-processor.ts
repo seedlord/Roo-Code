@@ -37,12 +37,14 @@ export interface IDirectoryScanner {
 		onError?: (error: Error) => void,
 		onBlocksIndexed?: (indexedCount: number) => void,
 		onFileParsed?: (fileBlockCount: number) => void,
+		onFileProgress?: (filePath: string, current: number, total: number) => void,
+		onBlockProcessingStart?: (totalBlocks: number) => void,
 	): Promise<{
 		stats: {
 			processed: number
 			skipped: number
+			totalBlocksIndexed: number
 		}
-		totalBlockCount: number
 	}>
 }
 
@@ -82,6 +84,7 @@ export interface IFileWatcher extends vscode.Disposable {
 	 * @returns Promise resolving to processing result
 	 */
 	processFile(filePath: string): Promise<FileProcessingResult>
+	getQueueSize(): number
 }
 
 export interface BatchProcessingSummary {

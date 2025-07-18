@@ -12,7 +12,7 @@ export interface CodeIndexConfig {
 	openAiOptions?: ApiHandlerOptions
 	ollamaOptions?: ApiHandlerOptions
 	openAiCompatibleOptions?: { baseUrl: string; apiKey: string }
-	geminiOptions?: { apiKey: string }
+	geminiOptions?: { apiKeys: string[] }
 	qdrantUrl?: string
 	qdrantApiKey?: string
 	searchMinScore?: number

@@ -238,85 +238,49 @@ export class FileWatcher implements IFileWatcher {
 		pointsForBatchUpsert: PointStruct[]
 		successfullyProcessedForUpsert: Array<{ path: string; newHash?: string }>
 		processedCount: number
+		batchErrors: Error[]
 	}> {
 		const pointsForBatchUpsert: PointStruct[] = []
 		const successfullyProcessedForUpsert: Array<{ path: string; newHash?: string }> = []
 		const filesToProcessConcurrently = [...filesToUpsertDetails]
+		const batchErrors: Error[] = []
 
 		for (let i = 0; i < filesToProcessConcurrently.length; i += this.FILE_PROCESSING_CONCURRENCY_LIMIT) {
 			const chunkToProcess = filesToProcessConcurrently.slice(i, i + this.FILE_PROCESSING_CONCURRENCY_LIMIT)
 
-			const chunkProcessingPromises = chunkToProcess.map(async (fileDetail) => {
-				this._onBatchProgressUpdate.fire({
-					processedInBatch: processedCountInBatch,
-					totalInBatch: totalFilesInBatch,
-					currentFile: fileDetail.path,
-				})
-				try {
-					const result = await this.processFile(fileDetail.path)
-					return { path: fileDetail.path, result: result, error: undefined }
-				} catch (e) {
-					const error = e as Error
-					console.error(`[FileWatcher] Unhandled exception processing file ${fileDetail.path}:`, e)
-					return { path: fileDetail.path, result: undefined, error: error }
-				}
-			})
+			const chunkProcessingPromises = chunkToProcess.map((fileDetail) =>
+				this.processFile(fileDetail.path)
+					.then((result) => ({ path: fileDetail.path, result, error: undefined }))
+					.catch((error) => ({ path: fileDetail.path, result: undefined, error })),
+			)
+			const settledChunkResults = await Promise.all(chunkProcessingPromises)
 
-			const settledChunkResults = await Promise.allSettled(chunkProcessingPromises)
+			for (const fileResult of settledChunkResults) {
+				const { path, result, error } = fileResult
+				processedCountInBatch++ // Increment for each file processed in the chunk
 
-			for (const settledResult of settledChunkResults) {
-				let resultPath: string | undefined
-
-				if (settledResult.status === "fulfilled") {
-					const { path, result, error: directError } = settledResult.value
-					resultPath = path
-
-					if (directError) {
-						batchResults.push({ path, status: "error", error: directError })
-					} else if (result) {
-						if (result.status === "skipped" || result.status === "local_error") {
-							batchResults.push(result)
-						} else if (result.status === "processed_for_batching" && result.pointsToUpsert) {
-							pointsForBatchUpsert.push(...result.pointsToUpsert)
-							if (result.path && result.newHash) {
-								successfullyProcessedForUpsert.push({ path: result.path, newHash: result.newHash })
-							} else if (result.path && !result.newHash) {
-								successfullyProcessedForUpsert.push({ path: result.path })
-							}
-						} else {
-							batchResults.push({
-								path,
-								status: "error",
-								error: new Error(
-									`Unexpected result status from processFile: ${result.status} for file ${path}`,
-								),
-							})
-						}
-					} else {
-						batchResults.push({
-							path,
-							status: "error",
-							error: new Error(`Fulfilled promise with no result or error for file ${path}`),
+				if (error) {
+					batchResults.push({ path, status: "error", error })
+					batchErrors.push(error)
+				} else if (result) {
+					if (result.status === "skipped") {
+						batchResults.push(result)
+					} else if (result.status === "local_error") {
+						batchResults.push(result)
+						if (result.error) batchErrors.push(result.error)
+					} else if (result.status === "processed_for_batching" && result.pointsToUpsert) {
+						pointsForBatchUpsert.push(...result.pointsToUpsert)
+						successfullyProcessedForUpsert.push({
+							path: result.path,
+							newHash: result.newHash,
 						})
 					}
-				} else {
-					const error = settledResult.reason as Error
-					const rejectedPath = (settledResult.reason as any)?.path || "unknown"
-					console.error("[FileWatcher] A file processing promise was rejected:", settledResult.reason)
-					batchResults.push({
-						path: rejectedPath,
-						status: "error",
-						error: error,
-					})
 				}
 
-				if (!pathsToExplicitlyDelete.includes(resultPath || "")) {
-					processedCountInBatch++
-				}
 				this._onBatchProgressUpdate.fire({
 					processedInBatch: processedCountInBatch,
 					totalInBatch: totalFilesInBatch,
-					currentFile: resultPath,
+					currentFile: path,
 				})
 			}
 		}
@@ -325,6 +289,7 @@ export class FileWatcher implements IFileWatcher {
 			pointsForBatchUpsert,
 			successfullyProcessedForUpsert,
 			processedCount: processedCountInBatch,
+			batchErrors,
 		}
 	}
 
@@ -443,6 +408,7 @@ export class FileWatcher implements IFileWatcher {
 			pointsForBatchUpsert,
 			successfullyProcessedForUpsert,
 			processedCount: upsertCount,
+			batchErrors,
 		} = await this._processFilesAndPrepareUpserts(
 			filesToUpsertDetails,
 			batchResults,
@@ -451,6 +417,12 @@ export class FileWatcher implements IFileWatcher {
 			pathsToExplicitlyDelete,
 		)
 		processedCountInBatch = upsertCount
+
+		// Aggregate errors from file processing
+		if (batchErrors.length > 0 && !overallBatchError) {
+			const errorMessages = batchErrors.map((e) => e.message).join(", ")
+			overallBatchError = new Error(`Errors processing files: ${errorMessages}`)
+		}
 
 		// Phase 3: Execute batch upsert
 		overallBatchError = await this._executeBatchUpsertOperations(
@@ -465,18 +437,6 @@ export class FileWatcher implements IFileWatcher {
 			processedFiles: batchResults,
 			batchError: overallBatchError,
 		})
-		this._onBatchProgressUpdate.fire({
-			processedInBatch: totalFilesInBatch,
-			totalInBatch: totalFilesInBatch,
-		})
-
-		if (this.accumulatedEvents.size === 0) {
-			this._onBatchProgressUpdate.fire({
-				processedInBatch: 0,
-				totalInBatch: 0,
-				currentFile: undefined,
-			})
-		}
 	}
 
 	/**
@@ -574,5 +534,9 @@ export class FileWatcher implements IFileWatcher {
 				error: error as Error,
 			}
 		}
+	}
+
+	public getQueueSize(): number {
+		return this.accumulatedEvents.size
 	}
 }

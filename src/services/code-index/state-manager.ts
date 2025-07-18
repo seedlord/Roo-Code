@@ -8,6 +8,8 @@ export class CodeIndexStateManager {
 	private _processedItems: number = 0
 	private _totalItems: number = 0
 	private _currentItemUnit: string = "blocks"
+	private _currentApiKey: number = 0
+	private _totalApiKeys: number = 0
 	private _progressEmitter = new vscode.EventEmitter<ReturnType<typeof this.getCurrentStatus>>()
 
 	// --- Public API ---
@@ -25,6 +27,8 @@ export class CodeIndexStateManager {
 			processedItems: this._processedItems,
 			totalItems: this._totalItems,
 			currentItemUnit: this._currentItemUnit,
+			currentApiKey: this._currentApiKey,
+			totalApiKeys: this._totalApiKeys,
 		}
 	}
 
@@ -45,6 +49,8 @@ export class CodeIndexStateManager {
 				this._processedItems = 0
 				this._totalItems = 0
 				this._currentItemUnit = "blocks" // Reset to default unit
+				this._currentApiKey = 0
+				this._totalApiKeys = 0
 				// Optionally clear the message or set a default for non-indexing states
 				if (newState === "Standby" && message === undefined) this._statusMessage = "Ready."
 				if (newState === "Indexed" && message === undefined) this._statusMessage = "Index up-to-date."
@@ -57,55 +63,64 @@ export class CodeIndexStateManager {
 
 	public reportBlockIndexingProgress(processedItems: number, totalItems: number): void {
 		const progressChanged = processedItems !== this._processedItems || totalItems !== this._totalItems
+		const oldMessage = this._statusMessage
 
-		// Update if progress changes OR if the system wasn't already in 'Indexing' state
-		if (progressChanged || this._systemStatus !== "Indexing") {
+		const unit = totalItems === 1 ? "block" : "blocks"
+		const newMessage = `Indexed ${processedItems} / ${totalItems} ${unit} found`
+
+		const shouldUpdate = progressChanged || this._systemStatus !== "Indexing" || newMessage !== oldMessage
+
+		if (shouldUpdate) {
 			this._processedItems = processedItems
 			this._totalItems = totalItems
 			this._currentItemUnit = "blocks"
+			this._systemStatus = "Indexing"
+			this._statusMessage = newMessage
 
-			const message = `Indexed ${this._processedItems} / ${this._totalItems} ${this._currentItemUnit} found`
-			const oldStatus = this._systemStatus
-			const oldMessage = this._statusMessage
-
-			this._systemStatus = "Indexing" // Ensure state is Indexing
-			this._statusMessage = message
-
-			// Only fire update if status, message or progress actually changed
-			if (oldStatus !== this._systemStatus || oldMessage !== this._statusMessage || progressChanged) {
-				this._progressEmitter.fire(this.getCurrentStatus())
-			}
+			this._progressEmitter.fire(this.getCurrentStatus())
 		}
 	}
 
 	public reportFileQueueProgress(processedFiles: number, totalFiles: number, currentFileBasename?: string): void {
 		const progressChanged = processedFiles !== this._processedItems || totalFiles !== this._totalItems
+		const oldMessage = this._statusMessage
 
-		if (progressChanged || this._systemStatus !== "Indexing") {
+		// This MUST be set before the message is constructed.
+		const unit = totalFiles === 1 ? "file" : "files"
+		let newMessage: string
+
+		if (totalFiles > 0 && processedFiles === 0) {
+			newMessage = `Found ${totalFiles} ${unit} to process.`
+		} else if (totalFiles > 0 && processedFiles < totalFiles) {
+			newMessage = `Processing ${processedFiles} / ${totalFiles} ${unit}. Current: ${
+				currentFileBasename || "..."
+			}`
+		} else {
+			// When processing is complete (processed === total), we don't generate a "finished" message here.
+			// The orchestrator will call reportBlockIndexingProgress immediately after, which provides a more
+			// accurate final status before transitioning to "Indexed".
+			// If we are in a weird state, just keep the last message.
+			newMessage = this._statusMessage
+		}
+
+		const shouldUpdate = progressChanged || this._systemStatus !== "Indexing" || newMessage !== oldMessage
+
+		if (shouldUpdate) {
 			this._processedItems = processedFiles
 			this._totalItems = totalFiles
-			this._currentItemUnit = "files"
+			this._currentItemUnit = "files" // Set state unit
 			this._systemStatus = "Indexing"
+			this._statusMessage = newMessage
 
-			let message: string
-			if (totalFiles > 0 && processedFiles < totalFiles) {
-				message = `Processing ${processedFiles} / ${totalFiles} ${this._currentItemUnit}. Current: ${
-					currentFileBasename || "..."
-				}`
-			} else if (totalFiles > 0 && processedFiles === totalFiles) {
-				message = `Finished processing ${totalFiles} ${this._currentItemUnit} from queue.`
-			} else {
-				message = `File queue processed.`
-			}
+			this._progressEmitter.fire(this.getCurrentStatus())
+		}
+	}
 
-			const oldStatus = this._systemStatus
-			const oldMessage = this._statusMessage
-
-			this._statusMessage = message
-
-			if (oldStatus !== this._systemStatus || oldMessage !== this._statusMessage || progressChanged) {
-				this._progressEmitter.fire(this.getCurrentStatus())
-			}
+	public reportApiKeyUsage(current: number, total: number): void {
+		if (this._currentApiKey !== current || this._totalApiKeys !== total) {
+			this._currentApiKey = current
+			this._totalApiKeys = total
+			this._progressEmitter.fire(this.getCurrentStatus())
 		}
 	}
 
